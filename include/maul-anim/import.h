@@ -399,7 +399,8 @@ extern "C"
     /// @param options     The options the skeleton was built with.
     /// @param clipOptions The clip's settings; sample rate 0 for 30.
     /// @param boundOut    Receives how many of the animation's channels the
-    ///                    clip holds; 0 on failure. May be NULL.
+    ///                    clip holds; 0 on another failure than
+    ///                    mani_errorBusy. May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, an
     /// animation past the count, options out of range, or a clip setting
     /// out of range (a rate not finite or negative, a loop, basis or
@@ -1032,8 +1033,8 @@ extern "C"
     /// @param clipOptions The clip's settings; sample rate 0 for the
     ///                    scene's frame rate up to 120, else 30.
     /// @param boundOut    Receives how many of the stack's channel bindings
-    ///                    drive models the clip reads; 0 on failure. May be
-    ///                    NULL.
+    ///                    drive models the clip reads; 0 on another failure
+    ///                    than mani_errorBusy. May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// clip past the count, options out of range, or a clip setting out
     /// of range (as maniBuildGltfClip); `mani_errorFormat` with a reason (Property with the clip

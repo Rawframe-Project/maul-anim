@@ -250,13 +250,13 @@ static void Iterate(maniLearnedTrainer* t)
 static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, uint64_t iterations,
                                                  maniLearnedTrainerReport* reportOut)
 {
-    if (reportOut != NULL)
-    {
-        memset(reportOut, 0, sizeof *reportOut);
-    }
     if (trainer != NULL && maniHostCalledBack(&trainer->host))
     {
         return mani_errorBusy;
+    }
+    if (reportOut != NULL)
+    {
+        memset(reportOut, 0, sizeof *reportOut);
     }
     if (trainer == NULL || reportOut == NULL)
     {

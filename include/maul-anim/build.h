@@ -29,7 +29,8 @@ extern "C"
     // A builder: one owner object for every kind of file. Every function
     // taking a builder, and closing a document opened with one, refuses a
     // call back in from the builder's allocator with mani_errorBusy and
-    // counts one misuse.
+    // counts one misuse; the refused call leaves its outputs as they were,
+    // since they may be the ones the call in progress is filling.
     typedef struct maniBuilder maniBuilder;
 
     typedef struct maniBuilderDef
@@ -676,7 +677,8 @@ extern "C"
     /// @param builder    A builder, for its allocator.
     /// @param source     The clip's source, as maniBuildClip accepts it.
     /// @param clip       The clip opened from what the build made.
-    /// @param reportOut  Receives the report; zeroed on failure.
+    /// @param reportOut  Receives the report; zeroed on another failure
+    ///                   than mani_errorBusy.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// source the build refuses, or a clip not of the source's skeleton or
     /// missing one of its float tracks; `mani_errorCapacity` when the
@@ -739,8 +741,8 @@ extern "C"
     /// @param clip       A full-precision clip.
     /// @param skeleton   Its skeleton.
     /// @param options    The tolerances.
-    /// @param reportOut  Receives the report; zeroed on failure. May be
-    ///                   NULL.
+    /// @param reportOut  Receives the report; zeroed on another failure
+    ///                   than mani_errorBusy. May be NULL.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// compressed clip, a skeleton not the clip's, or a tolerance not
     /// finite and above 0; `mani_errorCapacity` when the allocator fails.
@@ -954,7 +956,8 @@ extern "C"
     ///                  16-byte aligned address.
     /// @param capacity  The buffer's size in bytes.
     /// @param sizeOut   Receives the size in bytes; 0 on another failure
-    ///                  than a buffer too small. May be NULL.
+    ///                  than a buffer too small or mani_errorBusy. May be
+    ///                  NULL.
     /// @return `mani_success`; `mani_errorCapacity` when the buffer is
     /// smaller than the file or text, with the size still written;
     /// `mani_errorInvalid` for a NULL builder, a NULL buffer with a
@@ -972,7 +975,8 @@ extern "C"
     ///                  capacity is 0.
     /// @param capacity  The array's length.
     /// @param countOut  Receives the source's bone count; 0 on another
-    ///                  failure than an array too short. May be NULL.
+    ///                  failure than an array too short or mani_errorBusy.
+    ///                  May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when the array is
     /// shorter than the count, with the count still written and the array
     /// filled as far as it goes; `mani_errorInvalid` for a NULL builder, a

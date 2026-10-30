@@ -528,13 +528,13 @@ static MANI_NOINLINE maniImportResult FbxBuildClipWork(maniBuilder* builder, con
                                                        const maniImportClipOptions* clipOptions,
                                                        uint32_t* boundOut)
 {
-    if (boundOut != NULL)
-    {
-        *boundOut = 0;
-    }
     if (maniBuilderCalledBack(builder))
     {
         return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
+    }
+    if (boundOut != NULL)
+    {
+        *boundOut = 0;
     }
     bool usable =
         maniFbxUsable(builder, fbx, options,
