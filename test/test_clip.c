@@ -1040,20 +1040,20 @@ static void TestPinnedScene(void)
         float time = -0.35f + 0.173f * (float)i;
         maniTransform locals[4];
         CHECK(maniPose_ReadLocals(SampleAt(&clip, time), 0, 4, locals) == mani_success, "reads");
-        hash = maniHash64(hash, locals, (int32_t)sizeof locals);
+        hash = maniHash64(hash, locals, (int64_t)sizeof locals);
         float values[3];
         CHECK(maniClip_SampleFloats(&clip, time, values, 3, NULL) == mani_success, "floats");
-        hash = maniHash64(hash, values, (int32_t)sizeof values);
+        hash = maniHash64(hash, values, (int64_t)sizeof values);
         maniRootMove move;
         CHECK(maniClip_GetRootMotion(&clip, time, 0.1f, &move) == mani_success, "root motion");
         const float parts[7] = {move.translation.x, move.translation.y, move.translation.z,
                                 move.rotation.x,    move.rotation.y,    move.rotation.z,
                                 move.rotation.w};
-        hash = maniHash64(hash, parts, (int32_t)sizeof parts);
+        hash = maniHash64(hash, parts, (int64_t)sizeof parts);
     }
     // The writer's library version (bytes 16 to 21) changes with every release.
     memset(s_file + 16, 0, 6);
-    hash = maniHash64(hash, s_file, (int32_t)s_size);
+    hash = maniHash64(hash, s_file, (int64_t)s_size);
     CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
     if (hash != PINNED_SCENE_HASH)
     {

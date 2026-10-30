@@ -564,7 +564,7 @@ static maniImportResult Unique(Morph* m)
     for (uint32_t c = 0; c < n; ++c)
     {
         keys[c] =
-            maniHash64(MANI_HASH_INIT, m->channels[c].name, (int32_t)m->channels[c].nameLength);
+            maniHash64(MANI_HASH_INIT, m->channels[c].name, (int64_t)m->channels[c].nameLength);
         repeats[c] = false;
     }
     maniSortByKey(keys, n, order, scratch);

@@ -174,7 +174,7 @@ static uint64_t Hash(const maniPose* pose)
     for (uint32_t b = 0; b < BONES; ++b)
     {
         maniTransform t = maniPose_GetLocal(pose, b);
-        hash = maniHash64(hash, &t, (int32_t)sizeof t);
+        hash = maniHash64(hash, &t, (int64_t)sizeof t);
     }
     return hash;
 }
@@ -208,7 +208,7 @@ static void TestPinned(void)
     s.tolerance = 0.0f;
     CHECK(Sdls(s_pose, &s, NULL), "the free solve with clamped steps");
     uint64_t free = Hash(s_pose);
-    hash = maniHash64(hash, &free, (int32_t)sizeof free);
+    hash = maniHash64(hash, &free, (int64_t)sizeof free);
     // The other solvers from the rest: two bones, an aim over two bones,
     // and FABRIK and CCD along the left arm from the spine.
     CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success, "rest");
@@ -240,13 +240,13 @@ static void TestPinned(void)
     CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success &&
               maniPose_SolveFabrik(s_pose, &s_skeleton, &chain, NULL) == mani_success,
           "FABRIK");
-    solvers = maniHash64(solvers, &(uint64_t){Hash(s_pose)}, (int32_t)sizeof(uint64_t));
+    solvers = maniHash64(solvers, &(uint64_t){Hash(s_pose)}, (int64_t)sizeof(uint64_t));
     chain.step = 0.5f;
     CHECK(maniPose_SetRest(s_pose, &s_skeleton) == mani_success &&
               maniPose_SolveCcd(s_pose, &s_skeleton, &chain, NULL) == mani_success,
           "CCD");
-    solvers = maniHash64(solvers, &(uint64_t){Hash(s_pose)}, (int32_t)sizeof(uint64_t));
-    hash = maniHash64(hash, &solvers, (int32_t)sizeof solvers);
+    solvers = maniHash64(solvers, &(uint64_t){Hash(s_pose)}, (int64_t)sizeof(uint64_t));
+    hash = maniHash64(hash, &solvers, (int64_t)sizeof solvers);
     CHECK(hash == PINNED_SDLS_HASH, "the same bits on every platform");
     if (hash != PINNED_SDLS_HASH)
     {

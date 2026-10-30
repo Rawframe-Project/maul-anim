@@ -49,11 +49,11 @@ static void TestSimdBackend(void)
 #else
     CHECK(strcmp(name, "scalar") == 0, "another target names scalar");
 #endif
-    CHECK(maniIsCpuBackendSupported() == 1, "this CPU runs the built backend");
+    CHECK(maniIsCpuBackendSupported(), "this CPU runs the built backend");
     const char* checked = NULL;
-    CHECK(maniCheckCpu(&checked) == 1, "the check passes");
+    CHECK(maniCheckCpu(&checked), "the check passes");
     CHECK(checked == name, "the check names the same static string");
-    CHECK(maniCheckCpu(NULL) == 1, "the check takes no name");
+    CHECK(maniCheckCpu(NULL), "the check takes no name");
 }
 
 int main(void)

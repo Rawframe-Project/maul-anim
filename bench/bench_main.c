@@ -420,7 +420,7 @@ static double Time(const Case* c)
 int main(int argc, char** argv)
 {
     const char* backend = NULL;
-    if (maniCheckCpu(&backend) != 1)
+    if (!maniCheckCpu(&backend))
     {
         fprintf(stderr, "bench: this CPU cannot run the %s backend\n", backend);
         return 1;

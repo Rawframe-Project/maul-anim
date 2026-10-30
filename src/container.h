@@ -73,8 +73,8 @@ typedef struct maniSectionSource
     uint64_t size;
 } maniSectionSource;
 
-// maniHash64 over any number of bytes, continuing seed: the same value as
-// one call would give.
+// maniHash64 over a byte count of a section's or a file's width,
+// continuing seed.
 uint64_t maniHashBytes(uint64_t seed, const uint8_t* data, uint64_t size);
 
 // Opens bytes as a container of the given kind and format version: checks

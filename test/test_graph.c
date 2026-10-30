@@ -1403,7 +1403,7 @@ static void TestPinned(void)
     CHECK(Build(&source).result == mani_success, "builds");
     // The writer's library version (bytes 16 to 21) changes with every release.
     memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
+    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int64_t)s_size);
     maniGraph g;
     maniGraphBinding* binding = NULL;
     maniGraphInstance* instance = NewInstance(&g, &binding);
@@ -1419,11 +1419,11 @@ static void TestPinned(void)
               "steps");
         maniTransform locals[3];
         CHECK(maniPose_ReadLocals(pose, 0, 3, locals) == mani_success, "reads");
-        hash = maniHash64(hash, locals, (int32_t)sizeof locals);
+        hash = maniHash64(hash, locals, (int64_t)sizeof locals);
         const float parts[7] = {move.translation.x, move.translation.y, move.translation.z,
                                 move.rotation.x,    move.rotation.y,    move.rotation.z,
                                 move.rotation.w};
-        hash = maniHash64(hash, parts, (int32_t)sizeof parts);
+        hash = maniHash64(hash, parts, (int64_t)sizeof parts);
         for (uint32_t e = 0; e < count && e < 8; ++e)
         {
             const maniGraphEvent* x = &events[e];
@@ -1435,8 +1435,8 @@ static void TestPinned(void)
                                         (uint32_t)x->nameHash,
                                         (uint32_t)(x->nameHash >> 32)};
             const float values[2] = {x->weight, x->time};
-            hash = maniHash64(hash, fields, (int32_t)sizeof fields);
-            hash = maniHash64(hash, values, (int32_t)sizeof values);
+            hash = maniHash64(hash, fields, (int64_t)sizeof fields);
+            hash = maniHash64(hash, values, (int64_t)sizeof values);
         }
     }
     size_t stateSize = 0;
@@ -1446,7 +1446,7 @@ static void TestPinned(void)
     // release moves no pin.
     CHECK(maniLoadU32(s_state + 4) == MANI_ABI_VERSION, "the state names its release");
     maniStoreU32(s_state + 4, 0);
-    hash = maniHash64(hash, s_state, (int32_t)stateSize);
+    hash = maniHash64(hash, s_state, (int64_t)stateSize);
     CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
     if (hash != PINNED_SCENE_HASH)
     {

@@ -296,7 +296,7 @@ static uint32_t PutCondition(uint8_t* data, uint32_t at, const maniGraphConditio
     }
     else if (c->kind == maniGraphConditionEvent)
     {
-        uint64_t hash = maniHash64(MANI_HASH_INIT, c->event, (int32_t)c->eventLength);
+        uint64_t hash = maniHash64(MANI_HASH_INIT, c->event, (int64_t)c->eventLength);
         words[1] = (uint32_t)hash;
         words[2] = (uint32_t)(hash >> 32);
     }

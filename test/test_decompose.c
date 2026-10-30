@@ -257,7 +257,7 @@ static void TestPinned(void)
         maniAffine m = maniAffineMul(&p, &c);
         maniTransform d;
         CHECK(maniDecomposeAffine(&m, &d) == mani_success, "splits");
-        hash = maniHash64(hash, &d, (int32_t)sizeof d);
+        hash = maniHash64(hash, &d, (int64_t)sizeof d);
     }
     CHECK(hash == PINNED_DECOMPOSE_HASH, "pinned");
     if (hash != PINNED_DECOMPOSE_HASH)

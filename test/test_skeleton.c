@@ -453,7 +453,7 @@ static void TestPinnedBytes(void)
     maniSkeleton s;
     CHECK(maniOpenSkeleton(s_file, s_size, &s).result == mani_success, "opens");
     memset(s_file + 16, 0, 6);
-    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int32_t)s_size);
+    uint64_t hash = maniHash64(MANI_HASH_INIT, s_file, (int64_t)s_size);
     // The identity is in the header (bytes 40 to 47), so the file's hash
     // pins it too.
     CHECK(hash == PINNED_SKELETON_HASH, "pinned file");

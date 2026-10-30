@@ -859,19 +859,19 @@ static void TestPinned(void)
           "blends");
     maniTransform locals[kBones];
     CHECK(maniPose_ReadLocals(s_out, 0, kBones, locals) == mani_success, "reads");
-    uint64_t hash = maniHash64(MANI_HASH_INIT, locals, (int32_t)sizeof locals);
+    uint64_t hash = maniHash64(MANI_HASH_INIT, locals, (int64_t)sizeof locals);
     // That blend as a difference from layer 2, added back onto layer 0.
     CHECK(maniSkeleton_ComputePoseDifference(&s_skeleton, s_out, s_layer[2], s_out) == mani_success,
           "difference");
     maniBlendLayer add = {s_out, 0.7f, boneWeights};
     CHECK(maniPose_AddLayers(s_layer[0], &s_skeleton, &add, 1) == mani_success, "adds");
     CHECK(maniPose_ReadLocals(s_layer[0], 0, kBones, locals) == mani_success, "reads");
-    hash = maniHash64(hash, locals, (int32_t)sizeof locals);
+    hash = maniHash64(hash, locals, (int64_t)sizeof locals);
     maniAffine models[kBones];
     CHECK(maniPose_ComputeModel(s_layer[0], &s_skeleton) == mani_success &&
               maniPose_ReadModels(s_layer[0], 0, kBones, models) == mani_success,
           "composes");
-    hash = maniHash64(hash, models, (int32_t)sizeof models);
+    hash = maniHash64(hash, models, (int64_t)sizeof models);
     // Mirrored across x, two pairs of bones swapping sides.
     const maniMirrorPairSource pairs[2] = {{1, 2}, {3, 4}};
     maniMirrorMapSource source = {&s_skeleton, NULL, pairs, NULL, NULL,           NULL,
@@ -890,7 +890,7 @@ static void TestPinned(void)
     CHECK(maniMirrorMap_MirrorPose(&map, &s_skeleton, s_layer[0], s_layer[1]) == mani_success,
           "mirrors");
     CHECK(maniPose_ReadLocals(s_layer[1], 0, kBones, locals) == mani_success, "reads");
-    hash = maniHash64(hash, locals, (int32_t)sizeof locals);
+    hash = maniHash64(hash, locals, (int64_t)sizeof locals);
     CHECK(hash == PINNED_SCENE_HASH, "the scene's bits the same on every platform");
     if (hash != PINNED_SCENE_HASH)
     {

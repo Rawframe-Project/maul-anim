@@ -8,6 +8,7 @@
 #ifndef MAUL_ANIM_BASE_H
 #define MAUL_ANIM_BASE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -108,8 +109,7 @@ extern "C"
     };
 
 // The most bytes a name may have: files store a name's length in 32
-// bits, and maniHash64 takes a count of at most INT32_MAX bytes. A builder
-// refuses a longer name with mani_errorLimit.
+// bits. A builder refuses a longer name with mani_errorLimit.
 #define MANI_MAX_NAME_BYTES 2147483647u
 
     // The result of reading external bytes: the status and, for
@@ -226,24 +226,24 @@ extern "C"
 
     /// Tells whether this CPU runs the backend the library was built for.
     ///
-    /// @return 1 when it does, else 0.
+    /// @return Whether it does.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API int32_t maniIsCpuBackendSupported(void);
+    MANI_API bool maniIsCpuBackendSupported(void);
 
     /// The CPU check a host makes once, before any other call into the
     /// library: an AVX2 build on a CPU without AVX2 and FMA would stop on
-    /// its first vector instruction, so on 0 the host refuses to run or
+    /// its first vector instruction, so on false the host refuses to run or
     /// loads a scalar build. No job checks it again. This function and the
     /// two above are built without the backend's instructions and are safe
     /// to call on any CPU of the target architecture.
     ///
     /// @param backend  Receives the backend's name, as maniGetSimdBackend
     ///                 returns it. May be NULL.
-    /// @return 1 when this CPU runs the backend, else 0.
+    /// @return Whether this CPU runs the backend.
     /// @par Thread safety
     /// Safe from any thread. It keeps no state.
-    MANI_API int32_t maniCheckCpu(const char** backend);
+    MANI_API bool maniCheckCpu(const char** backend);
 
     // The seed of a hash that starts from nothing.
 #define MANI_HASH_INIT 0xCBF29CE484222325ull
@@ -260,7 +260,7 @@ extern "C"
     /// @return The hash.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API uint64_t maniHash64(uint64_t seed, const void* data, int32_t byteCount);
+    MANI_API uint64_t maniHash64(uint64_t seed, const void* data, int64_t byteCount);
 
     /// Returns the name of a result code, for diagnostics.
     ///

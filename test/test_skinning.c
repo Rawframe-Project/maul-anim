@@ -63,7 +63,7 @@ static uint64_t s_scene = MANI_HASH_INIT;
 // Adds an output to the pinned scene.
 static void Pin(const void* bytes, size_t size)
 {
-    s_scene = maniHash64(s_scene, bytes, (int32_t)size);
+    s_scene = maniHash64(s_scene, bytes, (int64_t)size);
 }
 
 static uint64_t s_random = 0x9E3779B97F4A7C15ull;
