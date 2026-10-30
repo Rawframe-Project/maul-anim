@@ -285,7 +285,9 @@ static bool Usable(const maniRetargetMap* map, const maniSkeleton* source,
            maniSkeleton_GetBoneCount(source) == map->sourceBoneCount &&
            maniSkeleton_GetBoneCount(target) == map->targetBoneCount &&
            maniPoseMatches(sourcePose, source) && !maniPose_IsDifference(sourcePose) &&
-           maniPoseMatches(targetPose, target);
+           maniPoseMatches(targetPose, target) &&
+           // Its locals are written while the source's are still read.
+           (const maniPose*)targetPose != sourcePose;
 }
 
 static MANI_NOINLINE maniResult RetargetPoseWork(const maniRetargetMap* map,
