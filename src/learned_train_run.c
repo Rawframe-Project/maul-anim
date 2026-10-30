@@ -313,19 +313,9 @@ static void Network(const maniTrainKept* k, maniLearnedLayerSource* layers,
                                       k->outputOffsets, k->outputScales, k->net.layerCount};
 }
 
-static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
-    maniBuilder* builder, const maniLearnedTrainer* trainer, maniLearnedWeights weightFormat)
+static maniBuildResult BuildFromTrainer(maniBuilder* builder, const maniLearnedTrainer* trainer,
+                                        maniLearnedWeights weightFormat)
 {
-    if (maniBuilderCalledBack(builder))
-    {
-        return maniBuildCalledBack();
-    }
-    // Read from the trainer's own code, its destroy's frees among it, the
-    // trainer may be mid-change or emptied: refused, counted on it.
-    if (trainer != NULL && maniHostCalledBack((maniHostCode*)&trainer->host))
-    {
-        return maniBuildCalledBack();
-    }
     if (builder == NULL)
     {
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
@@ -378,6 +368,31 @@ static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
     }
     maniRelease(&t->allocator, projectorLayers, count, sizeof(maniLearnedLayerSource), 8);
     maniRelease(&t->allocator, list, projectors, sizeof(maniLearnedProjectorSource), 8);
+    return r;
+}
+
+static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
+    maniBuilder* builder, const maniLearnedTrainer* trainer, maniLearnedWeights weightFormat)
+{
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
+    // The trainer is read while the builder's code and its own run: it is
+    // marked throughout, so training, restoring or destroying it from
+    // there is refused. The mark is the trainer's state, not its
+    // contents.
+    maniHostCode* host = trainer != NULL ? (maniHostCode*)&trainer->host : NULL;
+    if (maniHostCalledBack(host))
+    {
+        return maniBuildCalledBack();
+    }
+    bool was = host != NULL && maniHostEnter(host);
+    maniBuildResult r = BuildFromTrainer(builder, trainer, weightFormat);
+    if (host != NULL)
+    {
+        maniHostLeave(host, was);
+    }
     return r;
 }
 

@@ -10,8 +10,10 @@
 // outputs left as they were (an opened document's handle NULL), the
 // build finishing as it does without; a measure's free hook that
 // measures again into the same report leaves what the measure wrote. A
-// trainer's allocator and task hooks call training, restoring and
-// destroying it, likewise refused, counted, left alone and harmless.
+// trainer's allocator and task hooks call training, restoring, building
+// a model from it and destroying it, likewise refused, counted, left
+// alone and harmless; so does the builder's allocator while it builds a
+// model from the trainer.
 // A destroy or close is gone to the host's code from its start: from
 // every free it makes, the object's own block's among them, the calls
 // on the builder or trainer are refused as busy (the trainer's readers
@@ -543,6 +545,7 @@ enum
 {
     kTrain,
     kRestore,
+    kBuildModel,
     kDestroyTrainer,
     kTrainerCalls,
 };
@@ -557,6 +560,8 @@ typedef enum Where
 } Where;
 
 static maniLearnedTrainer* s_trainer;
+// A builder to build a model from the trainer with.
+static maniBuilder* s_modelBuilder;
 static int s_trainerCall = -1;
 static Where s_where;
 static maniResult s_trainerResult;
@@ -580,6 +585,11 @@ static void TrainerCallBack(Where where)
         break;
     case kRestore:
         s_trainerResult = maniLearnedTrainer_RestoreCheckpoint(s_trainer, NULL, 0).result;
+        break;
+    case kBuildModel:
+        s_trainerResult =
+            maniBuildLearnedModelFromTrainer(s_modelBuilder, s_trainer, maniLearnedWeightsFloat32)
+                .result;
         break;
     default:
         maniDestroyLearnedTrainer(s_trainer);
@@ -654,6 +664,7 @@ static void TestTrainer(void)
     maniLearnedTrainerDef def = maniDefaultLearnedTrainerDef();
     def.allocator = (maniAllocator){TrainerAlloc, TrainerFree, NULL};
     def.tasks = (maniTaskHooks){Enqueue, Finish, NULL};
+    CHECK(maniCreateBuilder(&builderDef, &s_modelBuilder) == mani_success, "a model builder");
     bool refused = true;
     bool trained = true;
     for (int where = 0; where < kPlaces; ++where)
@@ -678,10 +689,8 @@ static void TestTrainer(void)
     CHECK(trained, "training goes on");
     CHECK(refused, "every call back in from the trainer's code refused and counted once");
     CHECK(s_trainerLeft, "training refused with its report left");
+    maniDestroyBuilder(s_modelBuilder);
 }
-
-// A builder to build a model from the trainer with.
-static maniBuilder* s_modelBuilder;
 
 // From a trained trainer's destroy: training, restoring, saving a
 // checkpoint (its buffer and size left), building a model from it and
@@ -745,6 +754,66 @@ static void TestDestroyTrainer(void)
     maniDestroyBuilder(s_modelBuilder);
 }
 
+// From a free of the builder's while it builds a model from the trainer:
+// training, restoring and destroying the trainer, each refused and
+// counted once on it (the destroy tried only once the others were).
+static void TrainerRead(const void* memory)
+{
+    (void)memory;
+    s_eachFree = NULL;
+    ++s_frees;
+    uint32_t before = maniLearnedTrainer_GetMisuse(s_trainer);
+    maniLearnedTrainerReport report;
+    bool refused =
+        maniLearnedTrainer_Train(s_trainer, 1, &report) == mani_errorBusy &&
+        maniLearnedTrainer_RestoreCheckpoint(s_trainer, NULL, 0).result == mani_errorBusy;
+    if (refused)
+    {
+        maniDestroyLearnedTrainer(s_trainer);
+    }
+    s_gone = refused && maniLearnedTrainer_GetMisuse(s_trainer) == before + 3;
+}
+
+static void TestBuildFromTrainer(void)
+{
+    static CheckpointHost s_host;
+    static uint8_t s_plain[1 << 16];
+    static uint8_t s_hooked[1 << 16];
+    s_trainer = MakeCheckpointHost(&s_host);
+    maniLearnedTrainerReport report;
+    CHECK(s_trainer != NULL &&
+              maniLearnedTrainer_Train(s_trainer, 1000000, &report) == mani_success &&
+              report.stage == report.stageCount,
+          "a trainer with every stage done");
+    maniBuilderDef def = maniDefaultBuilderDef();
+    maniBuilder* plain = NULL;
+    size_t plainSize = 0;
+    CHECK(
+        maniCreateBuilder(&def, &plain) == mani_success &&
+            maniBuildLearnedModelFromTrainer(plain, s_trainer, maniLearnedWeightsFloat32).result ==
+                mani_success &&
+            maniBuilder_CopyBuilt(plain, s_plain, sizeof s_plain, &plainSize) == mani_success,
+        "the model built without calls back in");
+    maniDestroyBuilder(plain);
+    def.allocator = (maniAllocator){BuilderAlloc, BuilderFree, NULL};
+    CHECK(maniCreateBuilder(&def, &s_builder) == mani_success, "a builder with hooks");
+    s_frees = 0;
+    s_gone = false;
+    s_eachFree = TrainerRead;
+    size_t size = 0;
+    CHECK(
+        maniBuildLearnedModelFromTrainer(s_builder, s_trainer, maniLearnedWeightsFloat32).result ==
+                mani_success &&
+            maniBuilder_CopyBuilt(s_builder, s_hooked, sizeof s_hooked, &size) == mani_success &&
+            size == plainSize && memcmp(s_hooked, s_plain, size) == 0,
+        "the build as without them");
+    s_eachFree = NULL;
+    CHECK(s_frees == 1 && s_gone, "from the builder's free, training, restoring and destroying "
+                                  "the trainer refused as busy and counted once");
+    maniDestroyBuilder(s_builder);
+    maniDestroyLearnedTrainer(s_trainer);
+}
+
 int main(void)
 {
     TestBuilder();
@@ -752,5 +821,6 @@ int main(void)
     TestCloseDocuments();
     TestTrainer();
     TestDestroyTrainer();
+    TestBuildFromTrainer();
     return s_failures == 0 ? 0 : 1;
 }

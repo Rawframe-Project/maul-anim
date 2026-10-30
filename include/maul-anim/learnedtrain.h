@@ -29,7 +29,9 @@ extern "C"
     // restoring, saving a checkpoint, building a model from it and
     // destroying it refuse a call back in from the trainer's allocator or
     // task hooks with mani_errorBusy and count one misuse; the refused
-    // call leaves its outputs as they were.
+    // call leaves its outputs as they were. A build from the trainer marks
+    // it for the whole call, so the builder's allocator, which runs
+    // meanwhile, is refused likewise.
     typedef struct maniLearnedTrainer maniLearnedTrainer;
 
     typedef struct maniLearnedTrainerDef
@@ -270,7 +272,9 @@ extern "C"
     /// @return As maniBuildLearnedModel; `mani_errorInvalid` for a NULL
     /// argument or a trainer with a stage to run; `mani_errorBusy` when
     /// called back in from the trainer's allocator or task hooks (one
-    /// misuse counted on the trainer).
+    /// misuse counted on the trainer). While the call runs, training,
+    /// restoring or destroying the trainer is refused with
+    /// `mani_errorBusy` and counted on it.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     /// The trainer is not trained meanwhile.
