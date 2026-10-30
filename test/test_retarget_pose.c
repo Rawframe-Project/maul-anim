@@ -503,6 +503,27 @@ static void TestSamePose(void)
         left = left && memcmp(&t, &before[b], sizeof t) == 0;
     }
     CHECK(left, "the pose left as it was");
+    // Two poses inited in one buffer, the second from halfway through the
+    // first: each matches the skeleton, but their memory overlaps.
+    static _Alignas(MANI_POSE_ALIGNMENT) uint8_t shared[8192];
+    size_t poseSize = maniSkeleton_GetPoseSize(&s_source);
+    size_t half = poseSize / 2 / MANI_POSE_ALIGNMENT * MANI_POSE_ALIGNMENT;
+    maniPose* first = NULL;
+    maniPose* second = NULL;
+    CHECK(half > 0 && half + poseSize <= sizeof shared &&
+              maniInitPose(&s_source, shared, sizeof shared, &first) == mani_success &&
+              maniInitPose(&s_source, shared + half, sizeof shared - half, &second) ==
+                  mani_success &&
+              maniPose_GetBoneCount(first) == bones,
+          "two poses whose memory overlaps");
+    uint8_t kept[8192];
+    memcpy(kept, shared, sizeof shared);
+    CHECK(maniRetargetMap_RetargetPose(&map, &s_source, first, &s_source, second, s_scratch,
+                                       sizeof s_scratch) == mani_errorInvalid &&
+              maniRetargetMap_RetargetPose(&map, &s_source, second, &s_source, first, s_scratch,
+                                           sizeof s_scratch) == mani_errorInvalid &&
+              memcmp(kept, shared, sizeof shared) == 0,
+          "either way round refused, the memory left");
 }
 
 // The arm chain reversed: the upper arm at its reference between the
