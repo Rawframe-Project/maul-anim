@@ -23,6 +23,7 @@
 #include "file_tag.h"
 #include "learned_file.h"
 #include "learned_fixture.h"
+#include "negative_kinds.h"
 #include "source_padding.h"
 
 #include "maul-anim/learned.h"
@@ -562,6 +563,12 @@ static void TestModelRefusals(void)
     s = Source();
     s.weightFormat = 2;
     CHECK(RefusedAs(&s, maniBuildReasonOption, 1, 0), "an unknown weight format");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        s = Source();
+        s.weightFormat = kNegativeKinds[k];
+        CHECK(RefusedAs(&s, maniBuildReasonOption, 1, 0), "a negative weight format");
+    }
     s = Source();
     s.projectorCount = 0;
     CHECK(RefusedAs(&s, maniBuildReasonCount, 0, 0), "no Projector");
@@ -803,13 +810,16 @@ static void TestOpenHeader(void)
 {
     maniLearnedModelSource source = Source();
     CHECK(Build(&source).result == mani_success, "built");
-    // Word, value, refused at: the counts, format, rate and axes.
-    const uint32_t kWords[18][3] = {
-        {16, 0, 16}, {20, 1025, 20}, {24, 0, 24},   {28, 0, 28}, {32, 257, 32},
-        {36, 4, 36}, {40, 257, 40},  {44, 257, 44}, {48, 0, 48}, {48, 33, 48},
-        {52, 3, 52}, {52, 65, 52},   {56, 2, 56},   {60, 0, 60}, {60, 0x447A4000u, 60},
-        {64, 6, 64}, {68, 1, 68},    {68, 6, 68}};
-    for (uint32_t k = 0; k < 18; ++k)
+    // Word, value, refused at: the counts, format, rate and axes, and the
+    // words a negative format or axis would leave.
+    const uint32_t kWords[24][3] = {
+        {16, 0, 16},           {20, 1025, 20},        {24, 0, 24},           {28, 0, 28},
+        {32, 257, 32},         {36, 4, 36},           {40, 257, 40},         {44, 257, 44},
+        {48, 0, 48},           {48, 33, 48},          {52, 3, 52},           {52, 65, 52},
+        {56, 2, 56},           {60, 0, 60},           {60, 0x447A4000u, 60}, {64, 6, 64},
+        {68, 1, 68},           {68, 6, 68},           {56, 0xFFFFFFFFu, 56}, {56, 0x80000000u, 56},
+        {64, 0xFFFFFFFFu, 64}, {64, 0x80000000u, 64}, {68, 0xFFFFFFFFu, 68}, {68, 0x80000000u, 68}};
+    for (uint32_t k = 0; k < 24; ++k)
     {
         CHECK(WordRefused(maniLearnedTagHeader, kWords[k][0], kWords[k][1], kWords[k][2]),
               "a header word refused");

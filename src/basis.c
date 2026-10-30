@@ -14,7 +14,7 @@ bool maniBasisAxesValid(const maniAxis axes[3])
     bool seen[3] = {false, false, false};
     for (uint32_t i = 0; i < 3; ++i)
     {
-        if (axes[i] > maniAxisNegativeZ || seen[axes[i] % 3])
+        if ((uint32_t)axes[i] > maniAxisNegativeZ || seen[axes[i] % 3])
         {
             return false;
         }

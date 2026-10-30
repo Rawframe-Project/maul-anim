@@ -156,7 +156,7 @@ static maniBuildResult Pairs(const maniRetargetMapSource* s, Work* w)
         const maniRetargetPairSource* p = &s->pairs[i];
         bool ok = p->target < w->targetCount && p->source < w->sourceCount &&
                   !w->plan[p->target].mapped && Share(p->rotationWeight) &&
-                  p->translation <= maniRetargetTranslationAbsolute;
+                  (uint32_t)p->translation <= maniRetargetTranslationAbsolute;
         if (!ok)
         {
             return Refuse(maniBuildReasonRetargetPair, i, p->target);
@@ -242,8 +242,8 @@ static maniBuildResult Chain(const maniRetargetMapSource* s, Work* w, uint32_t i
     }
     uint32_t ns = inRange ? maniIkChainPath(s->source, c->sourceStart, c->sourceEnd, source) : 0u;
     uint32_t nt = inRange ? maniIkChainPath(s->target, c->targetStart, c->targetEnd, target) : 0u;
-    if (ns == 0 || nt == 0 || c->rotation > maniRetargetRotationOneToOneReversed ||
-        c->translation > maniRetargetTranslationAbsolute || !Share(c->rotationWeight))
+    if (ns == 0 || nt == 0 || (uint32_t)c->rotation > maniRetargetRotationOneToOneReversed ||
+        (uint32_t)c->translation > maniRetargetTranslationAbsolute || !Share(c->rotationWeight))
     {
         return Refuse(maniBuildReasonRetargetChain, i, 0);
     }

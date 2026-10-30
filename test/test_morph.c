@@ -18,6 +18,7 @@
 #include "container.h"
 #include "file_tag.h"
 #include "morph_file.h"
+#include "negative_kinds.h"
 #include "source_padding.h"
 #include "test_harness.h"
 
@@ -174,7 +175,7 @@ static void TestBuildsAndReads(void)
     uint32_t set = 9;
     CHECK(maniMorphTargets_GetAttribute(&m, 4, &set) == maniMorphColor && set == 1 &&
               maniMorphTargets_GetAttribute(&m, 3, &set) == maniMorphTexcoord && set == 0 &&
-              maniMorphTargets_GetAttribute(&m, 5, &set) == UINT32_MAX && set == 0,
+              maniMorphTargets_GetAttribute(&m, 5, &set) == -1 && set == 0,
           "the attribute table");
     size_t length = 0;
     const char* name = maniMorphTargets_GetChannelName(&m, 1, &length);
@@ -705,6 +706,12 @@ static void TestBuildRefusals(void)
     SampleSource(&source);
     s_attributes[3].semantic = 5;
     ExpectBuildRefused(&source, maniBuildReasonAttribute, 3, 0, "an unknown semantic");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        SampleSource(&source);
+        s_attributes[3].semantic = kNegativeKinds[k];
+        ExpectBuildRefused(&source, maniBuildReasonAttribute, 3, 0, "a negative semantic");
+    }
     SampleSource(&source);
     s_attributes[1].set = 1;
     ExpectBuildRefused(&source, maniBuildReasonAttribute, 1, 0, "normals of set 1");
@@ -883,6 +890,11 @@ static void TestJobRefusals(void)
     maniMorphJob job = {&m, weights, 0, kVertices, 5, streams};
     streams[1].semantic = 5;
     CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "an unknown semantic");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        streams[1].semantic = kNegativeKinds[k];
+        CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "a negative semantic");
+    }
     streams[1].semantic = maniMorphNormal;
     streams[1].set = 1;
     CHECK(maniApplyMorphTargets(&job) == mani_errorInvalid, "normals of set 1");

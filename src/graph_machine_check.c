@@ -42,15 +42,15 @@ static bool ComparisonValid(const maniGraphSource* source, const maniGraphCondit
 {
     if (ParameterIs(source, c->parameter, maniGraphParameterBool))
     {
-        return c->compare <= maniGraphCompareNotEqual && c->value.b <= 1u;
+        return (uint32_t)c->compare <= maniGraphCompareNotEqual && c->value.b <= 1u;
     }
     if (ParameterIs(source, c->parameter, maniGraphParameterInt))
     {
-        return c->compare <= maniGraphCompareAtLeast;
+        return (uint32_t)c->compare <= maniGraphCompareAtLeast;
     }
     return ParameterIs(source, c->parameter, maniGraphParameterFloat) &&
-           c->compare >= maniGraphCompareLess && c->compare <= maniGraphCompareAtLeast &&
-           isfinite(c->value.f[0]);
+           (uint32_t)c->compare >= maniGraphCompareLess &&
+           (uint32_t)c->compare <= maniGraphCompareAtLeast && isfinite(c->value.f[0]);
 }
 
 static bool ConditionValid(const maniGraphSource* source, const maniGraphConditionSource* c)
@@ -77,10 +77,11 @@ static bool TransitionValid(const maniGraphSource* source, const maniGraphTransi
                             uint32_t states)
 {
     bool ok = (t->from < states || t->from == MANI_GRAPH_ANY_STATE) && t->to < states &&
-              t->from != t->to && t->interruption <= maniGraphInterruptionAny &&
-              t->entry <= maniGraphEntryMatch && t->fade <= maniGraphFadeInertial &&
-              isfinite(t->duration) && t->duration >= 0.0f && isfinite(t->cooldown) &&
-              t->cooldown >= 0.0f && (t->conditions != NULL || t->conditionCount == 0);
+              t->from != t->to && (uint32_t)t->interruption <= maniGraphInterruptionAny &&
+              (uint32_t)t->entry <= maniGraphEntryMatch &&
+              (uint32_t)t->fade <= maniGraphFadeInertial && isfinite(t->duration) &&
+              t->duration >= 0.0f && isfinite(t->cooldown) && t->cooldown >= 0.0f &&
+              (t->conditions != NULL || t->conditionCount == 0);
     for (uint32_t k = 0; k < t->conditionCount && ok; ++k)
     {
         ok = ConditionValid(source, &t->conditions[k]);
@@ -158,7 +159,7 @@ bool maniGraphMachineListens(const maniGraphNodeSource* n)
         listens = a->entry == maniGraphEntryMatch;
         for (uint32_t c = 0; c < a->conditionCount && !listens; ++c)
         {
-            listens = a->conditions[c].kind >= maniGraphConditionPhase;
+            listens = (uint32_t)a->conditions[c].kind >= maniGraphConditionPhase;
         }
     }
     return listens;
@@ -283,11 +284,11 @@ static uint32_t Bits(float value)
 // in the parameter and compare words.
 static uint32_t PutCondition(uint8_t* data, uint32_t at, const maniGraphConditionSource* c)
 {
-    uint32_t words[4] = {c->kind, MANI_NO_PARAMETER, 0u, 0u};
+    uint32_t words[4] = {(uint32_t)c->kind, MANI_NO_PARAMETER, 0u, 0u};
     if (c->kind == maniGraphConditionParameter || c->kind == maniGraphConditionTrigger)
     {
         words[1] = c->parameter;
-        words[2] = c->kind == maniGraphConditionParameter ? c->compare : 0u;
+        words[2] = c->kind == maniGraphConditionParameter ? (uint32_t)c->compare : 0u;
         words[3] = c->kind == maniGraphConditionParameter ? c->value.b : 0u;
     }
     else if (c->kind == maniGraphConditionTimeInState || c->kind == maniGraphConditionPhase)

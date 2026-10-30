@@ -98,7 +98,7 @@ static bool Candidate(const Search* s, const Entry* e)
 static uint32_t Apart(const Entry* e, uint32_t a, uint32_t b)
 {
     uint32_t frames = a > b ? a - b : b - a;
-    bool loop = (e->flags & MANI_MATCH_LOOP) != 0;
+    bool loop = (e->flags & maniMatchEntryLoop) != 0;
     return loop && e->count - frames < frames ? e->count - frames : frames;
 }
 
@@ -162,7 +162,7 @@ static bool NearEnd(const Search* s, const Entry* e, uint32_t m)
 // so the guess's rounding never moves it.
 static uint32_t Stop(const Search* s, const Entry* e)
 {
-    if ((e->flags & MANI_MATCH_LOOP) != 0)
+    if ((e->flags & maniMatchEntryLoop) != 0)
     {
         return e->first + e->count;
     }
@@ -246,7 +246,7 @@ static const Entry* Use(Search* s, uint32_t entry)
     {
         s->lastEntry = entry;
         s->last = EntryAt(s->d, entry);
-        s->lastCandidate = Candidate(s, &s->last) && (s->last.flags & MANI_MATCH_NO_JUMP) == 0;
+        s->lastCandidate = Candidate(s, &s->last) && (s->last.flags & maniMatchEntryNoJump) == 0;
         s->lastStop = s->lastCandidate ? Stop(s, &s->last) : 0;
     }
     return &s->last;

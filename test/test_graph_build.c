@@ -18,6 +18,7 @@
 #include "container.h"
 #include "graph_file.h"
 #include "graph_fixture.h"
+#include "negative_kinds.h"
 
 #include "maul-anim/pose.h"
 
@@ -154,6 +155,11 @@ static void TestRefusals(void)
           "a sync group's unknown flag");
     walk.clip.loop = 3;
     CHECK(Refused(one, maniBuildReasonNode, 0, 0), "a loop past repeat");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        walk.clip.loop = kNegativeKinds[k];
+        CHECK(Refused(one, maniBuildReasonNode, 0, 0), "a negative loop");
+    }
     maniMaskChain chain = {3, 1.0f, false};
     maniGraphNodeSource mask[3] = {{maniGraphNodeMask, 2, kPair, .mask = {&chain, 1, 0.0f}},
                                    ClipNode(0, 1.0f, maniGraphLoopClip),

@@ -19,6 +19,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "file_tag.h"
+#include "negative_kinds.h"
 #include "retarget_file.h"
 #include "source_padding.h"
 #include "test_harness.h"
@@ -368,6 +369,12 @@ static void TestRefusals(void)
         refused += Refused(&source, maniBuildReasonRetargetPair, 0, badPairs[k].target);
     }
     CHECK(refused == 4, "pairs: bones past, a weight past 1, an unknown translation");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        const maniRetargetPairSource negative = {9, 7, 1.0f, kNegativeKinds[k], false};
+        source.pairs = &negative;
+        CHECK(Refused(&source, maniBuildReasonRetargetPair, 0, 9), "a negative pair translation");
+    }
     // A pair on the chain's sp3: the chain refused at that bone.
     const maniRetargetPairSource onChain = {4, 3, 1.0f, 0, false};
     source.pairs = &onChain;
@@ -392,6 +399,16 @@ static void TestRefusals(void)
         refused += Refused(&source, maniBuildReasonRetargetChain, 0, 0);
     }
     CHECK(refused == 6, "chains: a bone past, ends not below starts, modes and weights");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        maniRetargetChainSource negative[2] = {kSpine, kSpine};
+        negative[0].rotation = kNegativeKinds[k];
+        negative[1].translation = kNegativeKinds[k];
+        source.chains = &negative[0];
+        CHECK(Refused(&source, maniBuildReasonRetargetChain, 0, 0), "a negative chain rotation");
+        source.chains = &negative[1];
+        CHECK(Refused(&source, maniBuildReasonRetargetChain, 0, 0), "a negative chain translation");
+    }
     maniRetargetPelvisSource pelvis[8];
     for (int k = 0; k < 8; ++k)
     {

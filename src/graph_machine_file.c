@@ -82,14 +82,15 @@ static bool ConditionValid(const maniGraph* g, uint32_t at)
     case maniGraphConditionParameter:
         if (type == maniGraphParameterBool)
         {
-            return compare <= maniGraphCompareNotEqual && value <= 1u;
+            return (uint32_t)compare <= maniGraphCompareNotEqual && value <= 1u;
         }
         if (type == maniGraphParameterInt)
         {
-            return compare <= maniGraphCompareAtLeast;
+            return (uint32_t)compare <= maniGraphCompareAtLeast;
         }
-        return type == maniGraphParameterFloat && compare >= maniGraphCompareLess &&
-               compare <= maniGraphCompareAtLeast && Finite(WordFloat(g, at + 3), -HUGE_VALF);
+        return type == maniGraphParameterFloat && (uint32_t)compare >= maniGraphCompareLess &&
+               (uint32_t)compare <= maniGraphCompareAtLeast &&
+               Finite(WordFloat(g, at + 3), -HUGE_VALF);
     case maniGraphConditionTrigger:
         return type == maniGraphParameterTrigger && compare == 0 && value == 0;
     case maniGraphConditionTimeInState:

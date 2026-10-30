@@ -52,7 +52,7 @@ extern "C"
     typedef struct maniFbx maniFbx;
 
     // Why an import refused its input.
-    typedef uint32_t maniImportReason;
+    typedef int32_t maniImportReason;
     enum
     {
         maniImportReasonNone = 0,
@@ -105,7 +105,7 @@ extern "C"
     };
 
     // An axis, or its negative.
-    typedef uint32_t maniAxis;
+    typedef int32_t maniAxis;
     enum
     {
         maniAxisX = 0,

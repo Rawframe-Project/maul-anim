@@ -702,7 +702,7 @@ static maniImportResult ReadAttribute(Morph* m, uint32_t target, uint32_t a, flo
         memcpy(raw + 4 * (size_t)v, rgb, sizeof rgb);
         raw[4 * (size_t)v + 3] = 0.0f;
     }
-    if (semantic <= maniMorphTangent)
+    if ((uint32_t)semantic <= maniMorphTangent)
     {
         maniGltfBasisVectors(m->options, raw, m->vertices, true);
     }

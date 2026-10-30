@@ -68,7 +68,7 @@ extern "C"
 
     // A parameter's type. A trigger is set by the host and consumed by the
     // first node that reads it within an update.
-    typedef uint32_t maniGraphParameterType;
+    typedef int32_t maniGraphParameterType;
     enum
     {
         maniGraphParameterBool = 0,
@@ -95,7 +95,7 @@ extern "C"
     } maniGraphValue;
 
     // A node's kind.
-    typedef uint32_t maniGraphNodeKind;
+    typedef int32_t maniGraphNodeKind;
     enum
     {
         // Plays a clip; no inputs.

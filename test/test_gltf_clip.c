@@ -8,6 +8,7 @@
 // C evaluated here in binary64, locals with placement reported, model
 // transforms with it folded and the basis changed; then each refusal.
 
+#include "negative_kinds.h"
 #include "source_padding.h"
 #include "test_gltf_sweep.h"
 #include "test_harness.h"
@@ -417,6 +418,18 @@ static void TestClipOptions(void)
             refused && BuildWith(builder, gltf, &skeleton, bad[i]).result == mani_errorInvalid;
     }
     CHECK(refused && maniBuilder_GetMisuse(builder) == misuses + 7, "settings out of range");
+    bool negative = true;
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        maniImportClipOptions loop = maniDefaultImportClipOptions();
+        maniImportClipOptions additive = maniDefaultImportClipOptions();
+        loop.loop = kNegativeKinds[k];
+        additive.additive = kNegativeKinds[k];
+        negative = negative &&
+                   BuildWith(builder, gltf, &skeleton, loop).result == mani_errorInvalid &&
+                   BuildWith(builder, gltf, &skeleton, additive).result == mani_errorInvalid;
+    }
+    CHECK(negative, "a negative loop policy or basis refused");
     CHECK(maniBuildGltfClip(builder, gltf, 0, &skeleton, &options, NULL, NULL).result ==
               mani_errorInvalid,
           "no settings");

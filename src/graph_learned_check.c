@@ -59,7 +59,7 @@ static bool QueryValid(const maniGraphSource* source, const maniGraphLearnedNode
     for (uint32_t q = 0; q < l->queryCount; ++q)
     {
         uint32_t p = l->query[q];
-        types[q] = p < source->parameterCount ? source->parameters[p].type : UINT32_MAX;
+        types[q] = p < source->parameterCount ? (uint32_t)source->parameters[p].type : UINT32_MAX;
     }
     const maniLearnedModel* m = source->models[l->model].model;
     return maniGraphQueryFits(m, m->channelCount, maniGraphModelChannel, types, l->queryCount);

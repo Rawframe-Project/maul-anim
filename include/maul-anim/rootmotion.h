@@ -22,6 +22,7 @@ extern "C"
 #endif
 
     // The axes of a root motion's translation, any of them.
+    typedef uint32_t maniRootAxes;
     enum
     {
         maniRootAxisX = 1,
@@ -30,7 +31,7 @@ extern "C"
     };
 
     // How much of the bone's rotation a root motion takes.
-    typedef uint32_t maniRootRotation;
+    typedef int32_t maniRootRotation;
     enum
     {
         maniRootRotationNone = 0,
@@ -41,7 +42,7 @@ extern "C"
     };
 
     // What a root motion channel is measured from.
-    typedef uint32_t maniRootReference;
+    typedef int32_t maniRootReference;
     enum
     {
         // The bone's rest.
@@ -60,7 +61,7 @@ extern "C"
         // The bone; the clip must have a track for it.
         uint32_t bone;
         // maniRootAxisX, Y and Z, any of them.
-        uint32_t translationAxes;
+        maniRootAxes translationAxes;
         maniRootRotation rotation;
         // The twist's axis: 0 x, 1 y, 2 z (its sign changes nothing).
         uint32_t twistAxis;

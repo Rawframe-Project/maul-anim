@@ -25,12 +25,14 @@
 
 #define ABSENT MANI_JSON_NONE
 
-// An optional word among count, its index in out (0 when absent).
+// An optional word among count, its index in out (0 when absent): one
+// of a kind's values.
 static bool Choice(maniGraphReader* r, uint32_t value, const char* const* words, uint32_t count,
-                   uint32_t* out)
+                   int32_t* out)
 {
-    *out = value == ABSENT ? 0u : maniGraphJsonWord(r, value, words, count);
-    return *out < count || maniGraphJsonFault(r, value, maniGraphFormValue);
+    uint32_t word = value == ABSENT ? 0u : maniGraphJsonWord(r, value, words, count);
+    *out = (int32_t)word;
+    return word < count || maniGraphJsonFault(r, value, maniGraphFormValue);
 }
 
 // A parameter condition's value, of its parameter's type: true or false,

@@ -185,11 +185,11 @@ static maniFileResult CheckHeader(const Sections* s, maniMotionDatabase* d)
     {
         return Fail(at + 36);
     }
-    if (up > maniMatchAxisNegativeZ)
+    if ((uint32_t)up > maniMatchAxisNegativeZ)
     {
         return Fail(at + 40);
     }
-    if (forward > maniMatchAxisNegativeZ || forward % 3 == up % 3)
+    if ((uint32_t)forward > maniMatchAxisNegativeZ || forward % 3 == up % 3)
     {
         return Fail(at + 44);
     }
@@ -294,10 +294,10 @@ static uint32_t ChannelWrong(const maniMotionDatabase* d, const uint8_t* e, uint
 {
     uint32_t kind = maniLoadU32(e);
     uint32_t times = maniLoadU32(e + 12);
-    bool bone = kind <= maniMatchBoneFacing;
+    bool bone = (uint32_t)kind <= maniMatchBoneFacing;
     float weight = LoadF32(e + 28);
     const bool valid[9] = {
-        kind <= maniMatchFloatTrack,
+        (uint32_t)kind <= maniMatchFloatTrack,
         bone ? maniLoadU32(e + 4) < d->skeletonBoneCount : maniLoadU32(e + 4) == 0,
         kind == maniMatchBoneFacing ? maniLoadU32(e + 8) <= maniMatchAxisNegativeZ
                                     : maniLoadU32(e + 8) == 0,
@@ -359,8 +359,8 @@ static uint32_t EntryWrong(const maniMotionDatabase* d, const uint8_t* e, uint64
     uint32_t flags = maniLoadU32(e + 4);
     float start = LoadF32(e + 8);
     float end = LoadF32(e + 12);
-    bool loop = (flags & MANI_MATCH_LOOP) != 0;
-    bool mirrored = (flags & MANI_MATCH_MIRRORED) != 0;
+    bool loop = (flags & maniMatchEntryLoop) != 0;
+    bool mirrored = (flags & maniMatchEntryMirrored) != 0;
     bool span = start >= 0.0f && start < HUGE_VALF;
     uint32_t frames = 0;
     bool held = span && maniMatchEntryFrames(start, end, d->sampleRate, loop, &frames);

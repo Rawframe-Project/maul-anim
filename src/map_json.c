@@ -66,7 +66,7 @@ bool maniMapJsonCount(maniGraphReader* r, uint32_t value, uint32_t* countOut)
 }
 
 bool maniMapJsonWord(maniGraphReader* r, uint32_t value, const char* const* words, uint32_t count,
-                     uint32_t* out)
+                     int32_t* out)
 {
     if (value == ABSENT)
     {
@@ -77,7 +77,7 @@ bool maniMapJsonWord(maniGraphReader* r, uint32_t value, const char* const* word
     {
         return maniGraphJsonFault(r, value, maniGraphFormValue);
     }
-    *out = word;
+    *out = (int32_t)word;
     return true;
 }
 

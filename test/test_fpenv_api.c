@@ -612,7 +612,7 @@ static void Matching(void)
         {maniMatchBoneVelocity, 0, 0, 1, kNow, NULL, 0, 1.0f},
         {maniMatchTrajectoryPosition, 0, 0, 2, kAhead, NULL, 0, 1.5f}};
     const maniClip* clips[1] = {&s_clip};
-    const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
+    const maniMatchEntrySource entry = {0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u};
     const maniMotionDatabaseSource source = {.skeleton = &s_skeleton,
                                              .clips = clips,
                                              .channels = channels,

@@ -37,7 +37,7 @@ static inline void BuildDatabase(const maniMatchChannelSource* channels, uint32_
     static maniMatchEntrySource entries[2];
     clips[0] = &s_clips[0];
     clips[1] = &s_clips[1];
-    entries[0] = (maniMatchEntrySource){0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
+    entries[0] = (maniMatchEntrySource){0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u};
     entries[1] = (maniMatchEntrySource){1, 0, 0.0f, 1.0f, 0.0f, 2u};
     maniMotionDatabaseSource source = {&s_skeleton, clips, channels, entries,        2,
                                        count,       2,     10.0f,    maniMatchAxisY, maniMatchAxisZ,

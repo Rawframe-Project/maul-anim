@@ -63,7 +63,7 @@ maniBuildResult maniCheckChannel(const maniChannelSource* c, uint32_t dimension,
     {
         return Outcome(mani_success);
     }
-    if (c->interpolation > maniInterpolationCubicSpline)
+    if ((uint32_t)c->interpolation > maniInterpolationCubicSpline)
     {
         return Refuse(list | maniBuildReasonKind, track, 0);
     }
@@ -654,7 +654,8 @@ static maniBuildResult WriteWithRootMotion(maniBuilder* builder, const maniClipS
 
 static maniBuildResult CheckTiming(const maniClipSource* source, float* rateOut)
 {
-    if (source->loop > maniLoopRepeat || source->additive > maniAdditiveFirstFrame)
+    if ((uint32_t)source->loop > maniLoopRepeat ||
+        (uint32_t)source->additive > maniAdditiveFirstFrame)
     {
         return Refuse(maniBuildReasonKind, 0, 0);
     }
@@ -853,7 +854,8 @@ bool maniImportClipOptionsValid(const maniImportClipOptions* options, const mani
 {
     const maniRootMotionSource* root = options->rootMotion;
     return isfinite(options->sampleRate) && options->sampleRate >= 0.0f &&
-           options->loop <= maniLoopRepeat && options->additive <= maniAdditiveFirstFrame &&
+           (uint32_t)options->loop <= maniLoopRepeat &&
+           (uint32_t)options->additive <= maniAdditiveFirstFrame &&
            (root == NULL ||
             (maniRootMotionSourceValid(root) && root->bone < maniSkeleton_GetBoneCount(skeleton)));
 }

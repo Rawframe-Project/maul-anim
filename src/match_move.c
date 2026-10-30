@@ -100,7 +100,7 @@ maniMatchPlace maniMatchLocate(const maniClip* clip, maniMatchSpan span, float t
 
 maniVec3 maniMatchAxisVector(maniMatchAxis axis)
 {
-    float sign = axis >= maniMatchAxisNegativeX ? -1.0f : 1.0f;
+    float sign = (uint32_t)axis >= maniMatchAxisNegativeX ? -1.0f : 1.0f;
     uint32_t a = axis % 3;
     return (maniVec3){a == 0 ? sign : 0.0f, a == 1 ? sign : 0.0f, a == 2 ? sign : 0.0f};
 }

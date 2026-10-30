@@ -388,7 +388,7 @@ static bool BuildDatabase(maniBuilder* builder, BenchScenes* scenes)
     const maniClip* clips[BENCH_CLIPS];
     for (uint32_t c = 0; c < BENCH_CLIPS; ++c)
     {
-        entries[c] = (maniMatchEntrySource){c, MANI_MATCH_LOOP, 0.0f, BENCH_DURATION, 0.0f, 1u};
+        entries[c] = (maniMatchEntrySource){c, maniMatchEntryLoop, 0.0f, BENCH_DURATION, 0.0f, 1u};
         clips[c] = &scenes->full[c];
     }
     const maniMotionDatabaseSource source = {

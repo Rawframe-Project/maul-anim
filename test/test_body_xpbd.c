@@ -20,6 +20,7 @@
 // the description's refusals.
 
 #include "body_figure.h"
+#include "negative_kinds.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/bodyik.h"
@@ -470,6 +471,16 @@ static void TestRefusals(void)
     bad[7].weight = 1.5f;
     bad[8].topMode = 3;
     bad[9].boneCount = 1;
+    bool negative = true;
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        maniBodySolve solve = good;
+        solve.topMode = kNegativeKinds[k];
+        negative = negative && maniSkeleton_GetBodyIkScratchSize(&s_skeleton, &solve) == 0 &&
+                   maniPose_SolveBodyXpbd(s_pose, &s_skeleton, &solve, s_scratch, sizeof s_scratch,
+                                          NULL) == mani_errorInvalid;
+    }
+    CHECK(negative, "a negative top mode refused");
     int refused = 0;
     for (int k = 0; k < 10; ++k)
     {

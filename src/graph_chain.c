@@ -87,7 +87,7 @@ maniJointLimit maniGraphChainLimit(const maniGraph* g, uint32_t data, uint32_t k
 uint32_t maniGraphLimitValid(const maniGraph* g, uint32_t at)
 {
     maniJointLimit limit = maniGraphLimitAt(g, at);
-    if (limit.kind > maniJointLimitHinge)
+    if ((uint32_t)limit.kind > maniJointLimitHinge)
     {
         return at;
     }

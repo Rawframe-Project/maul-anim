@@ -387,7 +387,7 @@ static maniFileResult CheckParameters(const maniGraph* g, uint64_t at)
         uint32_t type = maniLoadU32(e);
         uint32_t flags = maniLoadU32(e + 4);
         bool number = type == maniGraphParameterInt || type == maniGraphParameterFloat;
-        if (type > maniGraphParameterPose)
+        if ((uint32_t)type > maniGraphParameterPose)
         {
             return Fail(here);
         }

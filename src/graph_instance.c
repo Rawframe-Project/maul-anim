@@ -466,7 +466,7 @@ static MANI_NOINLINE maniResult SetGraphParameterWork(maniGraphInstance* instanc
         return mani_errorInvalid;
     }
     const uint8_t* entry = ParameterEntry(&instance->binding->graph, parameter);
-    if (maniLoadU32(entry) != type || type == maniGraphParameterPose ||
+    if (maniLoadU32(entry) != (uint32_t)type || type == maniGraphParameterPose ||
         !maniGraphCanonicalValue(type, entry, &value))
     {
         return mani_errorInvalid;

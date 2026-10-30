@@ -39,7 +39,7 @@ extern "C"
     // at the frame: a bone's position (3 features), its velocity (3), its
     // axis (3); the root's position on the ground plane (2) and its
     // facing there (2); a float track's value (1).
-    typedef uint32_t maniMatchChannelKind;
+    typedef int32_t maniMatchChannelKind;
     enum
     {
         maniMatchBonePosition = 0,
@@ -51,7 +51,7 @@ extern "C"
     };
 
     // An axis and its sign.
-    typedef uint32_t maniMatchAxis;
+    typedef int32_t maniMatchAxis;
     enum
     {
         maniMatchAxisX = 0,
@@ -66,13 +66,6 @@ extern "C"
 #define MANI_MATCH_NO_FRAME 0xFFFFFFFFu
 // The most earlier picks a search excludes.
 #define MANI_MAX_MATCH_HISTORY 8u
-
-// An entry's flags: its times wrap from its end to its start (else they
-// clamp to its ends); its frames play but are never jumped to; its clip
-// plays mirrored through the database's mirror map.
-#define MANI_MATCH_LOOP     1u
-#define MANI_MATCH_NO_JUMP  2u
-#define MANI_MATCH_MIRRORED 4u
 
     // A channel as the database holds it: its kind, bone (bone kinds),
     // axis (a bone's facing), times (the first timeCount), weight, and its
@@ -89,13 +82,24 @@ extern "C"
         uint32_t featureCount;
     } maniMatchChannel;
 
+    // An entry's flags: its times wrap from its end to its start (else they
+    // clamp to its ends); its frames play but are never jumped to; its clip
+    // plays mirrored through the database's mirror map.
+    typedef uint32_t maniMatchEntryFlags;
+    enum
+    {
+        maniMatchEntryLoop = 1,
+        maniMatchEntryNoJump = 2,
+        maniMatchEntryMirrored = 4,
+    };
+
     // An entry: a clip's span the database holds, from start to end
     // seconds, its flags, a cost added to its frames, its tags, and its
     // frames' place (start + k / rate for its k-th frame).
     typedef struct maniMatchEntry
     {
         uint32_t clip;
-        uint32_t flags;
+        maniMatchEntryFlags flags;
         float start;
         float end;
         float costBias;
@@ -319,7 +323,7 @@ extern "C"
     /// the squared differences of the normalized query and its features
     /// in feature order, in binary32. The continuing frame is a candidate
     /// when its entry's tags pass; another frame when its entry's tags
-    /// pass, its entry is not MANI_MATCH_NO_JUMP, and no exclusion holds.
+    /// pass, its entry is not maniMatchEntryNoJump, and no exclusion holds.
     /// Ties go to the continuing frame, then to the lowest frame.
     ///
     /// @param database  An opened database.

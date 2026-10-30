@@ -612,8 +612,8 @@ static void TestProjectorNoJump(void)
         {maniMatchBonePosition, 2, 0, 1, kNow, NULL, 0, 1.0f},
         {maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f}};
     const maniClip* clips[2] = {&s_clips[0], &s_clips[1]};
-    const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
-                                             {1, MANI_MATCH_NO_JUMP, 0.0f, 1.0f, 0.0f, 2u}};
+    const maniMatchEntrySource entries[2] = {{0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u},
+                                             {1, maniMatchEntryNoJump, 0.0f, 1.0f, 0.0f, 2u}};
     maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       entries,        2,    2,
                                        2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     maniBuilder* builder = NewBuilder();

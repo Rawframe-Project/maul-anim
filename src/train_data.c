@@ -88,7 +88,7 @@ static bool Sample(Sampler* p, uint32_t f, bool only)
         return false;
     }
     p->clip = p->s->clips[p->entry.clip];
-    bool loop = (p->entry.flags & MANI_MATCH_LOOP) != 0;
+    bool loop = (p->entry.flags & maniMatchEntryLoop) != 0;
     maniMatchSpan span = {p->entry.start, p->entry.end, loop};
     double h = 1.0 / (double)d->sampleRate;
     p->places[0] = maniMatchLocate(p->clip, span, p->time, 0.0);
@@ -162,7 +162,7 @@ static bool Extras(Sampler* p, float* out)
             maniClip_FindFloatTrack(p->clip, s->floatTracks[k].name, s->floatTracks[k].length);
         out[k] = track < count ? p->floats[track] : 0.0f;
     }
-    bool loop = (p->entry.flags & MANI_MATCH_LOOP) != 0;
+    bool loop = (p->entry.flags & maniMatchEntryLoop) != 0;
     float duration = maniClip_GetDuration(p->clip);
     for (uint32_t k = 0; k < s->eventCount; ++k)
     {

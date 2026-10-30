@@ -20,6 +20,7 @@
 #include "container.h"
 #include "file_tag.h"
 #include "mirror_file.h"
+#include "negative_kinds.h"
 #include "source_padding.h"
 #include "test_harness.h"
 
@@ -337,6 +338,11 @@ static void TestOtherRefusals(void)
     rules[1] = kRules[1];
     rules[1].place = 3;
     CHECK(Refused(&source, maniBuildReasonMirrorRule, 1, 0), "an unknown place");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        rules[1].place = kNegativeKinds[k];
+        CHECK(Refused(&source, maniBuildReasonMirrorRule, 1, 0), "a negative place");
+    }
     rules[1] = kRules[1];
     rules[1].replace = "\xff";
     CHECK(Refused(&source, maniBuildReasonMirrorRule, 1, 0), "a replace not UTF-8");
@@ -406,6 +412,11 @@ static void TestOtherRefusals(void)
     source = Source();
     source.axis = 3;
     CHECK(Refused(&source, maniBuildReasonOption, 0, 0), "an unknown axis");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        source.axis = kNegativeKinds[k];
+        CHECK(Refused(&source, maniBuildReasonOption, 0, 0), "a negative axis");
+    }
     source = Source();
     const maniMirrorNamePairSource bad[2] = {{"stepLeft", 8, 9, "stepRight"},
                                              {"stepLeft", 8, 5, "other"}};

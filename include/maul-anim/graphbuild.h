@@ -100,6 +100,7 @@ extern "C"
     } maniGraphSpringSetSource;
 
     // A sync group's flags.
+    typedef uint32_t maniGraphSyncFlags;
     enum
     {
         // Every member's events fire, not only the leader's.
@@ -112,11 +113,11 @@ extern "C"
     {
         const char* name;
         size_t nameLength;
-        uint32_t flags;
+        maniGraphSyncFlags flags;
     } maniGraphSyncGroupSource;
 
     // How a clip node loops: as its clip says, or overridden.
-    typedef uint32_t maniGraphLoop;
+    typedef int32_t maniGraphLoop;
     enum
     {
         maniGraphLoopClip = 0,
@@ -125,6 +126,7 @@ extern "C"
     };
 
     // A clip node's flags.
+    typedef uint32_t maniGraphClipFlags;
     enum
     {
         // Leads its sync group whatever its weight.
@@ -139,7 +141,7 @@ extern "C"
         uint32_t syncGroup;
         maniGraphScalar speed;
         maniGraphLoop loop;
-        uint32_t flags;
+        maniGraphClipFlags flags;
     } maniGraphClipNodeSource;
 
     // A blend node: a weight per input (not negative), normalized unless
@@ -198,7 +200,7 @@ extern "C"
     };
 
     // How a condition compares a parameter with its value.
-    typedef uint32_t maniGraphCompare;
+    typedef int32_t maniGraphCompare;
     enum
     {
         maniGraphCompareEqual = 0,
@@ -210,7 +212,7 @@ extern "C"
     };
 
     // What a transition's condition tests.
-    typedef uint32_t maniGraphConditionKind;
+    typedef int32_t maniGraphConditionKind;
     enum
     {
         // A bool, int or float parameter compared with value (bool: equal
@@ -250,7 +252,7 @@ extern "C"
     } maniGraphConditionSource;
 
     // While a transition runs, which others may fire.
-    typedef uint32_t maniGraphInterruption;
+    typedef int32_t maniGraphInterruption;
     enum
     {
         // None until it completes.
@@ -262,7 +264,7 @@ extern "C"
     };
 
     // How a transition's destination state takes up its time.
-    typedef uint32_t maniGraphEntry;
+    typedef int32_t maniGraphEntry;
     enum
     {
         // From its start: every playhead below it set to 0 when it is
@@ -277,7 +279,7 @@ extern "C"
     };
 
     // The curve of a cross-fade over its elapsed fraction.
-    typedef uint32_t maniGraphFade;
+    typedef int32_t maniGraphFade;
     enum
     {
         maniGraphFadeLinear = 0,
@@ -344,7 +346,7 @@ extern "C"
     } maniGraphOneShotNodeSource;
 
     // How an inertialize node eases out a request.
-    typedef uint32_t maniGraphInertializeMethod;
+    typedef int32_t maniGraphInertializeMethod;
     enum
     {
         // Bollo's inertialization: the offset from its last output to its
@@ -803,7 +805,7 @@ extern "C"
 
     // Why a JSON text is not a graph's form: the other of a
     // maniBuildReasonForm refusal.
-    typedef uint32_t maniGraphForm;
+    typedef int32_t maniGraphForm;
     enum
     {
         // A member the object does not take.

@@ -104,7 +104,7 @@ typedef struct Work
 // and mass.
 static bool ShapeValid(const maniRagdollBodySource* b)
 {
-    if (b->shape > maniRagdollBox)
+    if ((uint32_t)b->shape > maniRagdollBox)
     {
         return false;
     }

@@ -27,6 +27,7 @@
 #include "graph_match_fixture.h"
 #include "learned_file.h"
 #include "learned_train.h"
+#include "negative_kinds.h"
 #include "source_padding.h"
 #include "train_decompress.h"
 #include "train_net.h"
@@ -369,6 +370,14 @@ static size_t s_modelSize[2];
 static void Build(const maniLearnedTrainer* t, uint32_t slot, maniLearnedWeights format)
 {
     maniBuilder* builder = NewBuilder();
+    bool negative = true;
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        negative =
+            negative && maniBuildLearnedModelFromTrainer(builder, t, kNegativeKinds[k]).result ==
+                            mani_errorInvalid;
+    }
+    CHECK(negative, "a negative weight format refused");
     CHECK(maniBuildLearnedModelFromTrainer(builder, t, format).result == mani_success &&
               maniBuilder_CopyBuilt(builder, s_model[slot], sizeof s_model[slot],
                                     &s_modelSize[slot]) == mani_success,

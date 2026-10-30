@@ -123,7 +123,7 @@ extern "C"
                                            maniVec3* centerOut);
 
     // How a skin blends its joints: the job to run on its influences.
-    typedef uint32_t maniSkinningMethod;
+    typedef int32_t maniSkinningMethod;
     enum
     {
         maniSkinningLinear = 0,
@@ -136,7 +136,7 @@ extern "C"
     // transform), directions (turned and renormalized), normals (by the
     // inverse transpose's direction, renormalized) or tangents (four
     // floats, the first three a direction, the fourth copied).
-    typedef uint32_t maniStreamKind;
+    typedef int32_t maniStreamKind;
     enum
     {
         maniStreamPoint = 0,

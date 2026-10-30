@@ -13,6 +13,7 @@
 // goal within the tolerance leaving the pose, one at the end reached
 // with tolerance 0; the refusals, a path of 33 bones among them.
 
+#include "negative_kinds.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -521,6 +522,15 @@ static void TestRefusals(void)
     }
     CHECK(refused == 8, "limits of an unknown kind, out of range, or a hinge along its bone or "
                         "of no axis refused");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        maniJointLimit limits[BONES - 2] = {{0}};
+        limits[3].kind = kNegativeKinds[k];
+        maniChainSolve s = good;
+        s.limits = limits;
+        CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &s, NULL) == mani_errorInvalid,
+              "a limit of a negative kind refused");
+    }
     CHECK(maniSkeleton_ComputePoseDifference(&s_skeleton, s_pose, s_pose, s_other) ==
                   mani_success &&
               maniPose_SolveCcd(s_other, &s_skeleton, &good, NULL) == mani_errorInvalid,

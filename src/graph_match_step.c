@@ -108,7 +108,7 @@ static void Events(const Match* m, uint32_t slot, const maniClip* clip, const ma
     uint64_t first = u->count;
     Stretches(m, slot, clip, e, at);
     for (uint64_t i = first;
-         (e->flags & MANI_MATCH_MIRRORED) != 0 && i < u->count && i < u->capacity; ++i)
+         (e->flags & maniMatchEntryMirrored) != 0 && i < u->count && i < u->capacity; ++i)
     {
         u->events[i].nameHash =
             maniMirrorMap_MirrorNameHash(u->binding->mirrorMap, u->events[i].nameHash);
@@ -130,7 +130,7 @@ static bool Play(const Match* m, double step)
     uint32_t slot = ClipSlot(m, e.clip);
     maniClip clip = *m->u->binding->clips[slot];
     clip.loop = maniLoopClamp;
-    bool loop = (e.flags & MANI_MATCH_LOOP) != 0;
+    bool loop = (e.flags & maniMatchEntryLoop) != 0;
     maniMatchPlace at =
         maniMatchLocate(&clip, (maniMatchSpan){e.start, e.end, loop}, (float)s->time, step);
     if (s->weight > MANI_GRAPH_EVENT_THRESHOLD)
@@ -141,7 +141,7 @@ static bool Play(const Match* m, double step)
     if (s->rootWeight > 0.0f)
     {
         // A mirrored entry's move reflected, then the node's.
-        maniRootMove move = (e.flags & MANI_MATCH_MIRRORED) != 0
+        maniRootMove move = (e.flags & maniMatchEntryMirrored) != 0
                                 ? maniMirrorMap_MirrorRootMotion(m->u->binding->mirrorMap, at.move)
                                 : at.move;
         move = maniGraphNodeMove(m->u, m->p, move);
@@ -192,7 +192,7 @@ static Continuing ContinuingOf(const Match* m)
         to = from;
         from = (double)maniMatchFrameTime(e.start, n, rate);
     }
-    bool loop = (e.flags & MANI_MATCH_LOOP) != 0;
+    bool loop = (e.flags & maniMatchEntryLoop) != 0;
     c.frame = e.firstFrame + n;
     c.next = n < last ? c.frame + 1 : (loop ? e.firstFrame : c.frame);
     // Within 0 and 1: the frame is the last at or before the playhead and

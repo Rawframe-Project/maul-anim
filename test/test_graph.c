@@ -18,6 +18,7 @@
 #include "file_tag.h"
 #include "graph_file.h"
 #include "graph_instance.h"
+#include "negative_kinds.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -312,6 +313,12 @@ static void TestParameterRefusals(void)
     s = Source();
     s_parameters[1].type = 7;
     ExpectRefused(&s, maniBuildReasonParameter, 1, 0, "an unknown type");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        s = Source();
+        s_parameters[1].type = kNegativeKinds[k];
+        ExpectRefused(&s, maniBuildReasonParameter, 1, 0, "a negative type");
+    }
     s = Source();
     s_parameters[0].defaultValue = Float(3, 0, 0, 0);
     ExpectRefused(&s, maniBuildReasonParameter, 0, 0, "a default past its bounds");
@@ -340,6 +347,12 @@ static void TestNodeRefusals(void)
     s = Source();
     s_nodes[6].kind = 63;
     ExpectRefused(&s, maniBuildReasonNode, 6, 0, "an unknown kind");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        s = Source();
+        s_nodes[6].kind = kNegativeKinds[k];
+        ExpectRefused(&s, maniBuildReasonNode, 6, 0, "a negative kind");
+    }
     s = Source();
     s_nodes[4].inputCount = 1;
     ExpectRefused(&s, maniBuildReasonNode, 4, 0, "a mask of one input");
@@ -623,6 +636,13 @@ static void TestParameters(void)
                   mani_success &&
               Get(instance, 0).f[0] == 2.0f,
           "a float clamped to its maximum");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        CHECK(maniGraphInstance_SetParameter(instance, 0, kNegativeKinds[k], Float(1, 0, 0, 0)) ==
+                      mani_errorInvalid &&
+                  Get(instance, 0).f[0] == 2.0f,
+              "a negative type refused, the value left");
+    }
     CHECK(maniGraphInstance_SetParameter(instance, 2, maniGraphParameterInt, Int(-7)) ==
                   mani_success &&
               Get(instance, 2).i == 0,

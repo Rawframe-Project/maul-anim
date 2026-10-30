@@ -22,6 +22,7 @@
 
 #include "graph_machine.h"
 #include "graph_space_fixture.h"
+#include "negative_kinds.h"
 
 #include <stdio.h>
 
@@ -482,6 +483,22 @@ static void TestRefusals(void)
     c[0] = Finished();
     t[0].entry = maniGraphEntryMatch + 1;
     CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0), "an entry past match");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        t[0].entry = kNegativeKinds[k];
+        CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0), "a negative entry");
+        t[0].entry = maniGraphEntryRestart;
+        t[0].fade = kNegativeKinds[k];
+        CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0), "a negative fade");
+        t[0].fade = maniGraphFadeLinear;
+        t[0].interruption = kNegativeKinds[k];
+        CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0), "a negative interruption");
+        t[0].interruption = maniGraphInterruptionNone;
+        c[0].kind = kNegativeKinds[k];
+        CHECK(Refused(Built(t, NULL, 0), maniBuildReasonTransition, 0),
+              "a negative condition kind");
+        c[0] = Finished();
+    }
 }
 
 // The machine of Shared: its words checked on open. Words: header 0 to

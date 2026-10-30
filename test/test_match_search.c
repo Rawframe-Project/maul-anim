@@ -264,7 +264,8 @@ static void Randomize(Layout* l)
     {
         bool loop = Next() % 3 == 0;
         uint32_t frames = 1 + Next() % 120;
-        l->flags[i] = (loop ? MANI_MATCH_LOOP : 0u) | (Next() % 6 == 0 ? MANI_MATCH_NO_JUMP : 0u);
+        l->flags[i] =
+            (loop ? maniMatchEntryLoop : 0u) | (Next() % 6 == 0 ? maniMatchEntryNoJump : 0u);
         l->ends[i] = (float)(loop ? frames : frames - 1) / RATE;
         l->ends[i] = loop && l->ends[i] == 0.0f ? 1.0f / RATE : l->ends[i];
         l->biases[i] = Next() % 2 == 0 ? 0.0f : Uniform(-0.5f, 0.5f);
@@ -303,7 +304,7 @@ static uint32_t EntryOf(const Layout* l, uint32_t frame, uint32_t* firstOut)
 static double Apart(const Layout* l, uint32_t e, uint32_t a, uint32_t b)
 {
     uint32_t d = a > b ? a - b : b - a;
-    if ((l->flags[e] & MANI_MATCH_LOOP) != 0 && l->counts[e] - d < d)
+    if ((l->flags[e] & maniMatchEntryLoop) != 0 && l->counts[e] - d < d)
     {
         d = l->counts[e] - d;
     }
@@ -319,11 +320,11 @@ static bool Out(const Layout* l, const maniMatchQuery* q, uint32_t f)
 {
     uint32_t first = 0;
     uint32_t e = EntryOf(l, f, &first);
-    if (!Passes(l, q, e) || (l->flags[e] & MANI_MATCH_NO_JUMP) != 0 || f == q->current)
+    if (!Passes(l, q, e) || (l->flags[e] & maniMatchEntryNoJump) != 0 || f == q->current)
     {
         return true;
     }
-    if ((l->flags[e] & MANI_MATCH_LOOP) == 0 &&
+    if ((l->flags[e] & maniMatchEntryLoop) == 0 &&
         (double)l->ends[e] - (double)(f - first) / (double)RATE < (double)q->endExclusion)
     {
         return true;
@@ -523,7 +524,7 @@ static void Small(maniMotionDatabase* d, uint32_t flags1, float bias1)
     l->flags[0] = 0;
     l->ends[0] = 3.0f / RATE;
     l->tags[0] = 1;
-    l->flags[1] = MANI_MATCH_LOOP | flags1;
+    l->flags[1] = maniMatchEntryLoop | flags1;
     l->ends[1] = 4.0f / RATE;
     l->biases[1] = bias1;
     l->tags[1] = 2;
@@ -580,7 +581,7 @@ static void TestRules(void)
     CHECK(maniMotionDatabase_Search(&d, &q, &r) == mani_success && r.frame == MANI_MATCH_NO_FRAME &&
               r.cost == HUGE_VALF,
           "no candidate");
-    Small(&d, MANI_MATCH_NO_JUMP, -10.0f);
+    Small(&d, maniMatchEntryNoJump, -10.0f);
     q = (maniMatchQuery){.current = MANI_MATCH_NO_FRAME};
     CHECK(Find(&d, q, 6.0f) == 3, "never jumped to");
     q.current = 6;

@@ -147,7 +147,8 @@ static maniBuildResult Kind(const maniGraphSource* source, uint32_t v, Work* w)
     bool additive = node->kind == maniGraphNodeAdditive;
     bool posesOnly = node->kind == maniGraphNodeSpring || node->kind == maniGraphNodeMirror ||
                      node->kind == maniGraphNodeTurnLimit ||
-                     (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls);
+                     ((uint32_t)node->kind >= maniGraphNodeTwoBone &&
+                      (uint32_t)node->kind <= maniGraphNodeBodySdls);
     // Every kind but the four above takes an input.
     MANI_ASSERT(node->inputCount > 0);
     uint32_t first = w->difference[node->inputs[0]];
@@ -584,7 +585,8 @@ static void PutData(const maniGraphSource* source, const maniGraphNodeSource* no
     {
         at = maniGraphPutWords(d, at, &node->pose.parameter, 1);
     }
-    else if (node->kind >= maniGraphNodeTwoBone && node->kind <= maniGraphNodeBodySdls)
+    else if ((uint32_t)node->kind >= maniGraphNodeTwoBone &&
+             (uint32_t)node->kind <= maniGraphNodeBodySdls)
     {
         at = maniGraphPutIk(source, d, at, node);
     }
@@ -642,7 +644,8 @@ static void PutNodes(const maniGraphSource* source, const Work* w, Layout* lay)
         MANI_ASSERT(4 * (uint64_t)lay->dataAt <= lay->sizes[4]);
         bool counted = node->kind == maniGraphNodeMachine || node->kind == maniGraphNodeOneShot ||
                        node->kind == maniGraphNodeMatch || node->kind == maniGraphNodeLearned ||
-                       (node->kind >= maniGraphNodeCcd && node->kind <= maniGraphNodeBodySdls);
+                       ((uint32_t)node->kind >= maniGraphNodeCcd &&
+                        (uint32_t)node->kind <= maniGraphNodeBodySdls);
         maniStoreU32(e + 16, counted ? lay->dataAt - first
                                      : maniGraphDataWords(node->kind, node->inputCount));
     }

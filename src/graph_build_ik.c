@@ -62,7 +62,8 @@ static uint32_t PutLimit(uint8_t* d, uint32_t at, const maniJointLimit* l)
                             hinge ? l->axis.z : 0.0f,  cone ? l->cone : 0.0f,
                             hinge ? l->low : 0.0f,     hinge ? l->high : 0.0f,
                             cone ? l->twistLow : 0.0f, cone ? l->twistHigh : 0.0f};
-    return maniGraphPutFloats(d, maniGraphPutWords(d, at, &l->kind, 1), words, 8);
+    const uint32_t kind = (uint32_t)l->kind;
+    return maniGraphPutFloats(d, maniGraphPutWords(d, at, &kind, 1), words, 8);
 }
 
 // A chain node's words: its bones, parameters, counts and numbers, its

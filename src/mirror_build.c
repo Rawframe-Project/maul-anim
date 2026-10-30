@@ -106,8 +106,8 @@ static maniBuildResult CheckRules(const maniMirrorMapSource* s)
         {
             return Result(mani_errorLimit, maniBuildReasonMirrorRule, i, 0);
         }
-        if (r->findLength == 0 || r->place > maniMirrorAnywhere || !Utf8(r->find, r->findLength) ||
-            !Utf8(r->replace, r->replaceLength))
+        if (r->findLength == 0 || (uint32_t)r->place > maniMirrorAnywhere ||
+            !Utf8(r->find, r->findLength) || !Utf8(r->replace, r->replaceLength))
         {
             return Refuse(maniBuildReasonMirrorRule, i, 0);
         }
@@ -676,7 +676,7 @@ static MANI_NOINLINE maniBuildResult BuildMirrorMapWork(maniBuilder* builder,
         maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
-    if (source->axis > maniMirrorAxisZ)
+    if ((uint32_t)source->axis > maniMirrorAxisZ)
     {
         return Refuse(maniBuildReasonOption, 0, 0);
     }

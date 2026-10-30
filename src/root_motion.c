@@ -55,9 +55,9 @@ static bool StoredValid(const uint8_t* p, uint64_t k)
 // The source's fields in range, with a channel chosen.
 static bool SourceValid(const maniRootMotionSource* s)
 {
-    return s->translationAxes <= 7u && s->rotation <= maniRootRotationWhole && s->twistAxis <= 2u &&
-           s->translationReference <= maniRootReferenceOrigin &&
-           s->rotationReference <= maniRootReferenceOrigin && s->loop <= 1u &&
+    return s->translationAxes <= 7u && (uint32_t)s->rotation <= maniRootRotationWhole &&
+           s->twistAxis <= 2u && (uint32_t)s->translationReference <= maniRootReferenceOrigin &&
+           (uint32_t)s->rotationReference <= maniRootReferenceOrigin && s->loop <= 1u &&
            (s->translationAxes != 0u || s->rotation != maniRootRotationNone);
 }
 

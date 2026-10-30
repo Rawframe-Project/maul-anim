@@ -359,6 +359,20 @@ static void TestRefusals(void)
     ExpectRefusal("0\n  P: \"TimeMode", "a unit of nothing");
     Setting("\"\",9\n", "\"\",19\n");
     ExpectRefusal("19\n", "a time mode FBX lacks");
+    // The negative values a kind's int32_t could hold.
+    static const char* const kNegative[2] = {"-1", "-2147483648"};
+    for (int k = 0; k < 2; ++k)
+    {
+        char value[32];
+        char at[64];
+        snprintf(value, sizeof value, "\"\",%s\n", kNegative[k]);
+        snprintf(at, sizeof at, "%s\n  P: \"UpAxisSign", kNegative[k]);
+        Setting("\"\",2\n", value);
+        ExpectRefusal(at, "a negative axis");
+        snprintf(at, sizeof at, "%s\n  P: \"TimeSpanStop", kNegative[k]);
+        Setting("\"\",9\n", value);
+        ExpectRefusal(at, "a negative time mode");
+    }
     Setting("\"\",9\n", "\"\",14\n");
     ExpectRefusal(NULL, "a custom rate not given");
     Setting("\"\",9\n", "\"\",14\n  P: \"CustomFrameRate\", \"double\", \"Number\", \"\",-12.5\n");

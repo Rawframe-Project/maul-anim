@@ -40,7 +40,7 @@ extern "C"
 #define MANI_MAX_BODY_IK_EFFECTORS 32u
 
     // How the top bone of a full-body solve moves.
-    typedef uint32_t maniBodyTopMode;
+    typedef int32_t maniBodyTopMode;
     enum
     {
         // Held at its input translation and rotation.

@@ -24,6 +24,7 @@
 #include "file_tag.h"
 #include "graph_fixture.h"
 #include "match_file.h"
+#include "negative_kinds.h"
 #include "source_padding.h"
 #include "vecmath.h"
 
@@ -99,9 +100,9 @@ static maniMotionDatabaseSource Source(void)
     s_channels[1] = Channel(maniMatchBoneVelocity, 0, kNow, 1, 1.0f);
     s_channels[2] = Channel(maniMatchTrajectoryPosition, 0, kAround, 2, 1.0f);
     s_channels[3] = Channel(maniMatchTrajectoryFacing, 0, kAhead, 1, 2.0f);
-    s_entries[0] = (maniMatchEntrySource){0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
+    s_entries[0] = (maniMatchEntrySource){0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u};
     s_entries[1] = (maniMatchEntrySource){1, 0, 0.0f, 1.0f, 0.5f, 2u};
-    s_entries[2] = (maniMatchEntrySource){2, MANI_MATCH_NO_JUMP, 0.0f, 1.0f, 0.0f, 4u};
+    s_entries[2] = (maniMatchEntrySource){2, maniMatchEntryNoJump, 0.0f, 1.0f, 0.0f, 4u};
     return (maniMotionDatabaseSource){
         &s_skeleton, s_clipList, s_channels,     s_entries,      3,    4,
         3,           10.0f,      maniMatchAxisY, maniMatchAxisZ, NULL, 0};
@@ -404,6 +405,15 @@ static void TestSourceRefusals(void)
     s = Source();
     s.up = 6;
     CHECK(Refused(&s, maniBuildReasonOption, 0, 0), "an unknown up");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        s = Source();
+        s.up = kNegativeKinds[k];
+        CHECK(Refused(&s, maniBuildReasonOption, 0, 0), "a negative up");
+        s = Source();
+        s.forward = kNegativeKinds[k];
+        CHECK(Refused(&s, maniBuildReasonOption, 0, 0), "a negative forward");
+    }
     s = Source();
     s.channelCount = 0;
     CHECK(Refused(&s, maniBuildReasonCount, 0, 0), "no channels");
@@ -444,6 +454,16 @@ static void TestChannelRefusals(void)
         CHECK(k == 4 || k == 5 || k >= 11 ? PastLimit(&s, maniBuildReasonChannel, 3, 0)
                                           : Refused(&s, maniBuildReasonChannel, 3, 0),
               "a channel refused");
+    }
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        maniMotionDatabaseSource s = Source();
+        s_channels[3] = (maniMatchChannelSource){kNegativeKinds[k], 0, 0, 1, kNow, NULL, 0, 1.0f};
+        CHECK(Refused(&s, maniBuildReasonChannel, 3, 0), "a channel of a negative kind refused");
+        s = Source();
+        s_channels[3] = (maniMatchChannelSource){
+            maniMatchBoneFacing, 0, kNegativeKinds[k], 1, kNow, NULL, 0, 1.0f};
+        CHECK(Refused(&s, maniBuildReasonChannel, 3, 0), "a facing of a negative axis refused");
     }
 #if SIZE_MAX > UINT32_MAX
     {
@@ -544,7 +564,7 @@ static void TestEntryRefusals(void)
     const maniMatchEntrySource kBad[7] = {
         {3, 0, 0.0f, 1.0f, 0.0f, 0u},  {0, 8, 0.0f, 1.0f, 0.0f, 0u},
         {0, 0, -0.1f, 1.0f, 0.0f, 0u}, {0, 0, 0.0f, 1.5f, 0.0f, 0u},
-        {0, 0, 0.6f, 0.5f, 0.0f, 0u},  {0, MANI_MATCH_LOOP, 0.5f, 0.5f, 0.0f, 0u},
+        {0, 0, 0.6f, 0.5f, 0.0f, 0u},  {0, maniMatchEntryLoop, 0.5f, 0.5f, 0.0f, 0u},
         {0, 0, 0.0f, 1.0f, NAN, 0u}};
     for (int k = 0; k < 7; ++k)
     {
@@ -553,7 +573,7 @@ static void TestEntryRefusals(void)
         CHECK(Refused(&s, maniBuildReasonEntry, 1, 0), "an entry refused");
     }
     maniMotionDatabaseSource s = Source();
-    s_entries[1].flags = MANI_MATCH_MIRRORED;
+    s_entries[1].flags = maniMatchEntryMirrored;
     CHECK(Refused(&s, maniBuildReasonMirrorDatabase, 1, 0), "a mirrored entry without a map");
     s = Source();
     s_entries[1] = (maniMatchEntrySource){1, 0, 0.5f, 0.5f, 0.0f, 0u};
