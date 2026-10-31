@@ -144,9 +144,9 @@ jobs:
   # a corpus is inputs, which stay valid when the library changes. After a
   # run that found nothing, the fuzzer's merge minimizes the seeds and the
   # corpus together, the summary gives the seeds' coverage and the
-  # corpus's, and the result is saved for the next night. A run that found
-  # something does none of that: its corpus holds inputs close to the
-  # finding. The corpus is never uploaded, and the cache is not secret (a
+  # corpus's, and on main the result is saved for the next night. A run
+  # that found something does none of that: its corpus holds inputs close
+  # to the finding. The corpus is never uploaded, and the cache is not secret (a
   # fork's pull request can restore it), so it holds nothing the seeds
   # would not lead to. A finding and the log stay on the runner:
   # tools/fuzz_target.sh prints only the report.
@@ -195,8 +195,10 @@ jobs:
             echo "|---|---|---|---|---|"
             echo "| \`$TARGET\` | $restored | $seeded | $(coverage "out/corpus/$TARGET") | $(find "out/corpus/$TARGET" -type f | wc -l) |"
           } >>"$GITHUB_STEP_SUMMARY"
+      # Only main's: a dispatch on another branch would save entries the
+      # prune, which keeps main's newest, never deletes.
       - name: Save the corpus
-        if: success()
+        if: success() && github.ref == 'refs/heads/main'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: out/corpus/${{ matrix.target }}
