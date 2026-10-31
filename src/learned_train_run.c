@@ -25,6 +25,7 @@
 #include "maul-anim/learnedbuild.h"
 #include "maul-anim/learnedtrain.h"
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -250,7 +251,7 @@ static void Iterate(maniLearnedTrainer* t)
 static MANI_NOINLINE maniResult TrainLearnedWork(maniLearnedTrainer* trainer, uint64_t iterations,
                                                  maniLearnedTrainerReport* reportOut)
 {
-    if (trainer != NULL && maniHostCalledBack(&trainer->host))
+    if (trainer != NULL && maniLearnedTrainerBusy(trainer))
     {
         return mani_errorBusy;
     }
@@ -313,19 +314,9 @@ static void Network(const maniTrainKept* k, maniLearnedLayerSource* layers,
                                       k->outputOffsets, k->outputScales, k->net.layerCount};
 }
 
-static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
-    maniBuilder* builder, const maniLearnedTrainer* trainer, maniLearnedWeights weightFormat)
+static maniBuildResult BuildFromTrainer(maniBuilder* builder, const maniLearnedTrainer* trainer,
+                                        maniLearnedWeights weightFormat)
 {
-    if (maniBuilderCalledBack(builder))
-    {
-        return maniBuildCalledBack();
-    }
-    // Read from the trainer's own code, its destroy's frees among it, the
-    // trainer may be mid-change or emptied: refused, counted on it.
-    if (trainer != NULL && maniHostCalledBack((maniHostCode*)&trainer->host))
-    {
-        return maniBuildCalledBack();
-    }
     if (builder == NULL)
     {
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
@@ -378,6 +369,33 @@ static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
     }
     maniRelease(&t->allocator, projectorLayers, count, sizeof(maniLearnedLayerSource), 8);
     maniRelease(&t->allocator, list, projectors, sizeof(maniLearnedProjectorSource), 8);
+    return r;
+}
+
+static MANI_NOINLINE maniBuildResult BuildLearnedModelFromTrainerWork(
+    maniBuilder* builder, const maniLearnedTrainer* trainer, maniLearnedWeights weightFormat)
+{
+    if (maniBuilderCalledBack(builder))
+    {
+        return maniBuildCalledBack();
+    }
+    if (trainer == NULL)
+    {
+        return BuildFromTrainer(builder, trainer, weightFormat);
+    }
+    // Read from the trainer's own code, the trainer may be mid-change or
+    // emptied: refused, counted on it.
+    maniLearnedTrainer* t = (maniLearnedTrainer*)trainer;
+    if (maniHostCalledBack(&t->host))
+    {
+        return maniBuildCalledBack();
+    }
+    // The trainer is read while the builder's code and its own run: while
+    // it is, a call that changes it is refused, and one that only reads it
+    // works. The count is the trainer's state, not its contents.
+    atomic_fetch_add_explicit(&t->readers, 1u, memory_order_relaxed);
+    maniBuildResult r = BuildFromTrainer(builder, trainer, weightFormat);
+    atomic_fetch_sub_explicit(&t->readers, 1u, memory_order_relaxed);
     return r;
 }
 

@@ -26,6 +26,7 @@
 
 #include <math.h>
 #include <stdalign.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -226,7 +227,7 @@ static maniResult CheckDef(const maniLearnedTrainerDef* def)
 
 void maniDestroyLearnedTrainer(maniLearnedTrainer* trainer)
 {
-    if (trainer == NULL || maniHostCalledBack(&trainer->host))
+    if (trainer == NULL || maniLearnedTrainerBusy(trainer))
     {
         return;
     }
@@ -279,6 +280,7 @@ CreateLearnedTrainerWork(const maniLearnedTrainerDef* def, const maniLearnedTrai
     *t = (maniLearnedTrainer){.source = *source,
                               .stageCount = MANI_LEARNED_PROJECTORS + source->projectorCount};
     maniHostCodeInit(&t->host, &def->allocator, &def->tasks);
+    atomic_init(&t->readers, 0u);
     t->allocator = maniHostAllocator(&t->host);
     t->tasks = maniHostTasks(&t->host);
     const maniTrainDataSource data = {source->skeleton,

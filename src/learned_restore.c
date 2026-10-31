@@ -231,7 +231,7 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(const void* byt
                                                                  void* out)
 {
     maniLearnedTrainer* trainer = out;
-    if (trainer != NULL && maniHostCalledBack(&trainer->host))
+    if (trainer != NULL && maniLearnedTrainerBusy(trainer))
     {
         return (maniFileResult){mani_errorBusy, 0, 0};
     }

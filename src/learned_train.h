@@ -22,6 +22,7 @@
 #include "maul-anim/base.h"
 #include "maul-anim/learnedtrain.h"
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -44,6 +45,10 @@ struct maniLearnedTrainer
     maniTaskHooks tasks;
     // The host's allocator and hooks, the mark and the misuses.
     maniHostCode host;
+    // The builds reading the trainer now: training, restoring and
+    // destroying it are refused meanwhile. Atomic, as a task hook may make
+    // that call from a worker.
+    _Atomic uint32_t readers;
     maniLearnedTrainerSource source;
     maniTrainData data;
     uint64_t signature;
@@ -64,6 +69,22 @@ struct maniLearnedTrainer
     // Projector p; kept as their stages end.
     maniTrainKept* networks;
 };
+
+// Whether a call that changes the trainer is refused: called back in
+// from its own code, or while a build reads it; one misuse counted.
+static inline bool maniLearnedTrainerBusy(maniLearnedTrainer* t)
+{
+    if (maniHostCalledBack(&t->host))
+    {
+        return true;
+    }
+    if (atomic_load_explicit(&t->readers, memory_order_relaxed) == 0)
+    {
+        return false;
+    }
+    maniHostCountMisuse(&t->host);
+    return true;
+}
 
 // Network n's shape: 0 the Compressor, 1 the Decompressor, 2 the
 // Stepper, 3 a Projector; false past a limit.
