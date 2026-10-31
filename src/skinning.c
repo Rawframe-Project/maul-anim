@@ -39,7 +39,7 @@ static float LoadF32(const uint8_t* p)
 static bool StreamValid(const maniSkinStream* s)
 {
     size_t width = s->kind == maniStreamTangent ? 16 : 12;
-    return s->in != NULL && s->out != NULL && s->kind <= maniStreamTangent &&
+    return s->in != NULL && s->out != NULL && (uint32_t)s->kind <= maniStreamTangent &&
            s->inStride >= width && s->outStride >= width;
 }
 

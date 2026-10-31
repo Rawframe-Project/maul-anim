@@ -78,9 +78,9 @@ static maniBuildResult CheckCollider(const maniSpringSetSource* s, uint32_t i)
 {
     const maniColliderSource* c = &s->colliders[i];
     bool plane = c->shape == maniColliderPlane;
-    bool ok = c->bone < s->skeleton->boneCount && c->shape <= maniColliderPlane && c->inside <= 1 &&
-              !(plane && c->inside != 0) && Finite(c->radius) && c->radius >= 0.0f &&
-              FiniteVec(c->offset) && FiniteVec(c->tail) &&
+    bool ok = c->bone < s->skeleton->boneCount && (uint32_t)c->shape <= maniColliderPlane &&
+              c->inside <= 1 && !(plane && c->inside != 0) && Finite(c->radius) &&
+              c->radius >= 0.0f && FiniteVec(c->offset) && FiniteVec(c->tail) &&
               (!plane || Unit(maniVec3Dot(c->tail, c->tail)));
     return ok ? kOk : Refuse(maniBuildReasonCollider, i, 0);
 }
@@ -128,9 +128,9 @@ static bool JointValid(const maniSpringJointSource* j, bool last)
     }
     maniQuat q = j->limitRotation;
     bool yaw = j->limit != maniSpringLimitSpherical || (Finite(j->limitYaw) && j->limitYaw >= 0.0f);
-    return j->limit <= maniSpringLimitSpherical && Finite(j->limitAngle) && j->limitAngle >= 0.0f &&
-           yaw && Finite(q.x) && Finite(q.y) && Finite(q.z) && Finite(q.w) &&
-           Unit(maniQuatDot(q, q));
+    return (uint32_t)j->limit <= maniSpringLimitSpherical && Finite(j->limitAngle) &&
+           j->limitAngle >= 0.0f && yaw && Finite(q.x) && Finite(q.y) && Finite(q.z) &&
+           Finite(q.w) && Unit(maniQuatDot(q, q));
 }
 
 // Spring i's joints: bones in range, each above the next, none taken by

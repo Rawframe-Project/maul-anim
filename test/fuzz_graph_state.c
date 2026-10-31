@@ -106,7 +106,7 @@ static bool MakeDatabase(maniBuilder* builder)
     static const float kNow[1] = {0.0f};
     const maniClip* clips[1] = {&s_clip};
     const maniMatchChannelSource channel = {maniMatchBonePosition, 0, 0, 1, kNow, NULL, 0, 1.0f};
-    const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
+    const maniMatchEntrySource entries[2] = {{0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u},
                                              {0, 0, 0.0f, 1.0f, 0.5f, 2u}};
     maniMotionDatabaseSource source = {&s_skeleton, clips, &channel,       entries,        1,    1,
                                        2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};

@@ -30,7 +30,7 @@ extern "C"
 #endif
 
     // The model axis the mirror plane is normal to.
-    typedef uint32_t maniMirrorAxis;
+    typedef int32_t maniMirrorAxis;
     enum
     {
         maniMirrorAxisX = 0,

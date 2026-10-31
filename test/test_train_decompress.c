@@ -156,8 +156,8 @@ static void OpenSway(void)
     static const float kNow[1] = {0.0f};
     const maniMatchChannelSource channel = {maniMatchBonePosition, 2, 0, 1, kNow, NULL, 0, 1.0f};
     const maniClip* clips[2] = {&s_clips[0], &s_sway};
-    const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u},
-                                             {1, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u}};
+    const maniMatchEntrySource entries[2] = {{0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 0u},
+                                             {1, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 0u}};
     maniMotionDatabaseSource database = {
         &s_skeleton, clips, &channel,       entries,        2,    1,
         2,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};

@@ -218,9 +218,9 @@ static uint32_t ChannelWrong(const maniLearnedModel* m, const uint8_t* e, uint32
 {
     uint32_t kind = maniLoadU32(e);
     uint32_t times = maniLoadU32(e + 12);
-    bool bone = kind <= maniMatchBoneFacing;
+    bool bone = (uint32_t)kind <= maniMatchBoneFacing;
     float weight = LoadF32(e + 28);
-    const bool valid[8] = {kind <= maniMatchFloatTrack,
+    const bool valid[8] = {(uint32_t)kind <= maniMatchFloatTrack,
                            bone ? maniLoadU32(e + 4) < m->boneCount : maniLoadU32(e + 4) == 0,
                            kind == maniMatchBoneFacing
                                ? maniLoadU32(e + 8) <= maniMatchAxisNegativeZ

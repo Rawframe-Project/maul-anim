@@ -30,7 +30,7 @@ extern "C"
     // radius), a capsule along the frame's y (size.x the radius, size.y
     // the distance between its caps' centers) or a box (size the half
     // extents).
-    typedef uint32_t maniRagdollShape;
+    typedef int32_t maniRagdollShape;
     enum
     {
         maniRagdollSphere = 0,

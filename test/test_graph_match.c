@@ -530,7 +530,7 @@ static void TestInterpolated(void)
     t = Searched(&run, 2, 1, (double)0.7f, true, (float)(0.5 * (near * near + far * far)), &entry);
     CHECK(entry == 1 && t == (double)0.7f, "settled up to a frame, its own features");
     const maniClip* clips[1] = {&s_clips[3]};
-    const maniMatchEntrySource loop = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
+    const maniMatchEntrySource loop = {0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u};
     maniMotionDatabaseSource source = {&s_skeleton, clips, channels,       &loop,          1,    1,
                                        1,           10.0f, maniMatchAxisY, maniMatchAxisZ, NULL, 0};
     maniMotionDatabase looped;
@@ -613,7 +613,7 @@ static void TestFacingBlend(void)
 {
     static const float kNow[1] = {0.0f};
     const maniClip* clips[2] = {&s_clips[7], &s_clips[8]};
-    const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
+    const maniMatchEntrySource entries[2] = {{0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u},
                                              {1, 0, 0.0f, 1.0f, 0.0f, 2u}};
     maniMotionDatabase d;
     bool built = false;

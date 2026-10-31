@@ -213,9 +213,9 @@ static const maniClip* s_clips[2];
 static maniMotionDatabaseSource Mirrored(const maniMirrorMap* map)
 {
     s_clips[0] = &s_walk;
-    s_entries[0] = (maniMatchEntrySource){0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u};
-    s_entries[1] =
-        (maniMatchEntrySource){0, MANI_MATCH_LOOP | MANI_MATCH_MIRRORED, 0.0f, 1.0f, 0.0f, 2u};
+    s_entries[0] = (maniMatchEntrySource){0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u};
+    s_entries[1] = (maniMatchEntrySource){
+        0, maniMatchEntryLoop | maniMatchEntryMirrored, 0.0f, 1.0f, 0.0f, 2u};
     return (maniMotionDatabaseSource){&s_skeleton, s_clips, kChannels,      s_entries,      1,   6,
                                       2,           30.0f,   maniMatchAxisY, maniMatchAxisZ, map, 0};
 }
@@ -234,8 +234,8 @@ static void TestFeatures(void)
               maniMotionDatabase_GetMirrorMapIdentity(NULL) == 0,
           "the map's identity kept");
     static const maniClip* baked[2];
-    static const maniMatchEntrySource entries[2] = {{0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 1u},
-                                                    {1, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 2u}};
+    static const maniMatchEntrySource entries[2] = {{0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 1u},
+                                                    {1, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 2u}};
     baked[0] = &s_walk;
     baked[1] = &s_baked;
     const maniMotionDatabaseSource bake = {
@@ -270,8 +270,8 @@ static void TestFeatures(void)
     CHECK(differs, "the mirrored frames not the walk's");
     // Clamped halves, the mirrored one starting where the plain one ends:
     // the sampler's last pose is not the mirrored one's.
-    static const maniMatchEntrySource halves[2] = {{0, 0, 0.0f, 0.5f, 0.0f, 1u},
-                                                   {0, MANI_MATCH_MIRRORED, 0.5f, 1.0f, 0.0f, 2u}};
+    static const maniMatchEntrySource halves[2] = {
+        {0, 0, 0.0f, 0.5f, 0.0f, 1u}, {0, maniMatchEntryMirrored, 0.5f, 1.0f, 0.0f, 2u}};
     static const maniMatchEntrySource bakedHalves[2] = {{0, 0, 0.0f, 0.5f, 0.0f, 1u},
                                                         {1, 0, 0.5f, 1.0f, 0.0f, 2u}};
     maniMotionDatabase a;

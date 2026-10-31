@@ -41,7 +41,7 @@ maniBasis maniFbxBasis(const maniFbx* fbx, const maniFbxOptions* options)
     maniAxis axes[3] = {maniAxisX, maniAxisY, maniAxisZ};
     for (uint32_t k = 0; o->convertAxes != 0 && k < 3; ++k)
     {
-        bool negative = (s->signs[k] < 0) != (o->axes[k] >= maniAxisNegativeX);
+        bool negative = (s->signs[k] < 0) != ((uint32_t)o->axes[k] >= maniAxisNegativeX);
         axes[o->axes[k] % 3] = s->axes[k] + (negative ? maniAxisNegativeX : maniAxisX);
     }
     double unit = o->unitMeters > 0.0 ? s->unitScale * 0.01 / o->unitMeters : 1.0;

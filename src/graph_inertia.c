@@ -247,7 +247,7 @@ uint32_t maniGraphInertiaValid(const maniGraph* g, uint32_t data, uint32_t block
     {
         return data;
     }
-    if (method > maniGraphDeadBlending)
+    if ((uint32_t)method > maniGraphDeadBlending)
     {
         return data + maniGraphInertiaMethod;
     }

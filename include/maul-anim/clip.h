@@ -26,7 +26,7 @@ extern "C"
 
     // What a clip says happens past its end; a graph applies it, sampling
     // clamps.
-    typedef uint32_t maniLoopPolicy;
+    typedef int32_t maniLoopPolicy;
     enum
     {
         maniLoopClamp = 0,
@@ -36,7 +36,7 @@ extern "C"
     // What an additive clip's differences are from: the
     // skeleton's rest or the source's first sample; none for a clip of
     // poses.
-    typedef uint32_t maniAdditiveBasis;
+    typedef int32_t maniAdditiveBasis;
     enum
     {
         maniAdditiveNone = 0,

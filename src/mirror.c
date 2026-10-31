@@ -94,7 +94,7 @@ static maniFileResult Header(const Sections* s, maniMirrorMap* m)
     {
         return Fail(at + 8);
     }
-    if (m->axis > maniMirrorAxisZ)
+    if ((uint32_t)m->axis > maniMirrorAxisZ)
     {
         return Fail(at + 12);
     }

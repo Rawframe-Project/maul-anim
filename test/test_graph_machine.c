@@ -20,6 +20,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "graph_space_fixture.h"
+#include "negative_kinds.h"
 
 #include "maul-anim/pose.h"
 
@@ -563,6 +564,11 @@ static void TestRefusals(void)
     t[1].cooldown = 0.0f;
     t[1].interruption = 3;
     CHECK(Transition(Built(t, 2, 0, 0), 1), "an interruption past any");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        t[1].interruption = kNegativeKinds[k];
+        CHECK(Transition(Built(t, 2, 0, 0), 1), "a negative interruption");
+    }
     t[1].interruption = 0;
     t[1].conditionCount = 1;
     CHECK(Transition(Built(t, 2, 0, 0), 1), "conditions counted but none");
@@ -586,6 +592,15 @@ static void TestRefusals(void)
     {
         c[0] = kWrong[k];
         CHECK(Transition(Built(t, 2, 0, 0), 1), "a condition wrong");
+    }
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        c[0] = Greater(0, 1.0f);
+        c[0].compare = kNegativeKinds[k];
+        CHECK(Transition(Built(t, 2, 0, 0), 1), "a negative comparison");
+        c[0] = Greater(0, 1.0f);
+        c[0].kind = kNegativeKinds[k];
+        CHECK(Transition(Built(t, 2, 0, 0), 1), "a negative condition kind");
     }
     c[0] = Trigger(1);
     CHECK(Built(t, 2, 0, 0).result == mani_success, "a trigger");

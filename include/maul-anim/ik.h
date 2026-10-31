@@ -152,7 +152,7 @@ extern "C"
 #define MANI_MAX_IK_ITERATIONS 256u
 
     // How a joint limit bounds a bone's rotation.
-    typedef uint32_t maniJointLimitKind;
+    typedef int32_t maniJointLimitKind;
     enum
     {
         // Free.

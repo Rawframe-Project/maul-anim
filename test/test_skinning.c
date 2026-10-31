@@ -7,6 +7,7 @@
 // weight copied; ranges, strides and in-place runs giving the same bits;
 // refusals leaving the outputs; row palettes; the bits pinned.
 
+#include "negative_kinds.h"
 #include "source_padding.h"
 #include "test_harness.h"
 
@@ -414,6 +415,11 @@ static void TestRefusals(void)
     streams[2].inStride = sizeof(Vertex);
     streams[1].kind = 4;
     ExpectRefused(&job, "an unknown kind");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        streams[1].kind = kNegativeKinds[k];
+        ExpectRefused(&job, "a negative kind");
+    }
     streams[1].kind = maniStreamNormal;
     streams[0].out = NULL;
     ExpectRefused(&job, "no output");

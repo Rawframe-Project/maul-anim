@@ -13,6 +13,7 @@
 #include "fbx_document.h"
 #include "fbx_transform.h"
 #include "fbx_world.h"
+#include "negative_kinds.h"
 #include "test_harness.h"
 #include "vecmath.h"
 
@@ -372,6 +373,14 @@ static void TestMisuse(void)
     bad[0].convertAxes = 2;
     refused = refused && maniBuildFbxSkeleton(builder, fbx, 0, &bad[0]).result == mani_errorInvalid;
     CHECK(refused, "options out of range");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        bad[0] = options;
+        bad[0].convertAxes = 1;
+        bad[0].axes[2] = kNegativeKinds[k];
+        CHECK(maniBuildFbxSkeleton(builder, fbx, 0, &bad[0]).result == mani_errorInvalid,
+              "a negative axis refused");
+    }
     maniAffine placement;
     CHECK(
         maniBuildFbxSkeleton(builder, fbx, 1, &options).result == mani_errorInvalid &&

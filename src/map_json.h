@@ -39,9 +39,10 @@ bool maniMapJsonReference(maniGraphReader* r, uint32_t value, const maniTransfor
 // A list's count, 0 when absent; refuses another kind.
 bool maniMapJsonCount(maniGraphReader* r, uint32_t value, uint32_t* countOut);
 
-// A word among count words into *out, *out as it is when absent.
+// A word among count words into *out, one of a kind's values; *out as it
+// is when absent.
 bool maniMapJsonWord(maniGraphReader* r, uint32_t value, const char* const* words, uint32_t count,
-                     uint32_t* out);
+                     int32_t* out);
 
 // The header's lines, after the opening brace.
 void maniMapJsonPutHeader(maniGraphWriter* w, const char* format);

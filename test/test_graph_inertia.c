@@ -26,6 +26,7 @@
 #include "graph_inertia.h"
 #include "graph_inertia_apply.h"
 #include "graph_inertia_fixture.h"
+#include "negative_kinds.h"
 
 #include "maul-anim/pose.h"
 
@@ -511,6 +512,11 @@ static void TestRefusals(void)
     }
     under[0].inertialize.method = 2;
     CHECK(Refused(Built(under, 4), maniBuildReasonNode, 0), "an unknown method");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        under[0].inertialize.method = kNegativeKinds[k];
+        CHECK(Refused(Built(under, 4), maniBuildReasonNode, 0), "a negative method");
+    }
     under[0].inertialize =
         Node(MANI_NO_PARAMETER, (maniGraphScalar){MANI_NO_PARAMETER, 0.2f}).inertialize;
     under[0].inertialize.halfLifeMax = 1.0f;

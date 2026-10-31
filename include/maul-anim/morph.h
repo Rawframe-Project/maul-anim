@@ -29,7 +29,7 @@ extern "C"
     // A vertex attribute morph targets move: deltas of 3 floats for
     // positions, normals and tangents (no w), 2 for texture coordinates,
     // 4 for colors (RGBA).
-    typedef uint32_t maniMorphSemantic;
+    typedef int32_t maniMorphSemantic;
     enum
     {
         maniMorphPosition = 0,
@@ -115,7 +115,7 @@ extern "C"
     /// @param attribute  The attribute, in the file's order.
     /// @param setOut     Receives its set (0 for positions, normals and
     ///                   tangents); may be NULL.
-    /// @return Its semantic; UINT32_MAX (and set 0) past the count.
+    /// @return Its semantic; -1 (and set 0) past the count.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API maniMorphSemantic maniMorphTargets_GetAttribute(const maniMorphTargets* targets,

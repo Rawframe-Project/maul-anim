@@ -39,7 +39,7 @@ extern "C"
 
     // How a model keeps its weights: binary32, or 16-bit integers with a
     // binary32 scale for each of a layer's inputs (half the size).
-    typedef uint32_t maniLearnedWeights;
+    typedef int32_t maniLearnedWeights;
     enum
     {
         maniLearnedWeightsFloat32 = 0,

@@ -16,6 +16,7 @@
 #include "clip_file.h"
 #include "container.h"
 #include "file_tag.h"
+#include "negative_kinds.h"
 #include "source_padding.h"
 #include "test_harness.h"
 
@@ -760,6 +761,18 @@ static void TestBuildRefusals(void)
     maniClipSource source = SampleSource();
     source.loop = 2;
     ExpectRefusal(&source, maniBuildReasonKind, 0, "loop policy");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        source = SampleSource();
+        source.loop = kNegativeKinds[k];
+        ExpectRefusal(&source, maniBuildReasonKind, 0, "a negative loop policy");
+        source = SampleSource();
+        s_tracks[0].rotation.interpolation = kNegativeKinds[k];
+        ExpectRefusal(&source, maniBuildReasonKind, 0, "a negative interpolation");
+        source = SampleSource();
+        source.additive = kNegativeKinds[k];
+        ExpectRefusal(&source, maniBuildReasonKind, 0, "a negative basis");
+    }
     source = SampleSource();
     source.sampleRate = -1.0f;
     ExpectRefusal(&source, maniBuildReasonTiming, 0, "rate");
@@ -925,6 +938,14 @@ static void TestOpenRefusals(void)
     ExpectFormat(header + 24, "loop policy");
     maniStoreU32(s_file + header + 60, 3);
     ExpectFormat(header + 60, "an additive basis past first frame");
+    // The words a negative kind would leave.
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        maniStoreU32(s_file + header + 24, (uint32_t)kNegativeKinds[k]);
+        ExpectFormat(header + 24, "a negative loop policy's word");
+        maniStoreU32(s_file + header + 60, (uint32_t)kNegativeKinds[k]);
+        ExpectFormat(header + 60, "a negative basis's word");
+    }
     s_file[header + 63] = 1;
     ExpectFormat(header + 60, "the basis word's last byte");
     s_file[header + 56] = 2;

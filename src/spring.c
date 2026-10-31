@@ -160,7 +160,7 @@ static maniFileResult Collider(const Sections* s, const maniSpringSet* set, uint
     {
         return Fail(at + maniSpringColliderBone);
     }
-    if (shape > maniColliderPlane)
+    if ((uint32_t)shape > maniColliderPlane)
     {
         return Fail(at + maniSpringColliderShape);
     }

@@ -160,7 +160,7 @@ static bool HeaderValid(const maniBodySolve* solve)
     return solve->effectors != NULL && solve->effectorCount >= 1 &&
            (solve->bones != NULL || solve->boneCount == 0) && solve->iterations >= 1 &&
            solve->tolerance >= 0.0f && isfinite(solve->tolerance) && Unit(solve->weight) &&
-           solve->topMode <= maniBodyTopPrePull;
+           (uint32_t)solve->topMode <= maniBodyTopPrePull;
 }
 
 uint32_t maniBodyPartShape(const maniSkeleton* skeleton, const maniBodySolve* solve, bool* past)

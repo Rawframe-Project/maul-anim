@@ -25,6 +25,7 @@
 #include "graph_file.h"
 #include "graph_fixture.h"
 #include "graph_instance.h"
+#include "negative_kinds.h"
 
 #include "maul-anim/bodyik.h"
 #include "maul-anim/build.h"
@@ -374,6 +375,13 @@ static void TestBuildRefusals(void)
                         : Refused(maniGraphNodeBodyXpbd, bad[k], maniBuildReasonNode, 0);
     }
     CHECK(refused == 12, "the top, mode, counts and numbers refused, past a bound at the limit");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        maniGraphBodyNodeSource negative = kXpbd;
+        negative.topMode = kNegativeKinds[k];
+        CHECK(Refused(maniGraphNodeBodyXpbd, negative, maniBuildReasonNode, 0),
+              "a negative top mode refused");
+    }
     maniGraphBodyNodeSource s = kSdls;
     s.stretch = true;
     CHECK(Refused(maniGraphNodeBodySdls, s, maniBuildReasonNode, 0), "an SDLS node's stretch");

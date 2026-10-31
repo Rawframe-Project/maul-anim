@@ -18,6 +18,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "file_tag.h"
+#include "negative_kinds.h"
 #include "ragdoll_file.h"
 #include "ragdoll_fixture.h"
 #include "source_padding.h"
@@ -188,6 +189,12 @@ static void TestBodyRefusals(void)
     s = Source();
     s_bodies[2].shape = 3;
     CHECK(Refused(&s, maniBuildReasonRagdollBody, 2, 0), "an unknown shape");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        s = Source();
+        s_bodies[2].shape = kNegativeKinds[k];
+        CHECK(Refused(&s, maniBuildReasonRagdollBody, 2, 0), "a negative shape");
+    }
     const struct
     {
         uint32_t body;

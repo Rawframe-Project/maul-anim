@@ -16,6 +16,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "file_tag.h"
+#include "negative_kinds.h"
 #include "source_padding.h"
 #include "spring_file.h"
 #include "test_harness.h"
@@ -330,6 +331,12 @@ static void TestColliderRefusals(void)
     s = Source();
     s_colliders[1].shape = 3;
     CHECK(Refused(&s, maniBuildReasonCollider, 1, 0), "an unknown shape");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        s = Source();
+        s_colliders[1].shape = kNegativeKinds[k];
+        CHECK(Refused(&s, maniBuildReasonCollider, 1, 0), "a negative shape");
+    }
     s = Source();
     s_colliders[2].inside = 1;
     CHECK(Refused(&s, maniBuildReasonCollider, 2, 0), "an inside plane");
@@ -448,6 +455,12 @@ static void TestJointRefusals(void)
     s = Source();
     j->limit = 4;
     CHECK(Refused(&s, maniBuildReasonSpringJoint, 0, 1), "an unknown limit");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        s = Source();
+        j->limit = kNegativeKinds[k];
+        CHECK(Refused(&s, maniBuildReasonSpringJoint, 0, 1), "a negative limit");
+    }
     s = Source();
     j->limitAngle = -0.1f;
     CHECK(Refused(&s, maniBuildReasonSpringJoint, 0, 1), "a negative angle");

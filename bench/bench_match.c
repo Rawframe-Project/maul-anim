@@ -503,7 +503,7 @@ static uint32_t FramesApart(const maniMotionDatabase* d, float seconds)
 static uint32_t Apart(const maniMatchEntry* e, uint32_t a, uint32_t b)
 {
     uint32_t frames = a > b ? a - b : b - a;
-    bool loop = (e->flags & MANI_MATCH_LOOP) != 0;
+    bool loop = (e->flags & maniMatchEntryLoop) != 0;
     return loop && e->frameCount - frames < frames ? e->frameCount - frames : frames;
 }
 
@@ -523,7 +523,7 @@ static uint32_t StopOf(const TreeSearch* s, uint32_t entry)
         return *stop;
     }
     const maniMatchEntry* e = &s->t->entries[entry];
-    if ((e->flags & MANI_MATCH_LOOP) != 0)
+    if ((e->flags & maniMatchEntryLoop) != 0)
     {
         *stop = e->firstFrame + e->frameCount;
         return *stop;
@@ -625,7 +625,7 @@ static void ScanLeaf(TreeSearch* s, const Node* node)
         uint32_t entry = t->entryOf[frame];
         const maniMatchEntry* e = &t->entries[entry];
         if ((e->tags & s->q->requiredTags) != s->q->requiredTags ||
-            (e->tags & s->q->excludedTags) != 0 || (e->flags & MANI_MATCH_NO_JUMP) != 0 ||
+            (e->tags & s->q->excludedTags) != 0 || (e->flags & maniMatchEntryNoJump) != 0 ||
             frame >= StopOf(s, entry) || Excluded(s, entry, e, frame))
         {
             continue;

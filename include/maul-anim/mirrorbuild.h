@@ -24,7 +24,7 @@ extern "C"
 #endif
 
     // Where a rule's find must lie in a name.
-    typedef uint32_t maniMirrorPlace;
+    typedef int32_t maniMirrorPlace;
     enum
     {
         maniMirrorPrefix = 0,

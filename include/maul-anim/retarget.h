@@ -30,7 +30,7 @@ extern "C"
     // source turns on either side of its place, slerped); one to one
     // (by order from the start, extra target bones at their reference);
     // one to one reversed (by order from the end).
-    typedef uint32_t maniRetargetRotation;
+    typedef int32_t maniRetargetRotation;
     enum
     {
         maniRetargetRotationNone = 0,
@@ -44,7 +44,7 @@ extern "C"
     // carried through the parents' reference frames and scaled by the
     // ratio of the pelvis heights (1 without a pelvis); or the source's
     // local translation itself, carried the same way.
-    typedef uint32_t maniRetargetTranslation;
+    typedef int32_t maniRetargetTranslation;
     enum
     {
         maniRetargetTranslationOwn = 0,

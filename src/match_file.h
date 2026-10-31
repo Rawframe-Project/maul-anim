@@ -67,7 +67,7 @@ enum
 };
 
 // Every flag an entry may carry.
-#define MANI_MATCH_ENTRY_FLAGS (MANI_MATCH_LOOP | MANI_MATCH_NO_JUMP | MANI_MATCH_MIRRORED)
+#define MANI_MATCH_ENTRY_FLAGS (maniMatchEntryLoop | maniMatchEntryNoJump | maniMatchEntryMirrored)
 
 #define MANI_MATCH_HEADER_SIZE   56u
 #define MANI_MATCH_CHANNEL_SIZE  40u

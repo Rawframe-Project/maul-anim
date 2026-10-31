@@ -222,7 +222,7 @@ static maniBuildResult CheckParameter(const maniGraphParameterSource* p, uint32_
 {
     maniGraphParameterType t = p->type;
     bool number = t == maniGraphParameterInt || t == maniGraphParameterFloat;
-    bool ok = t <= maniGraphParameterPose && p->bounded <= (number ? 1u : 0u);
+    bool ok = (uint32_t)t <= maniGraphParameterPose && p->bounded <= (number ? 1u : 0u);
     if (ok && t == maniGraphParameterPose)
     {
         // A pose parameter's value is 0.
@@ -431,8 +431,8 @@ static maniBuildResult CheckClipNode(const maniGraphSource* source, const maniGr
     const maniGraphClipNodeSource* c = &n->clip;
     bool grouped = c->syncGroup < source->syncGroupCount;
     bool ok = c->clip < source->clipCount && (grouped || c->syncGroup == MANI_NO_SYNC_GROUP) &&
-              c->loop <= maniGraphLoopRepeat && (c->flags & ~(uint32_t)maniGraphClipLeader) == 0 &&
-              (grouped || c->flags == 0);
+              (uint32_t)c->loop <= maniGraphLoopRepeat &&
+              (c->flags & ~(uint32_t)maniGraphClipLeader) == 0 && (grouped || c->flags == 0);
     return ok ? CheckScalar(source, c->speed, node, 0, -HUGE_VALF, HUGE_VALF)
               : maniGraphRefuse(maniBuildReasonNode, node, 0);
 }
@@ -477,7 +477,8 @@ static maniBuildResult CheckShotNode(const maniGraphSource* source, const maniGr
               (s->fadeOutTrigger == MANI_NO_PARAMETER ||
                ParameterOf(source, s->fadeOutTrigger, trigger, trigger)) &&
               (s->abort == MANI_NO_PARAMETER || ParameterOf(source, s->abort, trigger, trigger)) &&
-              s->curve <= maniGraphFadeSmoothstep && Seconds(s->fadeIn) && Seconds(s->fadeOut);
+              (uint32_t)s->curve <= maniGraphFadeSmoothstep && Seconds(s->fadeIn) &&
+              Seconds(s->fadeOut);
     if (!ok)
     {
         return maniGraphRefuse(maniBuildReasonNode, node, 0);
@@ -495,7 +496,8 @@ static maniBuildResult CheckInertialize(const maniGraphSource* source, const man
     maniGraphInertia lives = {0, s->method, s->halfLifeScale, s->halfLifeMin, s->halfLifeMax, NULL};
     bool ok =
         (s->trigger == MANI_NO_PARAMETER || ParameterOf(source, s->trigger, trigger, trigger)) &&
-        s->method <= maniGraphDeadBlending && maniGraphHalfLivesValid(&lives) == UINT32_MAX;
+        (uint32_t)s->method <= maniGraphDeadBlending &&
+        maniGraphHalfLivesValid(&lives) == UINT32_MAX;
     return ok ? CheckScalar(source, s->duration, node, 0, 0.0f, HUGE_VALF)
               : maniGraphRefuse(maniBuildReasonNode, node, 0);
 }

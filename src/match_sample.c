@@ -35,13 +35,13 @@
 
 static bool Mirrored(const maniMatchEntrySource* e)
 {
-    return (e->flags & MANI_MATCH_MIRRORED) != 0;
+    return (e->flags & maniMatchEntryMirrored) != 0;
 }
 
 static maniMatchPlace Locate(const maniMatchSampler* s, const maniClip* clip,
                              const maniMatchEntrySource* e, float t, double step)
 {
-    maniMatchSpan span = {e->start, e->end, (e->flags & MANI_MATCH_LOOP) != 0};
+    maniMatchSpan span = {e->start, e->end, (e->flags & maniMatchEntryLoop) != 0};
     maniMatchPlace p = maniMatchLocate(clip, span, t, step);
     p.move = Mirrored(e) ? maniMirrorMap_MirrorRootMotion(s->source->mirrorMap, p.move) : p.move;
     return p;
@@ -98,7 +98,7 @@ static bool Velocity(maniMatchSampler* s, const maniClip* clip, const maniMatchE
     }
     // A looping entry's times are a frame apart either way; a clamped
     // one's as far as its ends let them be.
-    bool loop = (e->flags & MANI_MATCH_LOOP) != 0;
+    bool loop = (e->flags & maniMatchEntryLoop) != 0;
     double apart = loop ? 2.0 * h : (double)after.time - (double)before.time;
     *out = apart > 0.0 ? maniVec3Scale(maniVec3Sub(b, a), (float)(1.0 / apart))
                        : (maniVec3){0.0f, 0.0f, 0.0f};

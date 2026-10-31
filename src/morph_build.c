@@ -102,7 +102,8 @@ static maniBuildResult CheckTable(const maniMorphSource* s)
     for (uint32_t a = 0; a < s->attributeCount; ++a)
     {
         const maniMorphAttributeSource* x = &s->attributes[a];
-        if (maniMorphWidth(x->semantic) == 0 || (x->semantic <= maniMorphTangent && x->set != 0))
+        if (maniMorphWidth(x->semantic) == 0 ||
+            ((uint32_t)x->semantic <= maniMorphTangent && x->set != 0))
         {
             return Result(mani_errorInvalid, maniBuildReasonAttribute, a, 0);
         }

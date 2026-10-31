@@ -108,7 +108,7 @@ static bool QueryValid(const maniGraphSource* source, const maniGraphMatchNodeSo
     for (uint32_t q = 0; q < m->queryCount; ++q)
     {
         uint32_t p = m->query[q];
-        types[q] = p < source->parameterCount ? source->parameters[p].type : UINT32_MAX;
+        types[q] = p < source->parameterCount ? (uint32_t)source->parameters[p].type : UINT32_MAX;
     }
     const maniMotionDatabase* d = source->databases[m->database].database;
     return maniGraphQueryFits(d, d->channelCount, maniGraphDatabaseChannel, types, m->queryCount);

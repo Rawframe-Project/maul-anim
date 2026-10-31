@@ -534,8 +534,9 @@ static bool ClipNode(Reader* r, const Scope* scope, const uint32_t* f, maniGraph
         return false;
     }
     c->flags = leader ? (uint32_t)maniGraphClipLeader : 0u;
-    c->loop = f[4] == ABSENT ? 0u : maniGraphJsonWord(r, f[4], kLoops, 3);
-    return c->loop < 3u || maniGraphJsonFault(r, f[4], maniGraphFormValue);
+    uint32_t loop = f[4] == ABSENT ? 0u : maniGraphJsonWord(r, f[4], kLoops, 3);
+    c->loop = (maniGraphLoop)loop;
+    return loop < 3u || maniGraphJsonFault(r, f[4], maniGraphFormValue);
 }
 
 static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out, Scope* scope);

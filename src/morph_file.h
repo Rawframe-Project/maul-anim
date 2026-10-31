@@ -49,7 +49,7 @@ enum
 // tangents (no w), 2 for texture coordinates, 4 for colors; 0 for none.
 static inline uint32_t maniMorphWidth(uint32_t semantic)
 {
-    return semantic <= maniMorphTangent
+    return (uint32_t)semantic <= maniMorphTangent
                ? 3u
                : (semantic == maniMorphTexcoord ? 2u : (semantic == maniMorphColor ? 4u : 0u));
 }

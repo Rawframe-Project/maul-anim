@@ -413,7 +413,7 @@ static void SampleMatch(const maniGraphEvaluation* e, const uint8_t* record, uin
     maniClipCursor* c = memory;
     SampleClip(e, c, e->binding->clips[clipSlot], (float)s->time, out);
     // A mirrored entry plays mirrored (its map bound as the graph's).
-    if ((m.flags & MANI_MATCH_MIRRORED) != 0)
+    if ((m.flags & maniMatchEntryMirrored) != 0)
     {
         (void)maniMirrorMap_MirrorPose(e->binding->mirrorMap, e->binding->skeleton, out, out);
     }

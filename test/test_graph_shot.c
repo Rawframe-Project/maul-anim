@@ -21,6 +21,7 @@
 
 #include "graph_shot.h"
 #include "graph_space_fixture.h"
+#include "negative_kinds.h"
 
 #include "maul-anim/pose.h"
 
@@ -457,6 +458,12 @@ static void TestRefusals(void)
     for (int k = 0; k < 7; ++k)
     {
         CHECK(Refused(Built(bad[k]), maniBuildReasonNode, 0), "a one-shot refused");
+    }
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        maniGraphOneShotNodeSource negative = Shot(0.0f, 0.0f);
+        negative.curve = kNegativeKinds[k];
+        CHECK(Refused(Built(negative), maniBuildReasonNode, 0), "a negative curve");
     }
     static const maniMaskChain kChain = {1, 2.0f, false};
     static const maniGraphMaskNodeSource kMask = {&kChain, 1, 0.0f};

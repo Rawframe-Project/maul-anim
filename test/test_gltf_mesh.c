@@ -15,6 +15,7 @@
 #include "bytes.h"
 #include "cleared.h"
 #include "morph_file.h"
+#include "negative_kinds.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
@@ -560,6 +561,13 @@ static void TestMorphRefusals(void)
               maniBuildGltfMorphTargets(builder, gltf, 0, 0, NULL).result == mani_errorInvalid &&
               maniBuildGltfMorphTargets(builder, gltf, 0, 0, &bad).result == mani_errorInvalid,
           "past a count, no options, options out of range");
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        bad = options;
+        bad.axes[2] = kNegativeKinds[k];
+        CHECK(maniBuildGltfMorphTargets(builder, gltf, 0, 0, &bad).result == mani_errorInvalid,
+              "a negative axis refused");
+    }
     maniCloseGltf(gltf);
     maniDestroyBuilder(builder);
 }

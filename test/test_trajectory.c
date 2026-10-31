@@ -239,7 +239,7 @@ static void TestAxes(void)
     static const maniMatchChannelSource kChannel = {
         maniMatchTrajectoryPosition, 0, 0, 1, kAhead, NULL, 0, 1.0f};
     const maniClip* clips[1] = {&s_clips[0]};
-    const maniMatchEntrySource entry = {0, MANI_MATCH_LOOP, 0.0f, 1.0f, 0.0f, 0u};
+    const maniMatchEntrySource entry = {0, maniMatchEntryLoop, 0.0f, 1.0f, 0.0f, 0u};
     maniMotionDatabaseSource source = {
         &s_skeleton, clips, &kChannel, &entry,         1,
         1,           1,     10.0f,     maniMatchAxisZ, maniMatchAxisNegativeX,

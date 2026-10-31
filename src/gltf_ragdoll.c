@@ -223,7 +223,7 @@ static maniImportResult ReadBody(maniGltfRagdollReader* r, uint32_t node, uint32
     maniRagdollBodySource* b = &r->bodies[r->bodyCount];
     *b = (maniRagdollBodySource){0};
     b->bone = bone;
-    b->shape = UINT32_MAX;
+    b->shape = -1;
     b->name = maniGltfNodeName(r->gltf, node, &b->nameLength);
     result = ReadMotion(r, motion, node, &b->mass);
     r->bodyNodes[r->bodyCount] = node;
@@ -370,7 +370,7 @@ static maniImportResult ReadCollider(maniGltfRagdollReader* r, uint32_t node, ui
         return maniImportSuccess();
     }
     maniRagdollBodySource* b = &r->bodies[owner];
-    if (b->shape != UINT32_MAX)
+    if (b->shape != -1)
     {
         return maniGltfRagdollFail(r, maniImportReasonUnsupported, collider, node);
     }
@@ -535,7 +535,7 @@ static maniImportResult Read(maniGltfRagdollReader* r, uint32_t* own)
     result = EachNode(r, "collider", shapes);
     for (uint32_t i = 0; i < r->bodyCount && result.result == mani_success; ++i)
     {
-        if (r->bodies[i].shape == UINT32_MAX)
+        if (r->bodies[i].shape == -1)
         {
             uint32_t body = MANI_JSON_NONE;
             (void)maniGltfRagdollExtension(r, r->gltf->nodeValues[r->bodyNodes[i]],

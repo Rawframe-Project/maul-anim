@@ -97,7 +97,7 @@ extern "C"
     MANI_API uint32_t maniBuilder_GetMisuse(const maniBuilder* builder);
 
     // Why a build refused its source.
-    typedef uint32_t maniBuildReason;
+    typedef int32_t maniBuildReason;
     enum
     {
         maniBuildReasonNone = 0,
@@ -528,7 +528,7 @@ extern "C"
                                                              const maniCenterSource* source);
 
     // How a channel's keys are joined, as glTF's samplers define it.
-    typedef uint32_t maniInterpolation;
+    typedef int32_t maniInterpolation;
     enum
     {
         maniInterpolationLinear = 0,
@@ -608,7 +608,7 @@ extern "C"
         uint32_t eventCount;
         uint32_t markerCount;
         // maniLoopClamp or maniLoopRepeat.
-        uint32_t loop;
+        maniLoopPolicy loop;
         // Samples per second, 0 for 30.
         float sampleRate;
         // Seconds, 0 for the last key's time.
@@ -760,7 +760,7 @@ extern "C"
                                                         maniCompressReport* reportOut);
 
     // A spring bone collider's shape.
-    typedef uint32_t maniColliderShape;
+    typedef int32_t maniColliderShape;
     enum
     {
         maniColliderSphere = 0,
@@ -797,7 +797,7 @@ extern "C"
     // (angle), a hinge (angle, turning about the limit's x only) or a
     // spherical limit (pitch about x, yaw about z), each opening along
     // the limit's +y.
-    typedef uint32_t maniSpringLimit;
+    typedef int32_t maniSpringLimit;
     enum
     {
         maniSpringLimitNone = 0,

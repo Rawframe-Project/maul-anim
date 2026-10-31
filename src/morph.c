@@ -166,7 +166,7 @@ static maniFileResult CheckAttributes(const Sections* s, const maniMorphTargets*
         {
             return Fail(at);
         }
-        if (semantic <= maniMorphTangent && set != 0)
+        if ((uint32_t)semantic <= maniMorphTangent && set != 0)
         {
             return Fail(at + 4);
         }
@@ -449,7 +449,7 @@ maniMorphSemantic maniMorphTargets_GetAttribute(const maniMorphTargets* targets,
     {
         *setOut = inside ? maniLoadU32(e + 4) : 0;
     }
-    return inside ? maniLoadU32(e) : UINT32_MAX;
+    return inside ? (maniMorphSemantic)maniLoadU32(e) : -1;
 }
 
 const char* maniMorphTargets_GetChannelName(const maniMorphTargets* targets, uint32_t channel,
@@ -700,7 +700,7 @@ static bool StreamValid(const maniMorphStream* s)
 {
     size_t width = 4 * (size_t)s->components;
     return s->in != NULL && s->out != NULL && Components(s->semantic, s->components) &&
-           (s->semantic > maniMorphTangent || s->set == 0) && s->inStride >= width &&
+           ((uint32_t)s->semantic > maniMorphTangent || s->set == 0) && s->inStride >= width &&
            s->outStride >= width;
 }
 

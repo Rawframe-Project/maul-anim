@@ -126,7 +126,7 @@ static maniFileResult Header(const Sections* s, maniRagdoll* out)
 static maniFileResult Shape(const uint8_t* e, uint64_t at)
 {
     uint32_t shape = maniLoadU32(e + maniRagdollBodyShape);
-    if (shape > maniRagdollBox)
+    if ((uint32_t)shape > maniRagdollBox)
     {
         return Fail(at + maniRagdollBodyShape);
     }

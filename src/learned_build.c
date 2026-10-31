@@ -228,7 +228,7 @@ static maniBuildResult CheckModel(const maniLearnedModelSource* s)
     {
         return Refuse(maniBuildReasonOption, 0, 0);
     }
-    if (s->weightFormat > maniLearnedWeightsInt16)
+    if ((uint32_t)s->weightFormat > maniLearnedWeightsInt16)
     {
         return Refuse(maniBuildReasonOption, 1, 0);
     }

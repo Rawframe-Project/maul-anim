@@ -502,7 +502,7 @@ static bool DifferenceValid(const maniGraph* g, const Node* n)
     // turn limits.
     if (n->kind == maniGraphNodeSpring || n->kind == maniGraphNodeMirror ||
         n->kind == maniGraphNodeTurnLimit ||
-        (n->kind >= maniGraphNodeTwoBone && n->kind <= maniGraphNodeBodySdls))
+        ((uint32_t)n->kind >= maniGraphNodeTwoBone && (uint32_t)n->kind <= maniGraphNodeBodySdls))
     {
         return own == 0 && Difference(g, Input(g, n->first)) == 0;
     }

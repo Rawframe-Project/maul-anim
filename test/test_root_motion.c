@@ -17,6 +17,7 @@
 #include "clip_build.h"
 #include "clip_file.h"
 #include "container.h"
+#include "negative_kinds.h"
 #include "pose_memory.h"
 #include "test_harness.h"
 
@@ -670,6 +671,18 @@ static void TestBuildRefusals(void)
         uint32_t* fields = &s.translationAxes;
         fields[i] = kField[i];
         ExpectRefused(&s, maniAdditiveNone, "a field out of range");
+    }
+    for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
+    {
+        s = Walk();
+        s.rotation = kNegativeKinds[k];
+        ExpectRefused(&s, maniAdditiveNone, "a negative rotation");
+        s = Walk();
+        s.translationReference = kNegativeKinds[k];
+        ExpectRefused(&s, maniAdditiveNone, "a negative translation reference");
+        s = Walk();
+        s.rotationReference = kNegativeKinds[k];
+        ExpectRefused(&s, maniAdditiveNone, "a negative rotation reference");
     }
     s = Walk();
     ExpectRefused(&s, maniAdditiveRest, "an additive clip");

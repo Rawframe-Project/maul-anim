@@ -44,16 +44,15 @@ extern "C"
 
     // An entry: a clip's span from start to end seconds (0 <= start <= end
     // <= the clip's duration; start < end for a looping one), its flags
-    // (MANI_MATCH_LOOP, MANI_MATCH_NO_JUMP, MANI_MATCH_MIRRORED), a cost added to its frames
-    // (finite) and its tags (any 32 bits, for a search's filter). Its
-    // frames are at start + k / sampleRate (in binary64, rounded to
-    // binary32), every k whose time is at most end (before it when the
-    // entry loops): counted in binary64, then one less or one more when
-    // the binary32 times of the last frame or the next say otherwise.
+    // (maniMatchEntryLoop, maniMatchEntryNoJump, maniMatchEntryMirrored), a cost added to its
+    // frames (finite) and its tags (any 32 bits, for a search's filter). Its frames are at start +
+    // k / sampleRate (in binary64, rounded to binary32), every k whose time is at most end (before
+    // it when the entry loops): counted in binary64, then one less or one more when the binary32
+    // times of the last frame or the next say otherwise.
     typedef struct maniMatchEntrySource
     {
         uint32_t clip;
-        uint32_t flags;
+        maniMatchEntryFlags flags;
         float start;
         float end;
         float costBias;

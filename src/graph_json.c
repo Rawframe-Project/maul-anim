@@ -70,7 +70,7 @@ static void PutParameter(Writer* w, const maniGraphParameterSource* p)
     maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "type");
     // The build refused any other type.
-    MANI_ASSERT(p->type < sizeof kTypes / sizeof kTypes[0]);
+    MANI_ASSERT((uint32_t)p->type < sizeof kTypes / sizeof kTypes[0]);
     maniGraphJsonPutString(w, kTypes[p->type], (uint32_t)strlen(kTypes[p->type]));
     if (p->type != maniGraphParameterPose)
     {
@@ -95,7 +95,7 @@ static void PutClipNode(Writer* w, const maniGraphSource* source, const maniGrap
     static const char* const kLoops[] = {"\"clip\"", "\"clamp\"", "\"repeat\""};
     // The build refused a slot past the clips and any other loop policy.
     MANI_ASSERT(c->clip < source->clipCount);
-    MANI_ASSERT(c->loop < sizeof kLoops / sizeof kLoops[0]);
+    MANI_ASSERT((uint32_t)c->loop < sizeof kLoops / sizeof kLoops[0]);
     const maniGraphClipSource* clip = &source->clips[c->clip];
     maniGraphJsonPutKey(w, "clip");
     maniGraphJsonPutString(w, clip->name, clip->nameLength);
@@ -472,7 +472,7 @@ static void PutCondition(Writer* w, const maniGraphSource* source,
         // The build refused a parameter past the list and any other
         // comparison.
         MANI_ASSERT(c->parameter < source->parameterCount);
-        MANI_ASSERT(c->compare < sizeof kCompares / sizeof kCompares[0]);
+        MANI_ASSERT((uint32_t)c->compare < sizeof kCompares / sizeof kCompares[0]);
         maniGraphParameterType type = source->parameters[c->parameter].type;
         maniGraphJsonPutKey(w, "parameter");
         maniGraphJsonPutParameterName(w, source, c->parameter);
@@ -504,9 +504,9 @@ static void PutTransition(Writer* w, const maniGraphSource* source,
     static const char* const kEntries[] = {"\"restart\"", "\"keep\"", "\"match\""};
     static const char* const kFades[] = {"\"linear\"", "\"smoothstep\"", "\"inertial\""};
     // The build refused any other interruption, entry or fade.
-    MANI_ASSERT(t->interruption < sizeof kInterruptions / sizeof kInterruptions[0] &&
-                t->entry < sizeof kEntries / sizeof kEntries[0] &&
-                t->fade < sizeof kFades / sizeof kFades[0]);
+    MANI_ASSERT((uint32_t)t->interruption < sizeof kInterruptions / sizeof kInterruptions[0] &&
+                (uint32_t)t->entry < sizeof kEntries / sizeof kEntries[0] &&
+                (uint32_t)t->fade < sizeof kFades / sizeof kFades[0]);
     maniGraphJsonPutText(w, "{");
     maniGraphJsonPutKey(w, "from");
     if (t->from == MANI_GRAPH_ANY_STATE)
