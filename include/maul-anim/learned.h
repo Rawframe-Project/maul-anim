@@ -234,7 +234,7 @@ extern "C"
     /// @param query        The model's feature count of features,
     ///                     normalized as the database's.
     /// @param stateOut     Receives the state; may be NULL when capacity is
-    ///                     0.
+    ///                     0, and may be query, which is read first.
     /// @param capacity     The floats stateOut holds.
     /// @param countOut     Receives the state's count of floats: the
     ///                     feature count and the latent count. May be NULL.

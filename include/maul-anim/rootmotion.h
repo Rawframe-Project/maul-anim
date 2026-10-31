@@ -122,7 +122,8 @@ extern "C"
     /// @param moves    count moves.
     /// @param weights  count weights, finite and not negative.
     /// @param count    The number of moves.
-    /// @param moveOut  Receives the blend.
+    /// @param moveOut  Receives the blend; may be one of moves, which
+    ///                 are all read first.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument
     /// with a count, a weight negative or not finite, or a move not
     /// finite (nothing written).

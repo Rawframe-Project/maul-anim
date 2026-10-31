@@ -483,6 +483,14 @@ static void TestBlend(void)
     CHECK(maniBlendRootMotion(turned, later, 3, &out) == mani_success &&
               MoveApart(out, maniRootMoveIdentity()) < 1e-6f,
           "a first move of weight 0 does not lead");
+    // In place: the blend written over one of its moves, as apart.
+    maniRootMove apart;
+    maniRootMove together[3] = {moves[0], moves[1], moves[2]};
+    const float uneven[3] = {1.0f, 2.0f, 0.5f};
+    CHECK(maniBlendRootMotion(moves, uneven, 3, &apart) == mani_success &&
+              maniBlendRootMotion(together, uneven, 3, &together[1]) == mani_success &&
+              memcmp(&together[1], &apart, sizeof apart) == 0,
+          "the blend written over a move, as apart");
     const float one[2] = {0.0f, 3.0f};
     CHECK(maniBlendRootMotion(moves, one, 2, &out) == mani_success &&
               MoveApart(out, moves[1]) < 1e-6f,
