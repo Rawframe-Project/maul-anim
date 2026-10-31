@@ -329,6 +329,16 @@ static void TestWeights(void)
     CHECK(maniMorphTargets_ComputeTargetWeights(
               &m, NULL, targets, maniMorphTargets_GetTargetCount(&m), NULL) == mani_errorInvalid,
           "no weights");
+    // In place: the second channel's three targets reach past the third
+    // channel's weight, which must be read before it is written over.
+    const float apart[3] = {0.25f, 0.75f, -0.5f};
+    float alone[5];
+    float together[5] = {0.25f, 0.75f, -0.5f, 9.0f, 9.0f};
+    CHECK(maniMorphTargets_ComputeTargetWeights(&m, apart, alone, 5, NULL) == mani_success &&
+              maniMorphTargets_ComputeTargetWeights(&m, together, together, 5, NULL) ==
+                  mani_success &&
+              memcmp(alone, together, sizeof alone) == 0,
+          "the target weights written over the channel weights, as apart");
     uint32_t measured = 0;
     uint32_t refused = 0;
     CHECK(maniMorphTargets_ComputeTargetWeights(&m, atKey, NULL, 0, &measured) ==

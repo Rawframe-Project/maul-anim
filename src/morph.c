@@ -647,7 +647,10 @@ static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* t
             return mani_errorInvalid;
         }
     }
-    for (uint32_t c = 0; c < targets->channelCount; ++c)
+    // Last channel first: a channel's targets start at or past its own
+    // index, so in place (targetWeights the channel weights) each channel
+    // writes only weights already read.
+    for (uint32_t c = targets->channelCount; c-- > 0;)
     {
         uint32_t first = 0;
         uint32_t count = maniMorphTargets_GetChannelTargets(targets, c, &first);
