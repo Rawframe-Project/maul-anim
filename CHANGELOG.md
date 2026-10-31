@@ -5,6 +5,36 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.8.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.7.0...v0.8.0) (2026-10-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* the kind, mode and choice typedefs are `int32_t`; `MANI_MATCH_LOOP`, `MANI_MATCH_NO_JUMP` and `MANI_MATCH_MIRRORED` are now `maniMatchEntryLoop`, `maniMatchEntryNoJump` and `maniMatchEntryMirrored` of `maniMatchEntryFlags`; `maniMorphTargets_GetAttribute` returns -1 past the count.
+* `maniLearnedTrainerReport.iteration` is now `iterationCount`, and `maniRootMoveIdentity` is now `maniMakeRootMoveIdentity`.
+* `maniGltf_SupplyBuffer`, `maniGltf_ReadSprings` and `maniGltf_ReadRagdoll` return `mani_errorBusy` when called from the builder's allocator, where they used to run; `maniLearnedTrainer_SaveCheckpoint` and `maniBuildLearnedModelFromTrainer` return it when called from the trainer's allocator or task hooks.
+* **family:** maniIsCpuBackendSupported and maniCheckCpu return bool instead of an int32_t 1 or 0, and maniHash64 takes an int64_t byteCount; a caller comparing the CPU check with 1 or passing a narrowed count updates its code. Hash values are unchanged.
+* on any failure but mani_errorBusy, maniBuilder_CopyBuilt, maniBuilder_CopySkeletonOrder, maniGltf_GetMorphWeights, maniFbx_GetMorphWeights and maniLearnedTrainer_SaveCheckpoint zero the caller's array up to its capacity; a short skeleton order is no longer filled as far as it goes.
+* a builder or trainer call refused with mani_errorBusy leaves its outputs as they were instead of zeroing them; every other failure still clears them, and maniOpenGltf and maniOpenFbx still set their handle to NULL.
+* every owner-object call with a scalar, struct, count or handle output clears it before its checks, and the four view getters clear theirs on a "no"; a caller that relied on an output staying as it was after a refusal or a "no" now reads zeros. maniBuildGltfClip and maniBuildFbxClip write boundOut only when the clip builds.
+
+### Fixed
+
+* a call refused as busy leaves its outputs ([#173](https://github.com/Rawframe-Project/maul-anim/issues/173)) ([816db56](https://github.com/Rawframe-Project/maul-anim/commit/816db56254e7d7c89ec88a01535473bfedbc5b2d)), closes [#168](https://github.com/Rawframe-Project/maul-anim/issues/168)
+* a refused call or a "no" clears its outputs ([#165](https://github.com/Rawframe-Project/maul-anim/issues/165)) ([19a8bf2](https://github.com/Rawframe-Project/maul-anim/commit/19a8bf271fa22c754ff5eccda4306ed3e67e4e15)), closes [#164](https://github.com/Rawframe-Project/maul-anim/issues/164)
+* a refused owner call zeroes the caller's array ([#174](https://github.com/Rawframe-Project/maul-anim/issues/174)) ([21258e0](https://github.com/Rawframe-Project/maul-anim/commit/21258e024ec5b1ed1e211a1dfa33f574e2bfac8d)), closes [#171](https://github.com/Rawframe-Project/maul-anim/issues/171)
+* mark the trainer busy while a model is built from it ([#197](https://github.com/Rawframe-Project/maul-anim/issues/197)) ([c5a606e](https://github.com/Rawframe-Project/maul-anim/commit/c5a606eaee7d4d1777a7bbbbf3e1f46801b16907)), closes [#185](https://github.com/Rawframe-Project/maul-anim/issues/185)
+* **morph:** compute target weights in place over the channel weights ([#193](https://github.com/Rawframe-Project/maul-anim/issues/193)) ([13695ee](https://github.com/Rawframe-Project/maul-anim/commit/13695ee688842b39db71adbb756750e4fa032a37)), closes [#191](https://github.com/Rawframe-Project/maul-anim/issues/191)
+* refuse calls back in from a destroy's or close's frees ([#187](https://github.com/Rawframe-Project/maul-anim/issues/187)) ([157d66f](https://github.com/Rawframe-Project/maul-anim/commit/157d66f4c08658d3eda34edd038df3e467a520a9)), closes [#184](https://github.com/Rawframe-Project/maul-anim/issues/184)
+* **retarget:** refuse a target pose that is the source pose ([#194](https://github.com/Rawframe-Project/maul-anim/issues/194)) ([0a73da4](https://github.com/Rawframe-Project/maul-anim/commit/0a73da4731e2f2634ab910ce690415a678e086b2)), closes [#192](https://github.com/Rawframe-Project/maul-anim/issues/192)
+
+
+### Changed
+
+* **family:** sync .github v0.0.39 ([#176](https://github.com/Rawframe-Project/maul-anim/issues/176)) ([ee6703f](https://github.com/Rawframe-Project/maul-anim/commit/ee6703fe4b8461800d301bfde738b7f4c80a5694)), closes [#175](https://github.com/Rawframe-Project/maul-anim/issues/175)
+* make kinds int32_t typedefs, flag sets uint32_t ones ([#199](https://github.com/Rawframe-Project/maul-anim/issues/199)) ([e8d1b44](https://github.com/Rawframe-Project/maul-anim/commit/e8d1b447200e678dd3e6c2da58b6edd13c6a4ea2)), closes [#181](https://github.com/Rawframe-Project/maul-anim/issues/181)
+* rename the trainer's iteration count and the identity move ([#198](https://github.com/Rawframe-Project/maul-anim/issues/198)) ([e801fa5](https://github.com/Rawframe-Project/maul-anim/commit/e801fa508aa8b563e7214ffa7f615efd59ae9a01)), closes [#182](https://github.com/Rawframe-Project/maul-anim/issues/182) [#183](https://github.com/Rawframe-Project/maul-anim/issues/183)
+
 ## [0.7.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.6.0...v0.7.0) (2026-10-29)
 
 ### Changed
