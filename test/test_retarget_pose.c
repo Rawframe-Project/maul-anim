@@ -460,6 +460,72 @@ static void TestRefusals(void)
           "skeletons swapped, scratch short or misaligned, a pose of the other, no map");
 }
 
+// A map from the source onto itself, its pelvis scaled: the pose
+// retargeted apart, and the same pose as both source and target refused
+// and left, since its locals are written while it is still read.
+static void TestSamePose(void)
+{
+    maniRetargetMapSource source = {
+        .source = &s_source, .target = &s_source, .pelvis = &kPelvis, .matchNames = true};
+    static _Alignas(16) uint8_t file[16384];
+    maniRetargetMap map;
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildRetargetMap(builder, &source).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenRetargetMap(file, size, &map).result == mani_success,
+          "a map from a skeleton onto itself");
+    maniDestroyBuilder(builder);
+    Posed();
+    maniPose* apart = NULL;
+    CHECK(maniInitPose(&s_source, s_poseMemory[2], sizeof s_poseMemory[2], &apart) ==
+                  mani_success &&
+              maniRetargetMap_RetargetPose(&map, &s_source, s_in, &s_source, apart, s_scratch,
+                                           sizeof s_scratch) == mani_success,
+          "retargeted into another pose");
+    uint32_t bones = maniSkeleton_GetBoneCount(&s_source);
+    maniTransform before[16];
+    bool moved = false;
+    for (uint32_t b = 0; b < bones; ++b)
+    {
+        before[b] = maniPose_GetLocal(s_in, b);
+        maniTransform t = maniPose_GetLocal(apart, b);
+        moved = moved || memcmp(&t, &before[b], sizeof t) != 0;
+    }
+    CHECK(bones <= 16 && moved, "the retargeted pose differs from its source");
+    CHECK(maniRetargetMap_RetargetPose(&map, &s_source, s_in, &s_source, s_in, s_scratch,
+                                       sizeof s_scratch) == mani_errorInvalid,
+          "the same pose as source and target refused");
+    bool left = true;
+    for (uint32_t b = 0; b < bones; ++b)
+    {
+        maniTransform t = maniPose_GetLocal(s_in, b);
+        left = left && memcmp(&t, &before[b], sizeof t) == 0;
+    }
+    CHECK(left, "the pose left as it was");
+    // Two poses inited in one buffer, the second from halfway through the
+    // first: each matches the skeleton, but their memory overlaps.
+    static _Alignas(MANI_POSE_ALIGNMENT) uint8_t shared[8192];
+    size_t poseSize = maniSkeleton_GetPoseSize(&s_source);
+    size_t half = poseSize / 2 / MANI_POSE_ALIGNMENT * MANI_POSE_ALIGNMENT;
+    maniPose* first = NULL;
+    maniPose* second = NULL;
+    CHECK(half > 0 && half + poseSize <= sizeof shared &&
+              maniInitPose(&s_source, shared, sizeof shared, &first) == mani_success &&
+              maniInitPose(&s_source, shared + half, sizeof shared - half, &second) ==
+                  mani_success &&
+              maniPose_GetBoneCount(first) == bones,
+          "two poses whose memory overlaps");
+    uint8_t kept[8192];
+    memcpy(kept, shared, sizeof shared);
+    CHECK(maniRetargetMap_RetargetPose(&map, &s_source, first, &s_source, second, s_scratch,
+                                       sizeof s_scratch) == mani_errorInvalid &&
+              maniRetargetMap_RetargetPose(&map, &s_source, second, &s_source, first, s_scratch,
+                                           sizeof s_scratch) == mani_errorInvalid &&
+              memcmp(kept, shared, sizeof shared) == 0,
+          "either way round refused, the memory left");
+}
+
 // The arm chain reversed: the upper arm at its reference between the
 // turned chest and the mapped forearm, which still takes the source
 // arm's turn.
@@ -650,6 +716,7 @@ int main(void)
     TestTranslations();
     TestRefusals();
     TestReversed();
+    TestSamePose();
     TestPinned();
     return s_failures == 0 ? 0 : 1;
 }

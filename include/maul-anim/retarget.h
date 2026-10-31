@@ -143,12 +143,15 @@ extern "C"
     /// @param sourcePose   A pose of the source (not a difference).
     /// @param target       The map's target skeleton.
     /// @param targetPose   A pose of the target; its locals are written.
+    ///                     Its memory apart from sourcePose's, which is
+    ///                     still read as they are (a map from a skeleton
+    ///                     onto itself).
     /// @param scratch      Scratch memory, 16-byte aligned.
     /// @param scratchSize  Its size: at least maniRetargetMap_GetScratchSize.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// skeleton whose identity is not the map's, a pose of another
-    /// skeleton, a source pose of differences, misaligned or too little
-    /// scratch.
+    /// skeleton, a source pose of differences, targetPose's memory overlapping
+    /// sourcePose's, misaligned or too little scratch.
     /// @par Thread safety
     /// Safe from any thread; the target pose and the scratch are used by
     /// one thread at a time.
