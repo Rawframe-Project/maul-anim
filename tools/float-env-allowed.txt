@@ -78,6 +78,7 @@ reads a stored identity or builds a constant:
     maniLearnedModel_GetDatabaseIdentity
     maniLearnedModel_GetIdentity
     maniLearnedModel_GetSkeletonIdentity
+    maniMakeRootMoveIdentity
     maniMirrorMap_GetIdentity
     maniMirrorMap_GetSkeletonIdentity
     maniMotionDatabase_GetClipIdentity
@@ -89,7 +90,6 @@ reads a stored identity or builds a constant:
     maniRetargetMap_GetIdentity
     maniRetargetMap_GetSourceIdentity
     maniRetargetMap_GetTargetIdentity
-    maniRootMoveIdentity
     maniSkeleton_GetIdentity
     maniSkin_GetIdentity
     maniSkin_GetSkeletonIdentity

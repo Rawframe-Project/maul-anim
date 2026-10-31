@@ -18,15 +18,16 @@
 
 static maniRootMove Move(const maniClip* clip, float from, float step)
 {
-    maniRootMove move = maniRootMoveIdentity();
-    return maniClip_GetRootMotion(clip, from, step, &move) == mani_success ? move
-                                                                           : maniRootMoveIdentity();
+    maniRootMove move = maniMakeRootMoveIdentity();
+    return maniClip_GetRootMotion(clip, from, step, &move) == mani_success
+               ? move
+               : maniMakeRootMoveIdentity();
 }
 
 // k whole spans of move w, by doubling.
 static maniRootMove Repeat(maniRootMove w, uint64_t k)
 {
-    maniRootMove r = maniRootMoveIdentity();
+    maniRootMove r = maniMakeRootMoveIdentity();
     while (k > 0)
     {
         r = (k & 1u) != 0 ? maniComposeRootMotion(r, w) : r;

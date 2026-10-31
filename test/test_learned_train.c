@@ -383,7 +383,8 @@ static void TestStages(void)
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
     CHECK(maniLearnedTrainer_Train(t, 0, &report) == mani_success && report.stage == 0 &&
-              report.stageCount == 4 && report.iteration == 0 && report.loss == 0.0f && !t->begun,
+              report.stageCount == 4 && report.iterationCount == 0 && report.loss == 0.0f &&
+              !t->begun,
           "nothing run: stage 0 not begun");
     maniBuilder* builder = NewBuilder();
     CHECK(maniBuildLearnedModelFromTrainer(builder, t, maniLearnedWeightsFloat32).result ==
@@ -398,17 +399,17 @@ static void TestStages(void)
           "NULL arguments");
     maniDestroyBuilder(builder);
     CHECK(maniLearnedTrainer_Train(t, 29, &report) == mani_success && report.stage == 0 &&
-              report.iteration == 29 && report.loss > 0.0f && t->latents == NULL,
+              report.iterationCount == 29 && report.loss > 0.0f && t->latents == NULL,
           "29 iterations of stage 0");
     CHECK(maniLearnedTrainer_Train(t, 1, &report) == mani_success && report.stage == 1 &&
-              report.iteration == 0 && report.loss == 0.0f && t->latents != NULL && !t->begun &&
-              t->networks[0].parameters != NULL,
+              report.iterationCount == 0 && report.loss == 0.0f && t->latents != NULL &&
+              !t->begun && t->networks[0].parameters != NULL,
           "stage 0 ends with its last iteration");
     CHECK(maniLearnedTrainer_Train(t, 31, &report) == mani_success && report.stage == 2 &&
-              report.iteration == 1 && t->networks[1].parameters != NULL,
+              report.iterationCount == 1 && t->networks[1].parameters != NULL,
           "the Stepper's 30, then the first Projector's first");
     CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success && report.stage == 4 &&
-              report.stageCount == 4 && report.iteration == 0 && !t->begun,
+              report.stageCount == 4 && report.iterationCount == 0 && !t->begun,
           "every stage done");
     CHECK(maniLearnedTrainer_Train(t, 5, &report) == mani_success && report.stage == 4,
           "nothing more to run");
@@ -564,7 +565,7 @@ static void TestRate(void)
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
     CHECK(maniLearnedTrainer_Train(t, 2001, &report) == mani_success && report.stage == 0 &&
-              report.iteration == 2001,
+              report.iterationCount == 2001,
           "2,001 iterations");
     maniTrainRandom r;
     maniTrainSeed(&r, 7);
@@ -593,7 +594,7 @@ static void TestStageSeeds(void)
     maniLearnedTrainer* t = Create(&def, &s);
     maniLearnedTrainerReport report;
     CHECK(maniLearnedTrainer_Train(t, 31, &report) == mani_success && report.stage == 1 &&
-              report.iteration == 1,
+              report.iterationCount == 1,
           "the Stepper's first iteration");
     maniTrainRandom r;
     maniTrainSeed(&r, 7);
@@ -628,7 +629,7 @@ static void TestStageSeeds(void)
           "the Stepper's generator: the seed plus 1");
     maniTrainStepperRelease(&kAllocator, &stepper);
     CHECK(maniLearnedTrainer_Train(t, 60, &report) == mani_success && report.stage == 3 &&
-              report.iteration == 1,
+              report.iterationCount == 1,
           "the second Projector's first iteration");
     maniTrainSeed(&r, 10);
     shape.window = 0;
@@ -887,7 +888,7 @@ static void TestRestoreRefused(void)
     WriteHash(size);
     CHECK(maniLearnedTrainer_RestoreCheckpoint(t, s_checkpoint, size).result == mani_success &&
               maniLearnedTrainer_Train(t, 0, &report) == mani_success && report.stage == 1 &&
-              report.iteration == 15,
+              report.iterationCount == 15,
           "restored: the Stepper's 15th iteration");
     // A stage begun: its generator not all 0.
     for (uint32_t k = 0; k < 4; ++k)
@@ -953,7 +954,7 @@ static void TestMemory(void)
     budget.limit = budget.count;
     maniLearnedTrainerReport report;
     CHECK(maniLearnedTrainer_Train(t, 1, &report) == mani_errorCapacity && report.stage == 0 &&
-              report.iteration == 0,
+              report.iterationCount == 0,
           "no memory to begin a stage");
     budget.limit = UINT32_MAX;
     CHECK(maniLearnedTrainer_Train(t, 1000, &report) == mani_success && report.stage == 4,

@@ -135,7 +135,7 @@ bool maniClip_GetRootMotionSource(const maniClip* clip, maniRootMotionSource* so
     return true;
 }
 
-maniRootMove maniRootMoveIdentity(void)
+maniRootMove maniMakeRootMoveIdentity(void)
 {
     return (maniRootMove){{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}};
 }
@@ -204,7 +204,7 @@ static maniRootMove Between(maniRootMove a, maniRootMove b)
 // A move made count times over, by squaring.
 static maniRootMove Repeated(maniRootMove move, uint64_t count)
 {
-    maniRootMove made = maniRootMoveIdentity();
+    maniRootMove made = maniMakeRootMoveIdentity();
     while (count != 0)
     {
         if ((count & 1u) != 0)
@@ -254,7 +254,7 @@ MANI_NOINLINE maniResult maniClipRootMotionEntered(const maniClip* clip, float t
     }
     if (clip->rootMotion == NULL)
     {
-        *moveOut = maniRootMoveIdentity();
+        *moveOut = maniMakeRootMoveIdentity();
         return mani_success;
     }
     double u0 = (double)time;
@@ -310,7 +310,7 @@ maniRootMove maniRootMotionSumResult(const maniRootMotionSum* sum)
     double total = sum->total;
     if (!(total > 0.0))
     {
-        return maniRootMoveIdentity();
+        return maniMakeRootMoveIdentity();
     }
     const double* t = sum->translation;
     const double* q = sum->rotation;

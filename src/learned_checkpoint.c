@@ -119,7 +119,7 @@ static uint64_t KeptCount(const maniTrainNet* n)
 static uint32_t Sections(const maniLearnedTrainer* t, uint8_t* progress,
                          maniSectionSource sections[MANI_CONTAINER_MAX_SECTIONS])
 {
-    maniStoreU64(progress, t->iteration);
+    maniStoreU64(progress, t->iterationCount);
     // A stage not begun has no generator or loss yet: 0.
     for (uint32_t k = 0; k < 4; ++k)
     {

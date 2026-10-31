@@ -84,7 +84,7 @@ extern "C"
     /// @return Translation 0, rotation identity.
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_API maniRootMove maniRootMoveIdentity(void);
+    MANI_API maniRootMove maniMakeRootMoveIdentity(void);
 
     /// Gives the move a clip's root motion makes from a playhead time over
     /// a signed step, in the character's frame where the move begins: for

@@ -113,7 +113,7 @@ static void TestPlay(void)
     maniGraph g;
     maniGraphInstance* instance = Matching(MatchNode(10.0f), &g);
     Update(instance, 0.0f);
-    maniRootMove move = maniRootMoveIdentity();
+    maniRootMove move = maniMakeRootMoveIdentity();
     CHECK(maniGraphInstance_Update(instance, 0.25f, NULL, 0, NULL, &move) == mani_success &&
               Playing(instance, &g, 0, 0, 0.25) && NearF(move.translation.x, 0.25),
           "a quarter of the walk, its root a quarter along");
