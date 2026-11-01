@@ -131,6 +131,34 @@ static void TestOpensAndReads(void)
     CHECK(past.m[0] == 1.0f && past.m[4] == 1.0f && past.m[9] == 0.0f, "identity past");
 }
 
+// The skin's identity is its file's (byte 40), which covers every section:
+// the same source builds the same one, another inverse bind another.
+static void TestIdentityCoversTheBinds(void)
+{
+    BuildSample();
+    maniSkin skin;
+    CHECK(maniOpenSkin(s_file, s_size, &skin).result == mani_success, "opens");
+    uint64_t identity = maniSkin_GetIdentity(&skin);
+    CHECK(identity == maniLoadU64(s_file + 40), "the file's identity");
+    BuildSample();
+    CHECK(maniOpenSkin(s_file, s_size, &skin).result == mani_success &&
+              maniSkin_GetIdentity(&skin) == identity,
+          "the same source, the same identity");
+    maniAffine binds[kJoints];
+    RestInverseBinds(binds);
+    binds[2].m[9] += 0.25f;
+    maniBuilder* builder = NewBuilder();
+    maniSkinSource source = {&s_skeleton, kJointBones, binds, kJoints};
+    CHECK(maniBuildSkin(builder, &source).result == mani_success, "moved skin builds");
+    _Alignas(16) uint8_t file[sizeof s_file];
+    size_t size = 0;
+    CHECK(maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success, "copies");
+    maniDestroyBuilder(builder);
+    CHECK(maniOpenSkin(file, size, &skin).result == mani_success &&
+              maniSkin_GetIdentity(&skin) != identity,
+          "another inverse bind, another identity");
+}
+
 static void TestPaletteAtBindIsIdentity(void)
 {
     BuildSample();
@@ -403,6 +431,7 @@ int main(int argc, char** argv)
         return WriteSeed(argv[2]);
     }
     TestOpensAndReads();
+    TestIdentityCoversTheBinds();
     TestPaletteAtBindIsIdentity();
     TestPaletteIsModelTimesInverseBind();
     TestBuildRefusals();
