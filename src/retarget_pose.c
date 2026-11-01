@@ -334,11 +334,11 @@ static MANI_NOINLINE maniResult RetargetPoseWork(const maniRetargetMap* map,
 
 maniResult maniRetargetMap_RetargetPose(const maniRetargetMap* map, const maniSkeleton* source,
                                         const maniPose* sourcePose, const maniSkeleton* target,
-                                        maniPose* targetPose, void* scratch, size_t scratchSize)
+                                        maniPose* targetPoseOut, void* scratch, size_t scratchSize)
 {
     uint64_t env = maniFloatEnvEnter();
     maniResult result =
-        RetargetPoseWork(map, source, sourcePose, target, targetPose, scratch, scratchSize);
+        RetargetPoseWork(map, source, sourcePose, target, targetPoseOut, scratch, scratchSize);
     maniFloatEnvLeave(env);
     return result;
 }

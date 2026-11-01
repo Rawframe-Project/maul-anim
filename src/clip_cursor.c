@@ -235,10 +235,10 @@ MANI_NOINLINE maniResult maniSampleClipCursorEntered(maniClipCursor* cursor, con
 }
 
 maniResult maniClipCursor_Sample(maniClipCursor* cursor, const maniClip* clip,
-                                 const maniSkeleton* skeleton, float time, maniPose* pose)
+                                 const maniSkeleton* skeleton, float time, maniPose* poseOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = maniSampleClipCursorEntered(cursor, clip, skeleton, time, pose);
+    maniResult result = maniSampleClipCursorEntered(cursor, clip, skeleton, time, poseOut);
     maniFloatEnvLeave(env);
     return result;
 }
@@ -267,10 +267,11 @@ static MANI_NOINLINE maniResult SampleClipFloatsCursorWork(maniClipCursor* curso
 }
 
 maniResult maniClipCursor_SampleFloats(maniClipCursor* cursor, const maniClip* clip, float time,
-                                       float* values, uint32_t capacity, uint32_t* countOut)
+                                       float* valuesOut, uint32_t capacity, uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = SampleClipFloatsCursorWork(cursor, clip, time, values, capacity, countOut);
+    maniResult result =
+        SampleClipFloatsCursorWork(cursor, clip, time, valuesOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

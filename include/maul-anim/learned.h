@@ -295,7 +295,7 @@ extern "C"
     ///
     /// @param model        An opened model.
     /// @param state        The state.
-    /// @param output       Receives what the Decompressor gives.
+    /// @param resultOut    Receives what the Decompressor gives.
     /// @param scratch      Scratch memory, 4-byte aligned.
     /// @param scratchSize  Its size: at least maniLearnedModel_GetScratchSize.
     /// @return `mani_success`; `mani_errorFormat` when the Decompressor
@@ -309,7 +309,7 @@ extern "C"
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniLearnedModel_Decompress(const maniLearnedModel* model,
                                                                    const float* state,
-                                                                   maniLearnedOutput* output,
+                                                                   maniLearnedOutput* resultOut,
                                                                    void* scratch,
                                                                    size_t scratchSize);
 

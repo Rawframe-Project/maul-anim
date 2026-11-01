@@ -394,10 +394,11 @@ static MANI_NOINLINE maniResult LearnedDecompressWork(const maniLearnedModel* mo
 }
 
 maniResult maniLearnedModel_Decompress(const maniLearnedModel* model, const float* state,
-                                       maniLearnedOutput* output, void* scratch, size_t scratchSize)
+                                       maniLearnedOutput* resultOut, void* scratch,
+                                       size_t scratchSize)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = LearnedDecompressWork(model, state, output, scratch, scratchSize);
+    maniResult result = LearnedDecompressWork(model, state, resultOut, scratch, scratchSize);
     maniFloatEnvLeave(env);
     return result;
 }

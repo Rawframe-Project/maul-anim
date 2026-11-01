@@ -184,10 +184,10 @@ static bool Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first,
 }
 
 maniResult maniSkeleton_BlendPoses(const maniSkeleton* skeleton, const maniBlendLayer* layers,
-                                   uint32_t count, float threshold, maniPose* out)
+                                   uint32_t count, float threshold, maniPose* poseOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = maniBlendPosesIn(skeleton, layers, count, threshold, out, NULL);
+    maniResult result = maniBlendPosesIn(skeleton, layers, count, threshold, poseOut, NULL);
     maniFloatEnvLeave(env);
     return result;
 }

@@ -201,14 +201,14 @@ extern "C"
     /// @param clip      An opened clip.
     /// @param skeleton  The clip's skeleton.
     /// @param time      The time in seconds.
-    /// @param pose      A pose of the skeleton.
+    /// @param poseOut   A pose of the skeleton.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// a skeleton that is not the clip's or the pose's.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniClip_Sample(const maniClip* clip,
                                                        const maniSkeleton* skeleton, float time,
-                                                       maniPose* pose);
+                                                       maniPose* poseOut);
 
     /// Returns the number of float tracks (morph weights, curves).
     ///
@@ -310,7 +310,7 @@ extern "C"
     /// @param clip      An opened clip.
     /// @param skeleton  The clip's skeleton.
     /// @param time      The time in seconds.
-    /// @param pose      A pose of the skeleton.
+    /// @param poseOut   A pose of the skeleton.
     /// @return `mani_success`; `mani_errorInvalid` as maniClip_Sample, or
     /// for a NULL cursor; `mani_errorCapacity` when the cursor is too
     /// small for the clip (the cursor and pose unchanged).
@@ -320,25 +320,26 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniClipCursor_Sample(maniClipCursor* cursor,
                                                              const maniClip* clip,
                                                              const maniSkeleton* skeleton,
-                                                             float time, maniPose* pose);
+                                                             float time, maniPose* poseOut);
 
     /// Samples every float track at a time, as maniClip_SampleFloats does,
     /// through the cursor.
     ///
-    /// @param cursor    A cursor.
-    /// @param clip      An opened clip.
-    /// @param time      The time in seconds.
-    /// @param values    Receives one value per track; may be NULL when
-    ///                  capacity is 0.
-    /// @param capacity  The array's length.
-    /// @param countOut  Receives the track count. May be NULL.
+    /// @param cursor     A cursor.
+    /// @param clip       An opened clip.
+    /// @param time       The time in seconds.
+    /// @param valuesOut  Receives one value per track; may be NULL when
+    ///                   capacity is 0.
+    /// @param capacity   The array's length.
+    /// @param countOut   Receives the track count. May be NULL.
     /// @return As maniClip_SampleFloats; `mani_errorInvalid` also for a NULL
     /// cursor; `mani_errorCapacity` also when the cursor is too small.
     /// @par Thread safety
     /// Safe from any thread; the cursor is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniClipCursor_SampleFloats(maniClipCursor* cursor,
                                                                    const maniClip* clip, float time,
-                                                                   float* values, uint32_t capacity,
+                                                                   float* valuesOut,
+                                                                   uint32_t capacity,
                                                                    uint32_t* countOut);
 
     /// Finds a float track by name.
@@ -356,12 +357,12 @@ extern "C"
     /// clamps it: a linear track interpolates its two samples, a step
     /// track holds the sample at or before the time.
     ///
-    /// @param clip      An opened clip.
-    /// @param time      The time in seconds.
-    /// @param values    Receives one value per track, in track order; may
-    ///                  be NULL when capacity is 0.
-    /// @param capacity  The array's length.
-    /// @param countOut  Receives the track count. May be NULL.
+    /// @param clip       An opened clip.
+    /// @param time       The time in seconds.
+    /// @param valuesOut  Receives one value per track, in track order; may
+    ///                   be NULL when capacity is 0.
+    /// @param capacity   The array's length.
+    /// @param countOut   Receives the track count. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when the array is
     /// shorter than the track count, with the count written and nothing
     /// else; `mani_errorInvalid` for a NULL clip or a NULL array with a
@@ -369,7 +370,7 @@ extern "C"
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniClip_SampleFloats(const maniClip* clip, float time,
-                                                             float* values, uint32_t capacity,
+                                                             float* valuesOut, uint32_t capacity,
                                                              uint32_t* countOut);
 
     /// Returns the number of discrete tracks (whole numbers held between

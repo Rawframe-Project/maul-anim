@@ -163,10 +163,10 @@ static MANI_NOINLINE maniResult InspectGraphNodeWork(const maniGraphInstance* in
 }
 
 maniResult maniGraphInstance_InspectNode(const maniGraphInstance* instance, uint32_t node,
-                                         maniGraphNodeView* out)
+                                         maniGraphNodeView* viewOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = InspectGraphNodeWork(instance, node, out);
+    maniResult result = InspectGraphNodeWork(instance, node, viewOut);
     maniFloatEnvLeave(env);
     return result;
 }

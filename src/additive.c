@@ -121,10 +121,10 @@ static MANI_NOINLINE maniResult PoseDifferenceWork(const maniSkeleton* skeleton,
 }
 
 maniResult maniSkeleton_ComputePoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
-                                              const maniPose* basis, maniPose* out)
+                                              const maniPose* basis, maniPose* differenceOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = PoseDifferenceWork(skeleton, pose, basis, out);
+    maniResult result = PoseDifferenceWork(skeleton, pose, basis, differenceOut);
     maniFloatEnvLeave(env);
     return result;
 }

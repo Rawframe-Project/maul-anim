@@ -138,26 +138,26 @@ extern "C"
     /// toward the source pelvis's position, weighted from the reference.
     /// Writes every local of the target pose and leaves its model stale.
     ///
-    /// @param map          An opened map.
-    /// @param source       The map's source skeleton.
-    /// @param sourcePose   A pose of the source (not a difference).
-    /// @param target       The map's target skeleton.
-    /// @param targetPose   A pose of the target; its locals are written.
-    ///                     Its memory apart from sourcePose's, which is
-    ///                     still read as they are (a map from a skeleton
-    ///                     onto itself).
-    /// @param scratch      Scratch memory, 16-byte aligned.
-    /// @param scratchSize  Its size: at least maniRetargetMap_GetScratchSize.
+    /// @param map            An opened map.
+    /// @param source         The map's source skeleton.
+    /// @param sourcePose     A pose of the source (not a difference).
+    /// @param target         The map's target skeleton.
+    /// @param targetPoseOut  A pose of the target; its locals are written.
+    ///                       Its memory apart from sourcePose's, which is
+    ///                       still read as they are (a map from a skeleton
+    ///                       onto itself).
+    /// @param scratch        Scratch memory, 16-byte aligned.
+    /// @param scratchSize    Its size: at least maniRetargetMap_GetScratchSize.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// skeleton whose identity is not the map's, a pose of another
-    /// skeleton, a source pose of differences, targetPose's memory overlapping
+    /// skeleton, a source pose of differences, targetPoseOut's memory overlapping
     /// sourcePose's, misaligned or too little scratch.
     /// @par Thread safety
     /// Safe from any thread; the target pose and the scratch are used by
     /// one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniRetargetMap_RetargetPose(
         const maniRetargetMap* map, const maniSkeleton* source, const maniPose* sourcePose,
-        const maniSkeleton* target, maniPose* targetPose, void* scratch, size_t scratchSize);
+        const maniSkeleton* target, maniPose* targetPoseOut, void* scratch, size_t scratchSize);
 
     /// Scales a root motion delta (model space) of the source for the
     /// target: its part along the map's up axis by the vertical scale,

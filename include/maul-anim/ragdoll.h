@@ -289,12 +289,12 @@ extern "C"
     /// under it (maniRagdoll_ComputePoseFromBodies) is the ragdoll in the
     /// character's new frame, to blend a get-up clip from.
     ///
-    /// @param ragdoll  An opened profile.
-    /// @param bodies   A state per body, in the profile's order: positions
-    ///                 finite, rotations of length 1 within a thousandth.
-    /// @param count    The number of states bodies holds.
-    /// @param ground   The ground and the character's axes.
-    /// @param out      Receives the placement and whether it lies face up.
+    /// @param ragdoll       An opened profile.
+    /// @param bodies        A state per body, in the profile's order: positions
+    ///                      finite, rotations of length 1 within a thousandth.
+    /// @param count         The number of states bodies holds.
+    /// @param ground        The ground and the character's axes.
+    /// @param placementOut  Receives the placement and whether it lies face up.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// body's place not finite or its rotation not of length 1, the
     /// ground not finite, its normal or the axes not of length 1 within a
@@ -304,7 +304,7 @@ extern "C"
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniRagdoll_ComputeGetUpPlacement(
         const maniRagdoll* ragdoll, const maniRagdollBodyState* bodies, uint32_t count,
-        const maniRagdollGround* ground, maniRagdollGetUp* out);
+        const maniRagdollGround* ground, maniRagdollGetUp* placementOut);
 
 #ifdef __cplusplus
 }

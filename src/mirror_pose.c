@@ -153,10 +153,10 @@ static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
 }
 
 maniResult maniMirrorMap_MirrorPose(const maniMirrorMap* map, const maniSkeleton* skeleton,
-                                    const maniPose* in, maniPose* out)
+                                    const maniPose* in, maniPose* poseOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = MirrorPoseWork(map, skeleton, in, out);
+    maniResult result = MirrorPoseWork(map, skeleton, in, poseOut);
     maniFloatEnvLeave(env);
     return result;
 }
