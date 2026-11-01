@@ -121,10 +121,11 @@ static MANI_NOINLINE maniResult RagdollGetUpPlacementWork(const maniRagdoll* rag
 
 maniResult maniRagdoll_ComputeGetUpPlacement(const maniRagdoll* ragdoll,
                                              const maniRagdollBodyState* bodies, uint32_t count,
-                                             const maniRagdollGround* ground, maniRagdollGetUp* out)
+                                             const maniRagdollGround* ground,
+                                             maniRagdollGetUp* placementOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = RagdollGetUpPlacementWork(ragdoll, bodies, count, ground, out);
+    maniResult result = RagdollGetUpPlacementWork(ragdoll, bodies, count, ground, placementOut);
     maniFloatEnvLeave(env);
     return result;
 }

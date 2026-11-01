@@ -492,10 +492,10 @@ static MANI_NOINLINE maniResult PaletteDualQuaternionsWork(const maniAffine* pal
 }
 
 maniResult maniConvertPaletteToDualQuaternions(const maniAffine* palette, uint32_t count,
-                                               float* out)
+                                               float* dualQuaternionsOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = PaletteDualQuaternionsWork(palette, count, out);
+    maniResult result = PaletteDualQuaternionsWork(palette, count, dualQuaternionsOut);
     maniFloatEnvLeave(env);
     return result;
 }
@@ -522,10 +522,10 @@ static MANI_NOINLINE maniResult PaletteRowsWork(const maniAffine* palette, uint3
     return mani_success;
 }
 
-maniResult maniConvertPaletteToRows(const maniAffine* palette, uint32_t count, float* rows)
+maniResult maniConvertPaletteToRows(const maniAffine* palette, uint32_t count, float* rowsOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = PaletteRowsWork(palette, count, rows);
+    maniResult result = PaletteRowsWork(palette, count, rowsOut);
     maniFloatEnvLeave(env);
     return result;
 }

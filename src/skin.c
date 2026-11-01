@@ -192,11 +192,11 @@ static MANI_NOINLINE maniResult ComputePaletteWork(const maniPose* pose,
 }
 
 maniResult maniPose_ComputePalette(const maniPose* pose, const maniSkeleton* skeleton,
-                                   const maniSkin* skin, maniAffine* palette, uint32_t capacity,
+                                   const maniSkin* skin, maniAffine* paletteOut, uint32_t capacity,
                                    uint32_t* countOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = ComputePaletteWork(pose, skeleton, skin, palette, capacity, countOut);
+    maniResult result = ComputePaletteWork(pose, skeleton, skin, paletteOut, capacity, countOut);
     maniFloatEnvLeave(env);
     return result;
 }

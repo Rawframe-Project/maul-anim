@@ -172,20 +172,21 @@ extern "C"
     /// is its partner's reflected and its model rotation its partner's
     /// mirrored, carried to its own reference axes, so the rest's model
     /// rotations stay; mirroring twice gives the pose back. Writes every
-    /// local of out and leaves its model stale.
+    /// local of poseOut and leaves its model stale.
     ///
     /// @param map       An opened map.
     /// @param skeleton  The map's skeleton.
     /// @param in        A pose of it (not a difference).
-    /// @param out       A pose of it; may be in.
+    /// @param poseOut   A pose of it; may be in.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// skeleton whose identity or bone count is not the map's, a pose of
     /// another skeleton, or a difference.
     /// @par Thread safety
-    /// Safe from any thread; out is used by one thread at a time.
+    /// Safe from any thread; poseOut is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniMirrorMap_MirrorPose(const maniMirrorMap* map,
                                                                 const maniSkeleton* skeleton,
-                                                                const maniPose* in, maniPose* out);
+                                                                const maniPose* in,
+                                                                maniPose* poseOut);
 
     /// Mirrors a root motion move: its translation's component along the
     /// normal negated, its rotation mirrored (the turn the reflection makes

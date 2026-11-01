@@ -741,7 +741,7 @@ extern "C"
     ///
     /// @param instance  An instance.
     /// @param node      The node.
-    /// @param out       The view.
+    /// @param viewOut   The view.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or a
     /// node past the count.
     /// @par Thread safety
@@ -749,7 +749,7 @@ extern "C"
     /// It reads what the last update left, so it runs between updates, on
     /// the thread that updates or after handing the instance over.
     MANI_NODISCARD MANI_API maniResult maniGraphInstance_InspectNode(
-        const maniGraphInstance* instance, uint32_t node, maniGraphNodeView* out);
+        const maniGraphInstance* instance, uint32_t node, maniGraphNodeView* viewOut);
 
     /// Writes an instance's state as bytes that hold no pointer, to be
     /// restored into any instance of the same graph: its parameters, its
@@ -828,16 +828,16 @@ extern "C"
     /// by the weights the output gives it (masks by their weight at the
     /// root motion bone, additive layers none).
     ///
-    /// @param instance      An instance.
-    /// @param delta         The step in seconds, finite, either sign.
-    /// @param events        Receives up to capacity events. May be NULL
-    ///                      with a capacity of 0.
-    /// @param capacity      The events events holds.
-    /// @param eventCountOut Receives the true count, which may pass the
-    ///                      capacity (saturating at UINT32_MAX). May be NULL.
-    ///                      Written on success and on mani_errorFormat.
-    /// @param rootMotionOut Receives the update's root motion. May be NULL.
-    ///                      Written on success and on mani_errorFormat.
+    /// @param instance       An instance.
+    /// @param delta          The step in seconds, finite, either sign.
+    /// @param eventsOut      Receives up to capacity events. May be NULL
+    ///                       with a capacity of 0.
+    /// @param capacity       The events eventsOut holds.
+    /// @param eventCountOut  Receives the true count, which may pass the
+    ///                       capacity (saturating at UINT32_MAX). May be NULL.
+    ///                       Written on success and on mani_errorFormat.
+    /// @param rootMotionOut  Receives the update's root motion. May be NULL.
+    ///                       Written on success and on mani_errorFormat.
     /// @return `mani_success`; `mani_errorFormat` when a learned node's
     /// model gave a value past the float range, or a root velocity whose
     /// move over the step passes it: the update completed for
@@ -845,15 +845,13 @@ extern "C"
     /// without one) and gave no root motion or events,
     /// maniGraphInstance_InspectNode names them, and the events and root motion
     /// written are valid and finite (no misuse is counted: the model is
-    /// data); `mani_errorInvalid` for a NULL instance, events NULL with a
+    /// data); `mani_errorInvalid` for a NULL instance, eventsOut NULL with a
     /// capacity, or a step not finite (nothing changed).
     /// @par Thread safety
     /// Safe from any thread; the instance is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniGraphInstance_Update(maniGraphInstance* instance,
-                                                                float delta, maniGraphEvent* events,
-                                                                uint32_t capacity,
-                                                                uint32_t* eventCountOut,
-                                                                maniRootMove* rootMotionOut);
+    MANI_NODISCARD MANI_API maniResult maniGraphInstance_Update(
+        maniGraphInstance* instance, float delta, maniGraphEvent* eventsOut, uint32_t capacity,
+        uint32_t* eventCountOut, maniRootMove* rootMotionOut);
 
 #define MANI_GRAPH_SCRATCH_ALIGNMENT 32u
 
@@ -885,7 +883,7 @@ extern "C"
     ///                  MANI_GRAPH_SCRATCH_ALIGNMENT-aligned, used by one
     ///                  thread at a time.
     /// @param size      The scratch's size.
-    /// @param pose      A pose of the graph's skeleton.
+    /// @param poseOut   A pose of the graph's skeleton.
     /// @return `mani_success`; `mani_errorFormat` when a learned node's
     /// model gave a value past the float range: the evaluation completed,
     /// that node gave the neutral pose, maniGraphInstance_InspectNode names it, and
@@ -898,7 +896,7 @@ extern "C"
     /// one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniGraphInstance_Evaluate(maniGraphInstance* instance,
                                                                   void* scratch, size_t size,
-                                                                  maniPose* pose);
+                                                                  maniPose* poseOut);
 
     // A subset plan: bones of a binding's skeleton to evaluate,
     // closed under what writing them reads; the caller's memory, made by

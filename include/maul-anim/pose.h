@@ -80,18 +80,18 @@ extern "C"
 
     /// Reads the local transforms of bones first to first + count - 1.
     ///
-    /// @param pose        The pose.
-    /// @param first       The first bone.
-    /// @param count       How many bones; the range must lie within the
-    ///                    bone count.
-    /// @param transforms  Receives count transforms.
+    /// @param pose           The pose.
+    /// @param first          The first bone.
+    /// @param count          How many bones; the range must lie within the
+    ///                       bone count.
+    /// @param transformsOut  Receives count transforms.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or a
     /// range past the bone count.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniPose_ReadLocals(const maniPose* pose, uint32_t first,
                                                            uint32_t count,
-                                                           maniTransform* transforms);
+                                                           maniTransform* transformsOut);
 
     /// Writes the local transforms of bones first to first + count - 1
     /// and marks the model matrices stale.
@@ -165,17 +165,17 @@ extern "C"
     /// Reads the model matrices of bones first to first + count - 1, as
     /// last composed.
     ///
-    /// @param pose      The pose.
-    /// @param first     The first bone.
-    /// @param count     How many bones; the range must lie within the bone
-    ///                  count.
-    /// @param matrices  Receives count matrices.
+    /// @param pose         The pose.
+    /// @param first        The first bone.
+    /// @param count        How many bones; the range must lie within the bone
+    ///                     count.
+    /// @param matricesOut  Receives count matrices.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or a
     /// range past the bone count.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniPose_ReadModels(const maniPose* pose, uint32_t first,
-                                                           uint32_t count, maniAffine* matrices);
+                                                           uint32_t count, maniAffine* matricesOut);
 
     /// Splits an affine matrix into translation, rotation and scale: the
     /// fourth column, the rotation of the polar decomposition (the

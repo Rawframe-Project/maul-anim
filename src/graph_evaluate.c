@@ -747,10 +747,10 @@ static MANI_NOINLINE maniResult EvaluateGraphWork(maniGraphInstance* instance, v
 }
 
 maniResult maniGraphInstance_Evaluate(maniGraphInstance* instance, void* scratch, size_t size,
-                                      maniPose* pose)
+                                      maniPose* poseOut)
 {
     uint64_t env = maniFloatEnvEnter();
-    maniResult result = EvaluateGraphWork(instance, scratch, size, pose);
+    maniResult result = EvaluateGraphWork(instance, scratch, size, poseOut);
     maniFloatEnvLeave(env);
     return result;
 }

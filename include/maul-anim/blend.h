@@ -50,18 +50,18 @@ extern "C"
     /// @param count      The number of layers.
     /// @param threshold  Above 0 and at most 1 (MANI_BLEND_THRESHOLD in
     ///                   graphs).
-    /// @param out        Receives the blend, of the layers' kind; not one
+    /// @param poseOut    Receives the blend, of the layers' kind; not one
     ///                   of the layers' poses.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// pose of another skeleton, layers of both kinds, out among the
-    /// layers, a weight outside 0 to 1 or a threshold out of range (out
-    /// unchanged).
+    /// pose of another skeleton, layers of both kinds, poseOut among the
+    /// layers, a weight outside 0 to 1 or a threshold out of range
+    /// (poseOut unchanged).
     /// @par Thread safety
-    /// Safe from any thread; out is used by one thread at a time.
+    /// Safe from any thread; poseOut is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSkeleton_BlendPoses(const maniSkeleton* skeleton,
                                                                const maniBlendLayer* layers,
                                                                uint32_t count, float threshold,
-                                                               maniPose* out);
+                                                               maniPose* poseOut);
 
     // A mask's chain: a bone's weight, for the bone alone or for its
     // subtree.
@@ -102,18 +102,19 @@ extern "C"
     /// `d_t = t - t_b`, `d_r = r_b^-1 r` (normalized), `d_s = s / s_b` per
     /// axis. The output may be the pose or the basis.
     ///
-    /// @param skeleton  The poses' skeleton.
-    /// @param pose      A pose of the skeleton.
-    /// @param basis     A pose of the skeleton.
-    /// @param out       Receives the difference.
+    /// @param skeleton       The poses' skeleton.
+    /// @param pose           A pose of the skeleton.
+    /// @param basis          A pose of the skeleton.
+    /// @param differenceOut  Receives the difference.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// pose of another skeleton, a difference given as pose or basis, or a
     /// difference not finite (a basis scale component of 0 or near it,
-    /// translations past binary32's range apart; out unchanged).
+    /// translations past binary32's range apart; differenceOut unchanged).
     /// @par Thread safety
-    /// Safe from any thread; out is used by one thread at a time.
-    MANI_NODISCARD MANI_API maniResult maniSkeleton_ComputePoseDifference(
-        const maniSkeleton* skeleton, const maniPose* pose, const maniPose* basis, maniPose* out);
+    /// Safe from any thread; differenceOut is used by one thread at a time.
+    MANI_NODISCARD MANI_API maniResult
+    maniSkeleton_ComputePoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
+                                       const maniPose* basis, maniPose* differenceOut);
 
     /// Applies differences to a pose in order, each bone at its layer
     /// weight times its bone weight (both 0 to 1): `t + w d_t`,

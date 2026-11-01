@@ -243,28 +243,28 @@ extern "C"
     /// part (half the translation times it), then S as three rows of four
     /// (the fourth 0).
     ///
-    /// @param palette  count matrices, as maniPose_ComputePalette writes them.
-    /// @param count    The number of matrices.
-    /// @param out      Receives 20 floats a matrix.
+    /// @param palette             count matrices, as maniPose_ComputePalette writes them.
+    /// @param count               The number of matrices.
+    /// @param dualQuaternionsOut  Receives 20 floats a matrix.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL pointer with
-    /// a count or a matrix not finite (out unchanged).
+    /// a count or a matrix not finite (dualQuaternionsOut unchanged).
     /// @par Thread safety
     /// Safe from any thread.
-    MANI_NODISCARD MANI_API maniResult
-    maniConvertPaletteToDualQuaternions(const maniAffine* palette, uint32_t count, float* out);
+    MANI_NODISCARD MANI_API maniResult maniConvertPaletteToDualQuaternions(
+        const maniAffine* palette, uint32_t count, float* dualQuaternionsOut);
 
     /// Writes a palette for shaders: each matrix as three rows of four
     /// floats (row-major 3x4), the translation last in each row.
     ///
     /// @param palette  count matrices, as maniPose_ComputePalette writes them.
     /// @param count    The number of matrices.
-    /// @param rows     Receives 12 floats a matrix.
+    /// @param rowsOut  Receives 12 floats a matrix.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL pointer with
     /// a count.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniConvertPaletteToRows(const maniAffine* palette,
-                                                                uint32_t count, float* rows);
+                                                                uint32_t count, float* rowsOut);
 
 #ifdef __cplusplus
 }

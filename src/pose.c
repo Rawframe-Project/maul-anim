@@ -203,15 +203,15 @@ static bool RangeFits(const maniPose* pose, uint32_t first, uint32_t count)
 }
 
 maniResult maniPose_ReadLocals(const maniPose* pose, uint32_t first, uint32_t count,
-                               maniTransform* transforms)
+                               maniTransform* transformsOut)
 {
-    if (pose == NULL || (transforms == NULL && count > 0) || !RangeFits(pose, first, count))
+    if (pose == NULL || (transformsOut == NULL && count > 0) || !RangeFits(pose, first, count))
     {
         return mani_errorInvalid;
     }
     for (uint32_t i = 0; i < count; ++i)
     {
-        transforms[i] = LoadLocal(ConstLocals(pose), first + i);
+        transformsOut[i] = LoadLocal(ConstLocals(pose), first + i);
     }
     return mani_success;
 }
@@ -339,15 +339,15 @@ maniAffine maniPose_GetModel(const maniPose* pose, uint32_t bone)
 }
 
 maniResult maniPose_ReadModels(const maniPose* pose, uint32_t first, uint32_t count,
-                               maniAffine* matrices)
+                               maniAffine* matricesOut)
 {
-    if (pose == NULL || (matrices == NULL && count > 0) || !RangeFits(pose, first, count))
+    if (pose == NULL || (matricesOut == NULL && count > 0) || !RangeFits(pose, first, count))
     {
         return mani_errorInvalid;
     }
     if (count > 0)
     {
-        memcpy(matrices, ConstModels(pose) + (size_t)first * kModelFloats,
+        memcpy(matricesOut, ConstModels(pose) + (size_t)first * kModelFloats,
                (size_t)count * sizeof(maniAffine));
     }
     return mani_success;

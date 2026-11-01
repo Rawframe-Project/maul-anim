@@ -96,13 +96,13 @@ extern "C"
     /// Computes a skin's palette: entry j is the model matrix of joint j's
     /// bone times the joint's inverse bind matrix.
     ///
-    /// @param pose      A pose of the skeleton with its model composed.
-    /// @param skeleton  The skeleton the skin is bound to.
-    /// @param skin      The skin.
-    /// @param palette   Receives the entries; may be NULL when capacity is
-    ///                  0.
-    /// @param capacity  The array's length.
-    /// @param countOut  Receives the joint count. May be NULL.
+    /// @param pose        A pose of the skeleton with its model composed.
+    /// @param skeleton    The skeleton the skin is bound to.
+    /// @param skin        The skin.
+    /// @param paletteOut  Receives the entries; may be NULL when capacity is
+    ///                    0.
+    /// @param capacity    The array's length.
+    /// @param countOut    Receives the joint count. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when the array is
     /// shorter than the joint count, with the count written and nothing
     /// else; `mani_errorInvalid` for a NULL argument, a skeleton that is
@@ -112,7 +112,7 @@ extern "C"
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniPose_ComputePalette(
         const maniPose* pose, const maniSkeleton* skeleton, const maniSkin* skin,
-        maniAffine* palette, uint32_t capacity, uint32_t* countOut);
+        maniAffine* paletteOut, uint32_t capacity, uint32_t* countOut);
 
 #ifdef __cplusplus
 }
