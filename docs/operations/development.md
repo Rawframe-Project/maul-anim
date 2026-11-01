@@ -83,7 +83,7 @@ The C++ generators need the third-party libraries named at the top of each file;
 
 ## Differentials
 
-Programs built with `-DMAUL_ANIM_DIFFERENTIAL=ON` compare the library with other implementations on the same data; `.github/workflows/nightly.yml` runs them every night and by hand, never in the pull request check ([checks.md](checks.md)).
+Programs built with `-DMAUL_ANIM_DIFFERENTIAL=ON` compare the library with other implementations on the same data; `.github/workflows/nightly.yml` runs them every night and by hand. The pull request check only compiles them, in its `differentials` job and in `tools/check.sh pr` ([checks.md](checks.md)).
 
 | Program | Compares with | Data |
 |---|---|---|
