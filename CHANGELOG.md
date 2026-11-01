@@ -5,6 +5,102 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.8.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.7.0...v0.8.0) (2026-10-31)
+
+### Changed
+
+- **Breaking: kinds, modes and choices are `int32_t`, and flag sets have
+  `uint32_t` typedefs.** All 33 kind, mode and choice typedefs, such as
+  `maniLoopPolicy`, are `int32_t`; a negative value is refused like one
+  past the last value. New flag-set typedefs are `maniGraphSyncFlags`,
+  `maniGraphClipFlags`, `maniRootAxes` and `maniMatchEntryFlags`, and the
+  fields that hold them take them, as does `maniClipSource.loop`, now a
+  `maniLoopPolicy`. Rename `MANI_MATCH_LOOP`, `MANI_MATCH_NO_JUMP` and
+  `MANI_MATCH_MIRRORED` to `maniMatchEntryLoop`, `maniMatchEntryNoJump`
+  and `maniMatchEntryMirrored`. `maniMorphTargets_GetAttribute` returns
+  -1 past the count, where it returned `UINT32_MAX`. Code that keeps a
+  kind in a `uint32_t` variable or compares it with an unsigned value
+  updates its types
+  ([#199](https://github.com/Rawframe-Project/maul-anim/pull/199)).
+- **Breaking: two names follow the family's naming rules.**
+  `maniLearnedTrainerReport.iteration` is `iterationCount`, and
+  `maniRootMoveIdentity` is `maniMakeRootMoveIdentity`
+  ([#198](https://github.com/Rawframe-Project/maul-anim/pull/198)).
+- **Breaking: the CPU checks return `bool`, and `maniHash64` takes an
+  `int64_t` count.** `maniIsCpuBackendSupported` and `maniCheckCpu`
+  return `bool` instead of an `int32_t` 1 or 0, so a caller comparing
+  the result with 1 tests it as a `bool`. `maniHash64` hashes any byte
+  count up to `INT64_MAX`; pass the count without narrowing it. Hash
+  values are unchanged
+  ([#176](https://github.com/Rawframe-Project/maul-anim/pull/176)).
+- **Breaking: a refused call or a "no" clears its outputs.** A call on a
+  builder, a glTF or FBX document or a trainer clears its sizes, counts,
+  reports, structs and handles before any check, so a failed call never
+  leaves an earlier call's value to be read as its answer.
+  `maniBuilder_CopyBuilt`, `maniBuilder_CopySkeletonOrder`,
+  `maniGltf_GetMorphWeights`, `maniFbx_GetMorphWeights` and
+  `maniLearnedTrainer_SaveCheckpoint` also zero the caller's array up to
+  its capacity; a short skeleton order is no longer filled as far as it
+  goes. A too-small buffer still reports the size or count it needed.
+  `maniBuildGltfClip` and `maniBuildFbxClip` write `boundOut` only when
+  the clip builds. `maniClip_GetRootMotionSource` and
+  `maniInfluences_GetCenter` clear their output when they return false,
+  and the name getters of learned models and motion databases clear
+  `lengthOut` when they return NULL. The headers say what each output
+  holds after a failure
+  ([#165](https://github.com/Rawframe-Project/maul-anim/pull/165),
+  [#174](https://github.com/Rawframe-Project/maul-anim/pull/174)).
+- **Breaking: a call refused as busy leaves its outputs.** A builder or
+  trainer call that its own allocator or task hook made is refused with
+  `mani_errorBusy` and writes none of its outputs, since they may be the
+  ones the call in progress is filling. `maniOpenGltf` and
+  `maniOpenFbx` still set their handle to NULL
+  ([#173](https://github.com/Rawframe-Project/maul-anim/pull/173)).
+- **Breaking: more calls back in from host code are refused as busy.**
+  `maniGltf_SupplyBuffer`, `maniGltf_ReadSprings` and
+  `maniGltf_ReadRagdoll` return `mani_errorBusy` when called from the
+  builder's allocator. `maniLearnedTrainer_SaveCheckpoint` and
+  `maniBuildLearnedModelFromTrainer` return it when called from the
+  trainer's allocator or task hooks. While a model is built from a
+  trainer, `maniLearnedTrainer_Train`,
+  `maniLearnedTrainer_RestoreCheckpoint` and
+  `maniDestroyLearnedTrainer` on that trainer return it too. Each
+  refusal counts one misuse
+  ([#187](https://github.com/Rawframe-Project/maul-anim/pull/187),
+  [#197](https://github.com/Rawframe-Project/maul-anim/pull/197)).
+- The headers say which outputs may be their input:
+  `maniBlendRootMotion`'s `moveOut` may be one of `moves`,
+  `maniLearnedModel_Project`'s `stateOut` may be `query`, and
+  `maniMorphTargets_ComputeTargetWeights`' `targetWeightsOut` may be
+  `channelWeights`
+  ([#195](https://github.com/Rawframe-Project/maul-anim/pull/195)).
+
+### Fixed
+
+- `maniMorphTargets_ComputeTargetWeights` gave wrong weights when its
+  output was its own channel weights. It now computes them in place with
+  the same bits as apart
+  ([#193](https://github.com/Rawframe-Project/maul-anim/pull/193)).
+- `maniRetargetMap_RetargetPose` gave a wrong pose when the target pose
+  was the source pose, or shared memory with it. It now refuses any
+  overlap of the two poses with `mani_errorInvalid` and writes nothing
+  ([#194](https://github.com/Rawframe-Project/maul-anim/pull/194)).
+- Destroying a builder or a trainer, or closing a glTF or FBX document,
+  let the host's free hook call back into the object: a hook could
+  build on a builder being destroyed, free it twice, or read a closing
+  document's freed names. Every call from those frees is now refused
+  with `mani_errorBusy`, and a closing document reads as empty
+  ([#187](https://github.com/Rawframe-Project/maul-anim/pull/187)).
+- Host code running while a model was built from a trainer could
+  destroy or retrain the trainer under the build, which then read freed
+  memory. The trainer is now marked busy for the whole build
+  ([#197](https://github.com/Rawframe-Project/maul-anim/pull/197)).
+
+Poses, samples, file bytes and format versions do not change. As with
+every release before 1.0.0, a graph instance, spring state or trainer
+checkpoint saved by 0.7.0 is refused with `mani_errorVersion`: keep
+assets, not saved states, across the upgrade.
+
 ## [0.7.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.6.0...v0.7.0) (2026-10-29)
 
 ### Changed
