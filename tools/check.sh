@@ -16,6 +16,7 @@
 #                            machine: every check, the generated files,
 #                            the documentation site, clang-tidy, the
 #                            linux-clang-20-asan and linux-gcc-14 presets,
+#                            the nightly's differential tools built,
 #                            and a short fuzzing pass.
 #   tools/check.sh full      also the other Linux presets (ThreadSanitizer,
 #                            shared with the package test, Clang Release),
@@ -187,6 +188,13 @@ tidy "${sources[@]}"
 
 preset linux-clang-20-asan
 preset linux-gcc-14
+
+# The nightly runs these against ufbx, ACL, ozz-animation and Godot; a
+# change to the headers must still compile them.
+step "the nightly's differential tools build"
+cmake --preset linux-differential >"$out/linux-differential.log"
+cmake --build --preset linux-differential -j "$jobs" --target fbx_differential acl_differential \
+    ozz_differential ik_differential retarget_godot >>"$out/linux-differential.log"
 
 fuzz_seconds=10
 [ "$tier" = full ] && fuzz_seconds=60
