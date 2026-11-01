@@ -247,7 +247,7 @@ extern "C"
     /// @param count               The number of matrices.
     /// @param dualQuaternionsOut  Receives 20 floats a matrix.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL pointer with
-    /// a count or a matrix not finite (out unchanged).
+    /// a count or a matrix not finite (dualQuaternionsOut unchanged).
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniConvertPaletteToDualQuaternions(

@@ -971,7 +971,7 @@ extern "C"
     /// @param plan      A plan of the instance's binding.
     /// @param scratch   As maniGraphInstance_Evaluate's.
     /// @param size      The scratch's size.
-    /// @param poseOut   A pose of the graph's skeleton.
+    /// @param pose      A pose of the graph's skeleton.
     /// @return As maniGraphInstance_Evaluate; `mani_errorInvalid` also for a NULL
     /// plan or one of another binding.
     /// @par Thread safety
@@ -980,7 +980,7 @@ extern "C"
     MANI_NODISCARD MANI_API maniResult maniGraphInstance_EvaluateSubset(maniGraphInstance* instance,
                                                                         const maniGraphSubset* plan,
                                                                         void* scratch, size_t size,
-                                                                        maniPose* poseOut);
+                                                                        maniPose* pose);
 
 #ifdef __cplusplus
 }

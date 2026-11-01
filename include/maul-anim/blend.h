@@ -53,11 +53,11 @@ extern "C"
     /// @param poseOut    Receives the blend, of the layers' kind; not one
     ///                   of the layers' poses.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// pose of another skeleton, layers of both kinds, out among the
-    /// layers, a weight outside 0 to 1 or a threshold out of range (out
-    /// unchanged).
+    /// pose of another skeleton, layers of both kinds, poseOut among the
+    /// layers, a weight outside 0 to 1 or a threshold out of range
+    /// (poseOut unchanged).
     /// @par Thread safety
-    /// Safe from any thread; out is used by one thread at a time.
+    /// Safe from any thread; poseOut is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSkeleton_BlendPoses(const maniSkeleton* skeleton,
                                                                const maniBlendLayer* layers,
                                                                uint32_t count, float threshold,
@@ -109,9 +109,9 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
     /// pose of another skeleton, a difference given as pose or basis, or a
     /// difference not finite (a basis scale component of 0 or near it,
-    /// translations past binary32's range apart; out unchanged).
+    /// translations past binary32's range apart; differenceOut unchanged).
     /// @par Thread safety
-    /// Safe from any thread; out is used by one thread at a time.
+    /// Safe from any thread; differenceOut is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult
     maniSkeleton_ComputePoseDifference(const maniSkeleton* skeleton, const maniPose* pose,
                                        const maniPose* basis, maniPose* differenceOut);
