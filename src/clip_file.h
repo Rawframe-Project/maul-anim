@@ -3,9 +3,10 @@
 //
 // The clip file's layout, shared by its view, its builder and
 // its compressor: kind 2 of the container, sections tagged 1 to 10 at
-// full precision, 1 to 15 compressed, and 16 (root motion) in either; an
-// empty section is left out of the table (absent is empty, and nothing
-// else is), so the identity is the same either way.
+// full precision, 1 to 15 compressed, and 16 to 18 (root motion and the
+// two options) in either; an empty section is left out of the table
+// (absent is empty, and an option at its default is absent), so the
+// identity is the same either way.
 
 #ifndef MAUL_ANIM_SRC_CLIP_FILE_H
 #define MAUL_ANIM_SRC_CLIP_FILE_H
@@ -13,17 +14,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MANI_CLIP_FORMAT_VERSION      4u
+#define MANI_CLIP_FORMAT_VERSION      5u
 #define MANI_CLIP_SECTIONS            10u
 #define MANI_CLIP_COMPRESSED_SECTIONS 15u
-#define MANI_CLIP_ALL_SECTIONS        16u
+#define MANI_CLIP_ALL_SECTIONS        18u
 // The header: skeleton identity (u64), skeleton bone count, sample count
-// (u32 each), sample rate, duration (binary32 each), loop policy, track
-// count, floats per sample, float track count, discrete track count,
-// event count, marker count, segment count (0 for full precision), form
-// (0 full precision, 1 compressed), additive basis (0 none, 1 rest, 2
-// first frame; u32 each).
-#define MANI_CLIP_HEADER_SIZE 64u
+// (u32 each), sample rate, duration (binary32 each), track count, floats
+// per sample, float track count, discrete track count, event count,
+// marker count, segment count (u32 each; 0 for full precision, at least 1
+// compressed, which is how a reader tells the forms apart).
+#define MANI_CLIP_HEADER_SIZE 52u
+// An option's section: one u32, present only off its default.
+#define MANI_CLIP_OPTION_SIZE 4u
 // A float or discrete track: name offset, name length (u32 each), name
 // hash (u64), then for a float track its interpolation (u32: 0 linear,
 // 1 step) and a zero u32 keeping the next track's hash 8-byte aligned,
@@ -94,6 +96,11 @@ enum
     // (MANI_ROOT_MOTION_HEADER_SIZE), the whole-period move, then per
     // sample the motion's translation and rotation.
     maniClipTagRootMotion = 16,
+    // The loop policy, maniLoopRepeat; absent, maniLoopClamp.
+    maniClipTagLoop = 17,
+    // The additive basis, maniAdditiveRest or maniAdditiveFirstFrame;
+    // absent, maniAdditiveNone.
+    maniClipTagAdditive = 18,
 };
 
 // The root motion header: bone, translation axes, rotation, twist axis,

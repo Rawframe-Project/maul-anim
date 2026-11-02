@@ -17,6 +17,7 @@
 #include "clip_build.h"
 #include "clip_file.h"
 #include "container.h"
+#include "file_tag.h"
 #include "negative_kinds.h"
 #include "pose_memory.h"
 #include "test_harness.h"
@@ -830,8 +831,15 @@ static void TestOpenRefusals(void)
     maniClip clip;
     CHECK(maniOpenClip(s_crafted, s_size, &clip).result == mani_success,
           "2^64 in a translation, 2^65 in a rotation");
-    // The additive basis in the header: root motion on a difference clip.
-    ExpectFormat(SectionAt(maniClipTagHeader) + 60, 1, at, "an additive clip");
+    // An additive basis beside the root motion: root motion on a
+    // difference clip, refused at the root motion, which has moved on
+    // with the longer table.
+    static const uint8_t kRest[MANI_CLIP_OPTION_SIZE] = {maniAdditiveRest, 0, 0, 0};
+    size_t size = TestRelayout(s_file, maniClipTagAdditive, kRest, sizeof kRest, 0, 0, s_crafted);
+    uint64_t count = maniLoadU32(s_file + 12);
+    uint64_t moved = at + TestAlignUp(48 + 24 * (count + 1)) - TestAlignUp(48 + 24 * count);
+    maniFileResult additive = maniOpenClip(s_crafted, size, &clip);
+    CHECK(additive.result == mani_errorFormat && additive.offset == moved, "an additive clip");
 }
 
 static int WriteSeed(const char* path)
