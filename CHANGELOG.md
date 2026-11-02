@@ -5,6 +5,19 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.9.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.8.0...v0.9.0) (2026-11-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **blend:** maniSkeleton_BlendPoses takes a threshold of at least FLT_MIN (2^-126) and at most 1. A threshold below FLT_MIN, which main accepted, now returns mani_errorInvalid.
+
+### Fixed
+
+* **blend:** refuse a threshold below FLT_MIN ([#216](https://github.com/Rawframe-Project/maul-anim/issues/216)) ([5f2209d](https://github.com/Rawframe-Project/maul-anim/commit/5f2209d8cade3edc57c9570ebc78b96ff45100c6)), closes [#215](https://github.com/Rawframe-Project/maul-anim/issues/215)
+* **clip:** keep a rotation's direction whatever its finite length ([#211](https://github.com/Rawframe-Project/maul-anim/issues/211)) ([c34f99c](https://github.com/Rawframe-Project/maul-anim/commit/c34f99c6bd4538c0fef6409a4e90cfd31af25961)), closes [#210](https://github.com/Rawframe-Project/maul-anim/issues/210)
+* **skin:** keep a direction whatever its finite length ([#214](https://github.com/Rawframe-Project/maul-anim/issues/214)) ([7f38555](https://github.com/Rawframe-Project/maul-anim/commit/7f38555723be51a5440d630a0d7cb182baaf31a9)), closes [#213](https://github.com/Rawframe-Project/maul-anim/issues/213)
+
 ## [0.8.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.7.0...v0.8.0) (2026-10-31)
 
 ### Changed
