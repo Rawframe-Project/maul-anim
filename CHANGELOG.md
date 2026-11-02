@@ -7,16 +7,39 @@ may change the API, the ABI and every data format.
 
 ## [0.9.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.8.0...v0.9.0) (2026-11-02)
 
+### Changed
 
-### ⚠ BREAKING CHANGES
-
-* **blend:** maniSkeleton_BlendPoses takes a threshold of at least FLT_MIN (2^-126) and at most 1. A threshold below FLT_MIN, which main accepted, now returns mani_errorInvalid.
+- **Breaking: `maniSkeleton_BlendPoses` refuses a threshold below
+  `FLT_MIN`.** The threshold must be at least `FLT_MIN` (2^-126) and at
+  most 1. A subnormal threshold, which 0.8.0 accepted and which could
+  blend translations and scales to infinity or NaN, now returns
+  `mani_errorInvalid` and leaves the output pose as it was. Graphs blend
+  at `MANI_BLEND_THRESHOLD` (1e-5) and are not affected
+  ([#216](https://github.com/Rawframe-Project/maul-anim/pull/216)).
 
 ### Fixed
 
-* **blend:** refuse a threshold below FLT_MIN ([#216](https://github.com/Rawframe-Project/maul-anim/issues/216)) ([5f2209d](https://github.com/Rawframe-Project/maul-anim/commit/5f2209d8cade3edc57c9570ebc78b96ff45100c6)), closes [#215](https://github.com/Rawframe-Project/maul-anim/issues/215)
-* **clip:** keep a rotation's direction whatever its finite length ([#211](https://github.com/Rawframe-Project/maul-anim/issues/211)) ([c34f99c](https://github.com/Rawframe-Project/maul-anim/commit/c34f99c6bd4538c0fef6409a4e90cfd31af25961)), closes [#210](https://github.com/Rawframe-Project/maul-anim/issues/210)
-* **skin:** keep a direction whatever its finite length ([#214](https://github.com/Rawframe-Project/maul-anim/issues/214)) ([7f38555](https://github.com/Rawframe-Project/maul-anim/commit/7f38555723be51a5440d630a0d7cb182baaf31a9)), closes [#213](https://github.com/Rawframe-Project/maul-anim/issues/213)
+- Sampling a clip between two rotation samples in opposite hemispheres
+  could give the identity rotation. A clip file may hold such samples,
+  for example (1, 0, 0, 2^-80) and (-1, 0, 2^-80, 0); halfway between
+  them, the interpolated rotation is too short for its squared length to
+  be a normal binary32. It is now scaled by a power of two before it is
+  normalized, so it keeps its direction. The builder keeps consecutive
+  samples in one hemisphere, so built clips do not reach this case
+  ([#211](https://github.com/Rawframe-Project/maul-anim/pull/211)).
+- The skinning jobs gave a zero normal or tangent for a direction that
+  had not collapsed when the palette's scale was far from 1: a uniform
+  scale of about 2^-40 or 2^40 for normals, and 2^-70 or 2^70 for
+  tangents. They now keep its direction. Only a zero direction, or one
+  that is not finite, still comes out zero
+  ([#214](https://github.com/Rawframe-Project/maul-anim/pull/214)).
+
+Results change only for the inputs above, which gave the identity or a
+zero direction before. Every other pose, sample, skinned vertex, file
+byte and format version is the same, and no pinned hash moves. As with
+every release before 1.0.0, a graph instance, spring state or trainer
+checkpoint saved by 0.8.0 is refused with `mani_errorVersion`: keep
+assets, not saved states, across the upgrade.
 
 ## [0.8.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.7.0...v0.8.0) (2026-10-31)
 
