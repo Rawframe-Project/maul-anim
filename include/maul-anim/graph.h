@@ -119,7 +119,10 @@ extern "C"
         // A blend space in a plane by triangles: the corners of the
         // triangle holding the position, or the ends of the nearest edge.
         maniGraphNodeBlendSpaceTriangles = 9,
-        // A blend space in a plane by gradient bands, cartesian or polar.
+        // A blend space in a plane by gradient bands, cartesian or polar;
+        // where no band reaches the position (polar points far apart in
+        // speed), the point at the least squared distance from it in the
+        // plane alone, the first of equals.
         maniGraphNodeBlendSpaceBands = 10,
         // A state machine: its inputs are its states, blended by the
         // weights its transitions give them.

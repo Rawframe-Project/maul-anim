@@ -5,9 +5,10 @@
 // held at its ends and wrapped across its seam, one point alone; gradient
 // bands, cartesian and polar, against weights worked by hand from
 // Johansen's equations or (speed and direction together) from a binary64
-// model of them; a vec2 parameter for the position; a space evaluated as
-// the blending functions blend; the builder's refusals and opening's
-// checks; a space in a subgraph; the JSON form round trip. Run as
+// model of them, and the nearest point where no band reaches; a vec2
+// parameter for the position; a space evaluated as the blending functions
+// blend; the builder's refusals and opening's checks; a space in a
+// subgraph; the JSON form round trip. Run as
 // test_graph_space --seed <graph file> <json file> it writes the round
 // trip's file and text, seeds of the fuzz targets.
 
@@ -204,6 +205,33 @@ static void TestPolarTurns(void)
                      : AtPoint(instance, &g, 0.0f, 0.0f, kOrigin, 3),
               k == 0 ? "polar: across the seam" : "polar: at the origin");
     }
+}
+
+// Polar bands over a run back to the left, a slow step back and a slow
+// step back to the left, at (4, -8), far ahead to the right: each point's
+// band toward another ends before the position (binary64 model: -0.172,
+// -0.352, -0.620 at their lowest, no turn within 0.2 of half a turn), so
+// no band reaches it and the nearest point, the step back at (-0.25, 0),
+// takes the whole weight.
+static void TestPolarUnreached(void)
+{
+    static const uint32_t kInputs[3] = {1, 2, 3};
+    static const float kPoints[6] = {-4, 4, -0.25f, 0, -0.25f, 0.25f};
+    maniGraphParameterSource parameters[2] = {Parameter("x", maniGraphParameterFloat, Float(0)),
+                                              Parameter("y", maniGraphParameterFloat, Float(0))};
+    maniGraphNodeSource nodes[4] = {
+        {maniGraphNodeBlendSpaceBands, 3, kInputs,
+         .bands = {{MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}}, kPoints, 1}},
+        ClipNode(0, 1.0f, maniGraphLoopClip),
+        ClipNode(1, 1.0f, maniGraphLoopClip),
+        ClipNode(3, 1.0f, maniGraphLoopClip)};
+    maniGraph g;
+    maniGraphInstance* instance = Make(
+        (maniGraphSource){
+            .parameters = parameters, .nodes = nodes, .parameterCount = 2, .nodeCount = 4},
+        &g);
+    static const float kNearest[3] = {0, 1, 0};
+    CHECK(AtPoint(instance, &g, 4.0f, -8.0f, kNearest, 3), "polar: no band, the nearest point");
 }
 
 static _Alignas(32) uint8_t s_scratch[65536];
@@ -485,6 +513,7 @@ int main(int argc, char** argv)
     TestBands();
     TestPolarMixed();
     TestPolarTurns();
+    TestPolarUnreached();
     TestEvaluated();
     TestRefusals();
     TestOpenRefusals();
