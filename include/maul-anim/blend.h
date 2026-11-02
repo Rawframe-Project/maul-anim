@@ -48,7 +48,8 @@ extern "C"
     /// @param skeleton   The layers' and the output's skeleton.
     /// @param layers     count layers, all poses or all differences.
     /// @param count      The number of layers.
-    /// @param threshold  Above 0 and at most 1 (MANI_BLEND_THRESHOLD in
+    /// @param threshold  At least FLT_MIN (2^-126, the least normal
+    ///                   binary32) and at most 1 (MANI_BLEND_THRESHOLD in
     ///                   graphs).
     /// @param poseOut    Receives the blend, of the layers' kind; not one
     ///                   of the layers' poses.

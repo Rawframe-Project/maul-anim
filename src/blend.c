@@ -18,6 +18,7 @@
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
+#include <float.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -50,11 +51,13 @@ static bool LayerValid(const maniBlendLayer* layer, const maniSkeleton* skeleton
 }
 
 // The arguments checked before anything is written; the layers' kind out.
+// A threshold is a normal binary32 so that one over it, or over a total
+// at least as large, is finite.
 static bool Valid(const maniSkeleton* skeleton, const maniBlendLayer* layers, uint32_t count,
                   float threshold, const maniPose* out, bool* difference)
 {
     if (!maniPoseMatches(out, skeleton) || (layers == NULL && count > 0) || !Usable(threshold) ||
-        !(threshold > 0.0f))
+        !(threshold >= FLT_MIN))
     {
         return false;
     }
