@@ -303,8 +303,8 @@ static void Banded(const Space* s, const float* at, float* weights)
     }
     if (!(sum > 0.0f))
     {
-        // No band reaches the position (polar spaces with gaps past half
-        // a turn): the nearest point.
+        // No band reaches the position (polar points far apart in speed):
+        // the nearest point in the plane, the first of equals.
         for (uint32_t i = 0; i < n; ++i)
         {
             weights[i] = 0.0f;
