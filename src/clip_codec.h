@@ -94,17 +94,39 @@ static inline void maniCodecRotation(const float kept[3], uint32_t dropped, floa
 }
 
 // A rotation made unit: divided by its length, as one reciprocal, in
-// binary32; the identity for a length 0 or past binary32's range.
+// binary32. One whose squared length is no normal binary32 (a lerp of
+// samples a file holds in opposite hemispheres may be 2^-81 long) is
+// first scaled by the power of two that puts its largest component in
+// [0.5, 1), exactly when scaled up; the identity for a length 0 or not
+// finite.
 static inline void maniCodecNormalize(float q[4])
 {
     float squared = ((q[0] * q[0] + q[1] * q[1]) + q[2] * q[2]) + q[3] * q[3];
-    if (!(squared > 0.0f && squared <= FLT_MAX))
+    if (!(squared >= FLT_MIN && squared <= FLT_MAX))
     {
-        q[0] = 0.0f;
-        q[1] = 0.0f;
-        q[2] = 0.0f;
-        q[3] = 1.0f;
-        return;
+        float largest = 0.0f;
+        bool finite = true;
+        for (int k = 0; k < 4; ++k)
+        {
+            float a = fabsf(q[k]);
+            finite = finite && a <= FLT_MAX;
+            largest = a > largest ? a : largest;
+        }
+        if (!finite || largest == 0.0f)
+        {
+            q[0] = 0.0f;
+            q[1] = 0.0f;
+            q[2] = 0.0f;
+            q[3] = 1.0f;
+            return;
+        }
+        int e = 0;
+        (void)frexpf(largest, &e);
+        for (int k = 0; k < 4; ++k)
+        {
+            q[k] = ldexpf(q[k], -e);
+        }
+        squared = ((q[0] * q[0] + q[1] * q[1]) + q[2] * q[2]) + q[3] * q[3];
     }
     float inverse = 1.0f / sqrtf(squared);
     for (int k = 0; k < 4; ++k)

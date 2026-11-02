@@ -918,6 +918,58 @@ static void StoreF32(uint64_t at, float value)
     memcpy(s_file + at, &value, sizeof value);
 }
 
+// The payload hash and the identity made right after an edit that
+// opening accepts.
+static void Restamp(void)
+{
+    Rehash();
+    maniContainer c;
+    CHECK(maniOpenContainer(s_file, s_size, maniKindClip, MANI_CLIP_FORMAT_VERSION, &c).result ==
+              mani_success,
+          "container");
+    const uint8_t* sections[MANI_CLIP_ALL_SECTIONS];
+    uint64_t sizes[MANI_CLIP_ALL_SECTIONS];
+    for (uint32_t t = 1; t <= MANI_CLIP_ALL_SECTIONS; ++t)
+    {
+        uint64_t at = 0;
+        sections[t - 1] = s_file;
+        sizes[t - 1] = 0;
+        (void)maniContainerSection(&c, t, &sections[t - 1], &sizes[t - 1], &at);
+    }
+    maniStoreU64(s_file + 40, maniClipComputeIdentity(sections, sizes, MANI_CLIP_ALL_SECTIONS));
+}
+
+// Two unit samples a file may hold in opposite hemispheres, (1, 0, 0,
+// 2^-80) and (-1, 0, 2^-80, 0): halfway, the lerp is (0, 0, 2^-81, 2^-81),
+// whose squared length is below binary32's least value, yet it is a
+// quarter turn about z.
+static void TestTinyLerp(void)
+{
+    OpenSkeleton();
+    static const float times[2] = {0.0f, 0.5f};
+    static const float values[8] = {0, 0, 0, 1, 0, 0, 0, 1};
+    maniBoneTrackSource track = {
+        2, kNone, (maniChannelSource){times, values, 2, maniInterpolationLinear}, kNone};
+    maniClipSource source = {
+        .skeleton = &s_skeleton, .boneTracks = &track, .boneTrackCount = 1, .sampleRate = 2.0f};
+    CHECK(BuildFrom(&source).result == mani_success, "builds");
+    uint64_t samples = SectionAt(maniClipTagSamples);
+    const float tiny = 0x1p-80f;
+    const float written[8] = {1.0f, 0.0f, 0.0f, tiny, -1.0f, 0.0f, tiny, 0.0f};
+    for (int k = 0; k < 8; ++k)
+    {
+        StoreF32(samples + 4 * (uint64_t)k, written[k]);
+    }
+    Restamp();
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
+    maniTransform r = maniPose_GetLocal(SampleAt(&clip, 0.25f), 2);
+    double half = sqrt(0.5);
+    CHECK(Near(r.rotation.x, 0.0, 0.0) && Near(r.rotation.y, 0.0, 0.0) &&
+              Near(r.rotation.z, half, 1e-7) && Near(r.rotation.w, half, 1e-7),
+          "a quarter turn, not the identity");
+}
+
 static void TestOpenRefusals(void)
 {
     BuildSample();
@@ -1263,6 +1315,7 @@ int main(int argc, char** argv)
     TestWholeFrameDurations();
     TestReport();
     TestHemispheres();
+    TestTinyLerp();
     TestCubicSpan();
     TestNamedItemsAlone();
     TestWrongSkeleton();
