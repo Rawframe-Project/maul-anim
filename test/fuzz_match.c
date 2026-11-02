@@ -55,7 +55,8 @@ static void Exercise(const uint8_t* bytes, size_t size)
 static void FixIdentity(uint8_t* bytes, size_t size)
 {
     maniContainer c;
-    if (maniOpenContainer(bytes, size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION, &c)
+    if (maniOpenContainer(bytes, size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION,
+                          MANI_MATCH_SECTIONS, &c)
             .result != 0)
     {
         return;

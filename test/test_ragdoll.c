@@ -310,7 +310,8 @@ static uint64_t SectionAt(uint32_t tag)
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindRagdoll, MANI_RAGDOLL_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_file, s_size, maniKindRagdoll, MANI_RAGDOLL_FORMAT_VERSION,
+                            MANI_RAGDOLL_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, &at),
           "the section");
@@ -324,7 +325,8 @@ static bool RefusedAt(uint64_t offset, uint32_t value, uint64_t want)
     memcpy(s_crafted, s_file, s_size);
     maniStoreU32(s_crafted + offset, value);
     maniContainer c;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindRagdoll, MANI_RAGDOLL_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_file, s_size, maniKindRagdoll, MANI_RAGDOLL_FORMAT_VERSION,
+                            MANI_RAGDOLL_SECTIONS, &c)
                   .result == mani_success,
           "the container");
     static const uint8_t kEmpty = 0;
@@ -442,6 +444,9 @@ static void TestOpen(void)
               maniOpenRagdoll(NULL, s_size, &ragdoll).result == mani_errorInvalid,
           "misaligned, no view, no bytes");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
+    CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    // Tags 1 to 3 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 3), "a later writer's tag refused");
     memcpy(s_crafted, s_file, s_size);
     maniStoreU64(s_crafted + 40, 1);
     maniStoreU64(s_crafted + 32,

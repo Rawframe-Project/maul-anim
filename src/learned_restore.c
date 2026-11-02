@@ -240,8 +240,10 @@ static MANI_NOINLINE maniFileResult RestoreLearnedCheckpointWork(const void* byt
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
+    // A state, read only by the release that wrote it (checked below), so
+    // no tag is a later writer's: the section count refuses another.
     maniFileResult r = maniOpenContainer(bytes, size, maniKindLearnedCheckpoint,
-                                         MANI_CHECKPOINT_FORMAT_VERSION, &c);
+                                         MANI_CHECKPOINT_FORMAT_VERSION, UINT32_MAX, &c);
     if (r.result != mani_success)
     {
         return r;

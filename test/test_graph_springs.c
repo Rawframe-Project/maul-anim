@@ -157,7 +157,8 @@ static uint64_t SectionAt(uint32_t tag, uint64_t* sizeOut)
     maniContainer c;
     const uint8_t* data = NULL;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_graphFile, s_graphSize, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_graphFile, s_graphSize, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, tag, &data, sizeOut, &at),
           "the section");

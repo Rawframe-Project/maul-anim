@@ -493,8 +493,9 @@ static bool Section(const uint8_t* file, size_t size, uint32_t tag, const uint8_
                     uint64_t* length, uint64_t* at)
 {
     maniContainer c;
-    return maniOpenContainer(file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-               mani_success &&
+    return maniOpenContainer(file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                             MANI_GRAPH_SECTIONS, &c)
+                   .result == mani_success &&
            maniContainerSection(&c, tag, data, length, at);
 }
 
@@ -556,14 +557,23 @@ static void TestOpen(void)
           "one mirror built again");
     // The section's size in the table: its entry is the last.
     maniContainer c;
-    CHECK(maniOpenContainer(s_graphFile, s_graphSize, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_graphFile, s_graphSize, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
                   .result == mani_success,
           "the container");
     uint64_t entry = MANI_CONTAINER_HEADER_SIZE + (uint64_t)(c.sectionCount - 1) * 24;
     CHECK(maniLoadU32(s_graphFile + entry) == maniGraphTagMirror, "the mirror entry last");
-    uint8_t four[8];
-    maniStoreU64(four, 4);
-    CHECK(RefusedAt(entry + 16, four, 8, entry + 16), "a mirror section of 4 bytes");
+    // The file ending with the shorter section, as the container wants.
+    memcpy(s_crafted, s_graphFile, s_graphSize);
+    maniStoreU64(s_crafted + entry + 16, 4);
+    maniStoreU64(s_crafted + 24, s_graphSize - 4);
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               (uint64_t)s_graphSize - 4 - MANI_CONTAINER_HEADER_SIZE));
+    maniGraph shorter;
+    maniFileResult four = maniOpenGraph(s_crafted, s_graphSize, &shorter);
+    CHECK(four.result == mani_errorFormat && four.offset == entry + 16,
+          "a mirror section of 4 bytes");
     // The file written again without the section: the mirror node
     // refused.
     maniSectionSource sections[MANI_GRAPH_SECTIONS];

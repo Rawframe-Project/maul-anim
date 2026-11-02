@@ -702,7 +702,7 @@ static maniFileResult Changed(uint32_t tag, uint64_t offset, const void* bytes, 
     uint64_t length = 0;
     uint64_t at = 0;
     CHECK(maniOpenContainer(s_model, s_modelSize, maniKindLearnedModel, MANI_LEARNED_FORMAT_VERSION,
-                            &c)
+                            MANI_LEARNED_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, tag, &data, &length, &at),
           "the section");
@@ -715,7 +715,7 @@ static maniFileResult Changed(uint32_t tag, uint64_t offset, const void* bytes, 
     {
         maniContainer d;
         CHECK(maniOpenContainer(s_changed, s_modelSize, maniKindLearnedModel,
-                                MANI_LEARNED_FORMAT_VERSION, &d)
+                                MANI_LEARNED_FORMAT_VERSION, MANI_LEARNED_SECTIONS, &d)
                       .result == mani_success,
               "the crafted container");
         const uint8_t* sections[MANI_LEARNED_SECTIONS];
@@ -744,7 +744,7 @@ static uint64_t SectionOf(uint32_t tag)
     uint64_t length = 0;
     uint64_t at = 0;
     CHECK(maniOpenContainer(s_model, s_modelSize, maniKindLearnedModel, MANI_LEARNED_FORMAT_VERSION,
-                            &c)
+                            MANI_LEARNED_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, tag, &data, &length, &at),
           "the section");
@@ -850,6 +850,10 @@ static void TestOpenHeader(void)
           "a NULL view, misaligned bytes");
     CHECK(TestOtherVersionsRefused(s_model, s_modelSize, OpenFile),
           "another format version refused");
+    CHECK(TestPlacementRefused(s_model, s_modelSize, OpenFile),
+          "sections placed as written, or refused");
+    // Tags 1 to 11 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_model, s_modelSize, OpenFile, 11), "a later writer's tag refused");
 }
 
 static void TestOpenRecords(void)

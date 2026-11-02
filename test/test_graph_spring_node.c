@@ -549,7 +549,8 @@ static void TestOpen(void)
     uint64_t length = 0;
     uint64_t nodes = 0;
     uint64_t data = 0;
-    CHECK(maniOpenContainer(s_made[0].file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_made[0].file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, maniGraphTagNodes, &bytes, &length, &nodes) &&
               maniContainerSection(&c, maniGraphTagData, &bytes, &length, &data),
@@ -615,8 +616,9 @@ static void TestBlocksWrap(void)
     uint64_t data = 0;
     CHECK(maniBuildGraph(builder, &source).result == mani_success &&
               maniBuilder_CopyBuilt(builder, s_big, sizeof s_big, &size) == mani_success &&
-              maniOpenContainer(s_big, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-                  mani_success &&
+              maniOpenContainer(s_big, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                                MANI_GRAPH_SECTIONS, &c)
+                      .result == mani_success &&
               maniContainerSection(&c, maniGraphTagNodes, &bytes, &length, &nodes) &&
               maniContainerSection(&c, maniGraphTagData, &bytes, &length, &data),
           "a chain of spring nodes");

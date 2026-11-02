@@ -204,6 +204,9 @@ static void TestHeader(void)
     maniClip clip;
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
+    CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    // Tags 1 to 16 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 16), "a later writer's tag refused");
     CHECK(maniClip_GetDuration(&clip) == 1.0f, "duration from the last key");
     CHECK(maniClip_GetSampleRate(&clip) == 10.0f, "rate");
     CHECK(maniClip_GetSampleCount(&clip) == 11, "samples");
@@ -924,8 +927,9 @@ static void Restamp(void)
 {
     Rehash();
     maniContainer c;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindClip, MANI_CLIP_FORMAT_VERSION, &c).result ==
-              mani_success,
+    CHECK(maniOpenContainer(s_file, s_size, maniKindClip, MANI_CLIP_FORMAT_VERSION,
+                            MANI_CLIP_ALL_SECTIONS, &c)
+                  .result == mani_success,
           "container");
     const uint8_t* sections[MANI_CLIP_ALL_SECTIONS];
     uint64_t sizes[MANI_CLIP_ALL_SECTIONS];

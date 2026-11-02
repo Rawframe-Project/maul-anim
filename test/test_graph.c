@@ -440,8 +440,9 @@ static void Rehash(uint8_t* file)
     maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
                                           s_size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
-    CHECK(maniOpenContainer(file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-              mani_success,
+    CHECK(maniOpenContainer(file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
+                  .result == mani_success,
           "container");
     const uint8_t* sections[MANI_GRAPH_SECTIONS];
     uint64_t sizes[MANI_GRAPH_SECTIONS];
@@ -461,8 +462,9 @@ static uint64_t SectionAt(uint32_t tag)
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-                  mani_success &&
+    CHECK(maniOpenContainer(s_file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
+                      .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, &at),
           "the section");
     return at;
@@ -549,6 +551,9 @@ static void TestOpenRefusals(void)
               maniGraph_FindParameter(NULL, "mix", 3) == MANI_NO_PARAMETER,
           "misuses");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
+    CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    // Tags 1 to 15 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 15), "a later writer's tag refused");
 }
 
 static _Alignas(8) uint8_t s_bindingMemory[512];

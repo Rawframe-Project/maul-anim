@@ -233,7 +233,8 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// misaligned bytes; `mani_errorFormat` with the offset of the first
     /// byte found wrong; `mani_errorVersion` for an earlier or a newer
-    /// format (build an earlier file again).
+    /// format (build an earlier file again) or a section tag only a later
+    /// format writes.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniFileResult maniOpenGraph(const void* bytes, size_t size,

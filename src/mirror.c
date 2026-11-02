@@ -195,8 +195,8 @@ static MANI_NOINLINE maniFileResult OpenMirrorMapWork(const void* bytes, size_t 
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r =
-        maniOpenContainer(bytes, size, maniKindMirrorMap, MANI_MIRROR_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindMirrorMap, MANI_MIRROR_FORMAT_VERSION,
+                                         MANI_MIRROR_SECTIONS, &c);
     if (r.result != mani_success)
     {
         return r;

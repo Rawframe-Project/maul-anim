@@ -211,6 +211,10 @@ static void TestFeatures(void)
               maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success,
           "built and opened");
     CHECK(TestOtherVersionsRefused(s_database, s_size, OpenFile), "another format version refused");
+    CHECK(TestPlacementRefused(s_database, s_size, OpenFile),
+          "sections placed as written, or refused");
+    // Tags 1 to 13 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_database, s_size, OpenFile, 13), "a later writer's tag refused");
     CHECK(d.frameCount == 32 && d.featureCount == 12 && d.channelCount == 4 && d.timeCount == 5 &&
               d.entryCount == 3 && d.clipCount == 3 && d.skeletonBoneCount == 3,
           "the counts: 10 looping frames, 11 and 11 clamped");
@@ -629,10 +633,10 @@ static maniFileResult Crafted(uint64_t offset, uint32_t value)
                  maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
                                s_size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
-    CHECK(
-        maniOpenContainer(s_crafted, s_size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION, &c)
-                .result == mani_success,
-        "a container");
+    CHECK(maniOpenContainer(s_crafted, s_size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION,
+                            MANI_MATCH_SECTIONS, &c)
+                  .result == mani_success,
+          "a container");
     static const uint8_t kEmpty = 0;
     const uint8_t* sections[MANI_MATCH_SECTIONS];
     uint64_t sizes[MANI_MATCH_SECTIONS];
@@ -654,11 +658,11 @@ static uint64_t Section(uint32_t tag)
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(
-        maniOpenContainer(s_database, s_size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION, &c)
-                    .result == mani_success &&
-            maniContainerSection(&c, tag, &data, &size, &at),
-        "a section");
+    CHECK(maniOpenContainer(s_database, s_size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION,
+                            MANI_MATCH_SECTIONS, &c)
+                      .result == mani_success &&
+              maniContainerSection(&c, tag, &data, &size, &at),
+          "a section");
     return at;
 }
 

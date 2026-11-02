@@ -82,10 +82,8 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
         uint64_t entryAt = MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE;
         const uint8_t* entry = c->bytes + entryAt;
         uint32_t tag = maniLoadU32(entry);
-        if (tag == 0 || tag > MANI_MORPH_SECTIONS)
-        {
-            return Fail(entryAt);
-        }
+        // The container keeps tags from 1 to the last.
+        MANI_ASSERT(tag >= 1 && tag <= MANI_MORPH_SECTIONS);
         uint64_t size = maniLoadU64(entry + 16);
         if (size == 0)
         {
@@ -381,8 +379,8 @@ static MANI_NOINLINE maniFileResult OpenMorphTargetsWork(const void* bytes, size
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r =
-        maniOpenContainer(bytes, size, maniKindMorphTargets, MANI_MORPH_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindMorphTargets,
+                                         MANI_MORPH_FORMAT_VERSION, MANI_MORPH_SECTIONS, &c);
     Sections s;
     if (r.result == mani_success)
     {

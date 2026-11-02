@@ -16,7 +16,7 @@ Every asset the runtime reads is a file in one container. Files cross machines a
 | 32 | hash of every byte after the header (`maniHash64` from `MANI_HASH_INIT`) |
 | 40 | the file's identity (u64) |
 
-The table that follows holds a tag (u32), a zero u32, an offset and a size (u64 each) per section: tags strictly increasing, sections in table order, inside the file, without overlap. A kind defines its tags and what each holds; an empty section is left out of the table, and absent means empty. Writers zero every pad byte, so one source writes the same bytes everywhere.
+The table that follows holds a tag (u32), a zero u32, an offset and a size (u64 each) per section, tags strictly increasing from 1. Each section is a field: it starts where the previous one ends (the first where the table ends), rounded up to 16, the bytes in between are zero, and the file ends where its last section ends. A reader refuses any other placement, a nonzero pad byte or a byte past the last section with `mani_errorFormat`, so a file has one layout and one source writes the same bytes everywhere. A kind defines its tags, from 1 to its last, and what each holds; an empty section is left out of the table.
 
 No layout keeps reserved bytes. The only zeros inside a header or a record align the field after them, where no order of the fields avoids it: the container's u16 at 22 and each table entry's u32 after the tag align the u64 fields that follow. Each kind's layout comment in `src/` names any such zero of its own.
 
@@ -24,7 +24,7 @@ No pointer is stored anywhere: every reference is an index or an offset, so a fi
 
 ## Opening checks everything once
 
-`maniOpen...` takes the bytes at a 16-byte aligned address and checks, in order: the header, the table, the hash, then every section of the kind: counts, indices, ranges, floats finite, rotations of unit length, names valid UTF-8 and matching their hashes, derived sections equal to what they are derived from, and the identity. Only then does it fill the view. A refusal is `mani_errorFormat` with the offset of the first byte found wrong, or `mani_errorVersion` for any format version but the one the library reads.
+`maniOpen...` takes the bytes at a 16-byte aligned address and checks, in order: the header, the table, the hash, then every section of the kind: counts, indices, ranges, floats finite, rotations of unit length, names valid UTF-8 and matching their hashes, derived sections equal to what they are derived from, and the identity. Only then does it fill the view. A refusal is `mani_errorFormat` with the offset of the first byte found wrong, or `mani_errorVersion` for any format version but the one the library reads (at offset 6) or a tag past the kind's last (at its table entry, once the hash shows the file undamaged).
 
 Because opening has checked every byte, no later call checks again: a getter reads without branches, a sampler indexes without bounds checks. The hash catches damage, not tampering; the checks are what make a crafted file safe. A file that passes every check but was not made by a builder can give a wrong pose, never an unsafe access. Each opener is tested with files changed at every byte a check reads, and fuzzed.
 
@@ -66,6 +66,10 @@ A refusal names the tag of the section holding the first byte found wrong (`mani
 | Mirror map | 1 header, 2 bones, 3 names, 4 strings |
 | Learned checkpoint | 1 progress, 2 latents, 3 and on the networks' training state, 16 and on the networks |
 
+Every kind's header section (tag 1) is required, and so is every section of a skeleton and of a skin: a file without one is refused with `mani_errorFormat`. Any other section that is absent is empty, which is its default: no records of that table. An opener refuses an empty section that the header's counts need with `mani_errorFormat`, as it refuses a section of the wrong size, so a writer leaves a section out exactly when it holds no records. The sections that mean something when absent are a clip's root motion (16, a clip without root motion), a graph's mirror (15, no mirror map), the influences' dual quaternion weights and centers (4 and 5, no dual quaternion skinning) and a motion database's mirror (10, no mirrored entries).
+
+The learned checkpoint is a state, not an asset ([overview.md](overview.md)): only the release that wrote it reads it, so its reader takes no tag a later writer adds and refuses any section count but its own with `mani_errorFormat`.
+
 A compressed clip is a clip file in which the samples section is replaced by the compressed sections ([clips-and-compression.md](clips-and-compression.md)); `maniOpenClip` opens either form.
 
 ## Identities
@@ -76,12 +80,13 @@ The other kinds' identities cover every section, so the identity is a fingerprin
 
 ## Versions
 
-A kind's format version changes whenever its bytes change. Before 1.0.0 a reader reads its own format version alone and refuses every other one, earlier or later, with `mani_errorVersion` at offset 6; files are rebuilt from their sources, which is why every asset has a source form (structs, JSON for graphs and maps, glTF or FBX through the importers). From 1.0.0 a release reads every earlier format version of its major version, and the files each release writes are kept as test data.
+A kind's format version changes whenever its bytes change. Before 1.0.0 a reader reads its own format version alone and refuses every other one, earlier or later, with `mani_errorVersion` at offset 6; files are rebuilt from their sources, which is why every asset has a source form (structs, JSON for graphs and maps, glTF or FBX through the importers). From 1.0.0 a kind's format version no longer changes: a later release adds a field as a section with a new tag, which an earlier reader refuses with `mani_errorVersion`, and a writer leaves out a field that holds its default, so a file that uses no later field opens in an earlier release too.
 
 The library version a file was written by (bytes 16 to 23) is informational: readers decide by the format version alone.
 
 ## Traps
 
-- A new section that a reader of the same format version would not know changes the format version.
+- Before 1.0.0, a new section that a reader of the same format version would not know changes the format version.
+- A new value per record arrives as a new section with its own tag, parallel to the records, not as a longer record: record strides stay fixed.
 - Sections derived from others (a skeleton's name order, a database's search tree) are checked against what they are derived from at open. A motion database's search is exact only because each node's box is the exact minimum and maximum of its frames' features, so opening checks that the tree's order holds every frame once with its entry and recomputes every box, a leaf's from its frames and any other's from its two halves.
 - Hash functions here are for identities and damage, never for security.

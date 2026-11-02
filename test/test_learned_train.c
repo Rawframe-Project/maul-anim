@@ -847,6 +847,8 @@ static void TestRestoreRefused(void)
     s_restoring = t;
     CHECK(TestOtherVersionsRefused(s_checkpoint, size, RestoreFile),
           "another format version refused");
+    CHECK(TestPlacementRefused(s_checkpoint, size, RestoreFile),
+          "sections placed as written, or refused");
     // A checkpoint is state: before 1.0 a writer of any other major, minor
     // or patch version is another ABI version.
     bool releases = true;

@@ -122,9 +122,30 @@ MANI_NOINLINE maniFileResult maniContainerOpenTagged(const void* bytes, size_t s
     return Tagged(bytes, size, opener(bytes, size, out));
 }
 
-// The table's entries: zero where zero is due, aligned offsets past the
-// table, in order without overlap, inside the file, tags increasing.
-static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t count)
+static uint64_t AlignUp(uint64_t value)
+{
+    return (value + MANI_CONTAINER_ALIGNMENT - 1) / MANI_CONTAINER_ALIGNMENT *
+           MANI_CONTAINER_ALIGNMENT;
+}
+
+// The first nonzero byte from at to end, or end.
+static uint64_t FirstNonzero(const uint8_t* b, uint64_t at, uint64_t end)
+{
+    while (at < end && b[at] == 0)
+    {
+        ++at;
+    }
+    return at;
+}
+
+// The table's entries: zero where zero is due, tags from 1 increasing,
+// each section where the writer puts it (the previous one's end, or the
+// table's, rounded up to 16) after zero padding, inside the file, and
+// the file ending where its last section ends. *laterOut is the first
+// entry whose tag is past lastTag, a field only a later writer knows,
+// or 0.
+static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t count,
+                                 uint32_t lastTag, uint64_t* laterOut)
 {
     uint64_t tableEnd = MANI_CONTAINER_HEADER_SIZE + (uint64_t)count * MANI_CONTAINER_ENTRY_SIZE;
     if (tableEnd > fileSize)
@@ -132,25 +153,32 @@ static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t c
         return Malformed(12);
     }
     uint64_t next = tableEnd;
-    uint32_t lastTag = 0;
+    uint32_t previousTag = 0;
+    *laterOut = 0;
     for (uint32_t i = 0; i < count; ++i)
     {
         uint64_t at = MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE;
         uint32_t tag = maniLoadU32(b + at);
-        if (i > 0 && tag <= lastTag)
+        if (tag <= previousTag)
         {
             return Malformed(at);
         }
-        lastTag = tag;
+        previousTag = tag;
+        *laterOut = *laterOut == 0 && tag > lastTag ? at : *laterOut;
         if (maniLoadU32(b + at + 4) != 0)
         {
             return Malformed(at + 4);
         }
         uint64_t offset = maniLoadU64(b + at + 8);
         uint64_t sectionSize = maniLoadU64(b + at + 16);
-        if (offset % MANI_CONTAINER_ALIGNMENT != 0 || offset < next || offset > fileSize)
+        if (offset != AlignUp(next) || offset > fileSize)
         {
             return Malformed(at + 8);
+        }
+        uint64_t nonzero = FirstNonzero(b, next, offset);
+        if (nonzero < offset)
+        {
+            return Malformed(nonzero);
         }
         if (sectionSize > fileSize - offset)
         {
@@ -158,11 +186,16 @@ static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t c
         }
         next = offset + sectionSize;
     }
+    if (next != fileSize)
+    {
+        return Malformed(24);
+    }
     return Fail(mani_success, 0);
 }
 
 MANI_COLD maniFileResult maniOpenContainer(const void* bytes, size_t size, uint16_t kind,
-                                           uint16_t version, maniContainer* containerOut)
+                                           uint16_t version, uint32_t lastTag,
+                                           maniContainer* containerOut)
 {
     if (bytes == NULL || containerOut == NULL || (uintptr_t)bytes % MANI_CONTAINER_ALIGNMENT != 0)
     {
@@ -176,7 +209,8 @@ MANI_COLD maniFileResult maniOpenContainer(const void* bytes, size_t size, uint1
     }
     uint64_t fileSize = maniLoadU64(b + 24);
     uint32_t count = maniLoadU32(b + 12);
-    r = CheckTable(b, fileSize, count);
+    uint64_t later = 0;
+    r = CheckTable(b, fileSize, count, lastTag, &later);
     if (r.result != mani_success)
     {
         return r;
@@ -184,6 +218,11 @@ MANI_COLD maniFileResult maniOpenContainer(const void* bytes, size_t size, uint1
     if (HashPayload(b, fileSize) != maniLoadU64(b + 32))
     {
         return Malformed(32);
+    }
+    // After the hash, so damage reads as damage.
+    if (later != 0)
+    {
+        return Fail(mani_errorVersion, later);
     }
     *containerOut = (maniContainer){
         .bytes = b,
@@ -213,12 +252,6 @@ bool maniContainerSection(const maniContainer* container, uint32_t tag, const ui
         }
     }
     return false;
-}
-
-static uint64_t AlignUp(uint64_t value)
-{
-    return (value + MANI_CONTAINER_ALIGNMENT - 1) / MANI_CONTAINER_ALIGNMENT *
-           MANI_CONTAINER_ALIGNMENT;
 }
 
 bool maniContainerSize(const maniSectionSource* sections, uint32_t count, uint64_t* sizeOut)

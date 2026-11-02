@@ -193,8 +193,9 @@ static uint64_t CraftedAt(uint32_t tag, uint64_t offset, uint32_t value, uint64_
     const uint8_t* data = NULL;
     uint64_t size = 0;
     s_size = (size_t)maniLoadU64(s_file + 24);
-    CHECK(maniOpenContainer(s_file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-                  mani_success &&
+    CHECK(maniOpenContainer(s_file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
+                      .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, sectionAt),
           "the section");
     memcpy(s_crafted, s_file, s_size);

@@ -47,7 +47,8 @@ static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size,
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r = maniOpenContainer(bytes, size, maniKindSkin, MANI_SKIN_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindSkin, MANI_SKIN_FORMAT_VERSION,
+                                         MANI_SKIN_SECTIONS, &c);
     if (r.result != mani_success)
     {
         return r;

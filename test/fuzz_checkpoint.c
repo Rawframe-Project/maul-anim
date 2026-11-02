@@ -33,9 +33,11 @@ static bool SameSections(const uint8_t* a, size_t aSize, const uint8_t* b, size_
 {
     maniContainer ca;
     maniContainer cb;
-    if (maniOpenContainer(a, aSize, maniKindLearnedCheckpoint, MANI_CHECKPOINT_FORMAT_VERSION, &ca)
+    if (maniOpenContainer(a, aSize, maniKindLearnedCheckpoint, MANI_CHECKPOINT_FORMAT_VERSION,
+                          UINT32_MAX, &ca)
                 .result != mani_success ||
-        maniOpenContainer(b, bSize, maniKindLearnedCheckpoint, MANI_CHECKPOINT_FORMAT_VERSION, &cb)
+        maniOpenContainer(b, bSize, maniKindLearnedCheckpoint, MANI_CHECKPOINT_FORMAT_VERSION,
+                          UINT32_MAX, &cb)
                 .result != mani_success ||
         ca.sectionCount != cb.sectionCount || ca.identity != cb.identity)
     {

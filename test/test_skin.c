@@ -335,6 +335,9 @@ static void TestOpenRefusals(void)
     maniSkin skin;
     CHECK(maniOpenSkin(s_file, s_size, NULL).result == mani_errorInvalid, "null view");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
+    CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    // Tags 1 to 3 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 3), "a later writer's tag refused");
     CHECK(maniOpenSkin(s_skeletonFile, sizeof s_skeletonFile, &skin).result == mani_errorFormat,
           "a skeleton is not a skin");
 }

@@ -19,7 +19,10 @@
 // magic and two u32 leave the u64 fields two bytes short whatever their
 // order. The table, from byte 48, holds per section: tag (u32), zero
 // (u32, aligning the offset), offset (u64), size (u64). Sections follow
-// the table in table order, without overlap, tags strictly increasing.
+// the table in table order, tags strictly increasing from 1, each at the
+// previous one's end (or the table's) rounded up to 16 after zero bytes;
+// the file ends where its last section ends. A kind's tags run from 1 to
+// its last, and a tag past it is a field only a later writer knows.
 
 #ifndef MAUL_ANIM_SRC_CONTAINER_H
 #define MAUL_ANIM_SRC_CONTAINER_H
@@ -79,11 +82,13 @@ uint64_t maniHashBytes(uint64_t seed, const uint8_t* data, uint64_t size);
 
 // Opens bytes as a container of the given kind and format version: checks
 // the alignment of bytes (16), the header, the table, every section's
-// place and the payload hash. Returns mani_errorInvalid for a NULL or
-// misaligned pointer, mani_errorFormat with the offset of the first wrong
-// byte, or mani_errorVersion for any other format version.
+// place and padding, the payload hash and that no tag is past lastTag.
+// Returns mani_errorInvalid for a NULL or misaligned pointer,
+// mani_errorFormat with the offset of the first wrong byte, or
+// mani_errorVersion for any other format version (at 6) or a tag past
+// lastTag (at its table entry).
 maniFileResult maniOpenContainer(const void* bytes, size_t size, uint16_t kind, uint16_t version,
-                                 maniContainer* containerOut);
+                                 uint32_t lastTag, maniContainer* containerOut);
 
 // An opener's checks of a file's bytes, filling the view at out.
 typedef maniFileResult (*maniContainerOpener)(const void* bytes, size_t size, void* out);

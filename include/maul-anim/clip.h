@@ -116,7 +116,8 @@ extern "C"
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
     /// misaligned bytes; `mani_errorFormat` with the offset of the first
     /// byte found wrong; `mani_errorVersion` for a format version other
-    /// than the library's (an older clip is built again from its source).
+    /// than the library's (an older clip is built again from its source)
+    /// or a section tag only a later format writes.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniFileResult maniOpenClip(const void* bytes, size_t size,

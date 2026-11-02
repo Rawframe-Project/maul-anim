@@ -347,8 +347,8 @@ static MANI_NOINLINE maniFileResult OpenSpringSetWork(const void* bytes, size_t 
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r =
-        maniOpenContainer(bytes, size, maniKindSpringSet, MANI_SPRING_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindSpringSet, MANI_SPRING_FORMAT_VERSION,
+                                         MANI_SPRING_SECTIONS, &c);
     if (r.result != mani_success)
     {
         return r;

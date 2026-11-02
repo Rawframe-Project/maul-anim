@@ -236,8 +236,8 @@ static MANI_COLD MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r =
-        maniOpenContainer(bytes, size, maniKindSkeleton, MANI_SKELETON_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindSkeleton,
+                                         MANI_SKELETON_FORMAT_VERSION, MANI_SKELETON_SECTIONS, &c);
     if (r.result != mani_success)
     {
         return r;
