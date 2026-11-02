@@ -390,6 +390,48 @@ static void TestCollapse(void)
           "collapsed: points to the translation, directions zero, w kept");
 }
 
+// A uniform scale far from 1 keeps every direction: at 2^-40 a normal's
+// cofactor is 2^-80 and its squared length 2^-160, below binary32's least
+// value; at 2^40 it is 2^160, past its range. Tangents go by the matrix
+// itself, so they are tried at 2^-70 and 2^70 too; a normal whose
+// cofactor overflows comes out zero.
+static void TestScalesFarFromOne(void)
+{
+    static const float kScales[4] = {0x1p-70f, 0x1p-40f, 0x1p40f, 0x1p70f};
+    RandomVertices();
+    bool kept = true;
+    for (int i = 0; i < 4; ++i)
+    {
+        float s = kScales[i];
+        bool normals = s > 0x1p-50f && s < 0x1p50f;
+        for (uint32_t j = 0; j < kJoints; ++j)
+        {
+            s_palette[j] = (maniAffine){{s, 0, 0, 0, s, 0, 0, 0, s, 0, 0, 0}};
+        }
+        maniSkinStream streams[4];
+        Streams(s_in, s_out, streams);
+        maniSkinJob job = Job(0, kVertices, streams, 4);
+        CHECK(maniSkinLinear(&job) == mani_success, "skins");
+        for (uint32_t v = 1; v < kVertices; v += 10)
+        {
+            const float* x = s_in[v].normal;
+            const float* y = s_in[v].tangent;
+            const double n[3] = {(double)x[0], (double)x[1], (double)x[2]};
+            const double t[3] = {(double)y[0], (double)y[1], (double)y[2]};
+            double nl = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            double tl = sqrt(t[0] * t[0] + t[1] * t[1] + t[2] * t[2]);
+            for (int k = 0; k < 3; ++k)
+            {
+                kept = kept && fabs((double)s_out[v].tangent[k] - t[k] / tl) <= 1e-6;
+                kept = kept && (!normals || fabs((double)s_out[v].normal[k] - n[k] / nl) <= 1e-6);
+                // At 2^70 the cofactor is past binary32's range: no direction.
+                kept = kept && (s < 0x1p50f || s_out[v].normal[k] == 0.0f);
+            }
+        }
+    }
+    CHECK(kept, "directions kept at scales far from 1");
+}
+
 static void ExpectRefused(const maniSkinJob* job, const char* what)
 {
     memcpy(s_other, s_out, sizeof s_other);
@@ -1304,6 +1346,7 @@ int main(void)
     TestLinearAgainstReference();
     TestRangesAndPlaces();
     TestCollapse();
+    TestScalesFarFromOne();
     TestRefusals();
     TestRows();
     TestPinned();
