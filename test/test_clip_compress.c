@@ -1242,9 +1242,22 @@ static void TestCodec(void)
         rebuilt = rebuilt && memcmp(q, want[d], sizeof q) == 0;
     }
     CHECK(rebuilt, "each dropped component rebuilt in place");
+    // Squared past binary32's range, and below its least value: scaled
+    // first, each keeps its direction.
+    const double half = sqrt(0.5);
     float huge[4] = {3e38f, 3e38f, 0.0f, 0.0f};
     maniCodecNormalize(huge);
-    CHECK(huge[0] == 0.0f && huge[3] == 1.0f, "past binary32's range: the identity");
+    CHECK(fabs((double)huge[0] - half) <= 1e-7 && fabs((double)huge[1] - half) <= 1e-7 &&
+              huge[2] == 0.0f && huge[3] == 0.0f,
+          "past binary32's range: its direction");
+    float tiny[4] = {0.0f, 0.0f, 0x1p-81f, -0x1p-81f};
+    maniCodecNormalize(tiny);
+    CHECK(tiny[0] == 0.0f && tiny[1] == 0.0f && fabs((double)tiny[2] - half) <= 1e-7 &&
+              fabs((double)tiny[3] + half) <= 1e-7,
+          "below binary32's least value: its direction");
+    float nan[4] = {NAN, 1.0f, 0.0f, 0.0f};
+    maniCodecNormalize(nan);
+    CHECK(nan[0] == 0.0f && nan[1] == 0.0f && nan[3] == 1.0f, "not finite: the identity");
     float zero[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     maniCodecNormalize(zero);
     CHECK(zero[3] == 1.0f, "zero: the identity");
