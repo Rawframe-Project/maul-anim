@@ -245,15 +245,42 @@ static bool CenterMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
     return true;
 }
 
-// v to unit length; zero when its length is 0 or past binary32's range.
+// v to unit length; zero when its length is 0 or not finite. One whose
+// squared length is no normal binary32 (a normal under a scale of 2^-40
+// is 2^-80 long) is first scaled by the power of two that puts its
+// largest component in [0.5, 1), exactly when scaled up.
 static void Unit(float v[3])
 {
     float squared = (v[0] * v[0] + v[1] * v[1]) + v[2] * v[2];
-    bool usable = squared > 0.0f && squared <= FLT_MAX;
-    float inverse = usable ? 1.0f / sqrtf(squared) : 0.0f;
+    if (!(squared >= FLT_MIN && squared <= FLT_MAX))
+    {
+        float largest = 0.0f;
+        bool finite = true;
+        for (int k = 0; k < 3; ++k)
+        {
+            float a = fabsf(v[k]);
+            finite = finite && a <= FLT_MAX;
+            largest = a > largest ? a : largest;
+        }
+        if (!finite || largest == 0.0f)
+        {
+            v[0] = 0.0f;
+            v[1] = 0.0f;
+            v[2] = 0.0f;
+            return;
+        }
+        int e = 0;
+        (void)frexpf(largest, &e);
+        for (int k = 0; k < 3; ++k)
+        {
+            v[k] = ldexpf(v[k], -e);
+        }
+        squared = (v[0] * v[0] + v[1] * v[1]) + v[2] * v[2];
+    }
+    float inverse = 1.0f / sqrtf(squared);
     for (int k = 0; k < 3; ++k)
     {
-        v[k] = usable ? v[k] * inverse : 0.0f;
+        v[k] *= inverse;
     }
 }
 

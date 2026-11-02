@@ -34,7 +34,7 @@ morph: morph
 elementary: elementary_float
 
 ceiling core       O2 69698
-ceiling skinning   O2 12000
+ceiling skinning   O2 13000
 ceiling graph      O2 111000
 ceiling ik         O2 31000
 ceiling bodyik     O2 27000
@@ -47,7 +47,7 @@ ceiling learned    O2 12000
 ceiling morph      O2 7000
 ceiling elementary O2 7000
 ceiling core       O3 94000
-ceiling skinning   O3 15000
+ceiling skinning   O3 16000
 ceiling graph      O3 135000
 ceiling ik         O3 35000
 ceiling bodyik     O3 33000
