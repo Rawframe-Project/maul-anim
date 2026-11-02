@@ -466,6 +466,10 @@ static void TestRefusals(void)
     ExpectRefused(layers, 2, -1.0f, "threshold negative");
     ExpectRefused(layers, 2, NAN, "threshold NaN");
     ExpectRefused(layers, 2, INFINITY, "threshold infinite");
+    // One over a subnormal threshold, or over a total under 2^-128, is
+    // infinite.
+    ExpectRefused(layers, 2, 1e-40f, "threshold subnormal");
+    ExpectRefused(layers, 2, nextafterf(FLT_MIN, 0.0f), "threshold just under FLT_MIN");
     ExpectRefused(NULL, 1, MANI_BLEND_THRESHOLD, "no layers given");
     layers[1].pose = s_out;
     ExpectRefused(layers, 2, MANI_BLEND_THRESHOLD, "out among the layers");
@@ -493,6 +497,29 @@ static void TestRefusals(void)
     ExpectRefused(layers, 2, nextafterf(1.0f, 2.0f), "a threshold past 1");
     CHECK(maniSkeleton_BlendPoses(&s_skeleton, layers, 2, 1.0f, s_out) == mani_success,
           "weights of 1");
+    // At a threshold of FLT_MIN, a weight of FLT_MIN takes the layer
+    // whole, and a weight under it leaves the rest nearly all: each
+    // reciprocal is at most 2^126, so every output is finite.
+    const float least[2] = {FLT_MIN, 1e-40f};
+    for (int i = 0; i < 2; ++i)
+    {
+        maniBlendLayer tiny = {s_layer[0], least[i], NULL};
+        CHECK(maniSkeleton_BlendPoses(&s_skeleton, &tiny, 1, FLT_MIN, s_out) == mani_success,
+              "a threshold of FLT_MIN");
+        bool finite = true;
+        for (uint32_t b = 0; b < kBones; ++b)
+        {
+            maniTransform t = maniPose_GetLocal(s_out, b);
+            const float c[10] = {t.translation.x, t.translation.y, t.translation.z, t.rotation.x,
+                                 t.rotation.y,    t.rotation.z,    t.rotation.w,    t.scale.x,
+                                 t.scale.y,       t.scale.z};
+            for (int k = 0; k < 10; ++k)
+            {
+                finite = finite && isfinite(c[k]);
+            }
+        }
+        CHECK(finite, "finite at a threshold of FLT_MIN");
+    }
     // Inputs at 2^127, half binary32's range: the blend stays within
     // them (shares summing a rounding past 1 cannot reach infinity).
     for (uint32_t b = 0; b < kBones; ++b)
