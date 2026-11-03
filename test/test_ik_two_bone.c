@@ -9,7 +9,7 @@
 // changes nothing; a pole swept across the goal line moves the knee
 // continuously; weight 0 changes nothing; a goal at the hip turns
 // nothing there; the hinge given or the bend plane's alike; a mirrored
-// parent; the refusals.
+// parent; the same turns at any power-of-two scale; the refusals.
 
 #include "test_harness.h"
 
@@ -367,6 +367,46 @@ static void TestScaled(void)
     }
 }
 
+// A chain scaled by a power of two takes the same turns bit for bit:
+// the leg under a root scale from 2^-60 to 2^60, mirrored through x or
+// not, against 2^1 (a scale of 1 composes the frames as rotations, not
+// as matrices). Products of up to four lengths (the bend's test, the law
+// of cosines' sine) and a mirrored parent's determinant would leave
+// binary32's range there; at 2^-20 and 2^20 the solve scales nothing.
+static void TestFarScales(void)
+{
+    const int exponents[7] = {1, -60, -40, -20, 20, 40, 60};
+    bool same = true;
+    bool reached = true;
+    for (int mirrored = 0; mirrored < 2; ++mirrored)
+    {
+        maniQuat first[2] = {{0}};
+        for (int e = 0; e < 7; ++e)
+        {
+            float k = ldexpf(1.0f, exponents[e]);
+            Bent(s_pose, 0.4f, 0.3f);
+            maniTransform root = maniPose_GetLocal(s_pose, s_bone[kRoot]);
+            root.scale = (maniVec3){mirrored ? -k : k, k, k};
+            maniPose_SetLocal(s_pose, s_bone[kRoot], root);
+            maniVec3 goal = {0.1f * k, 0.3f * k, 0.2f * k};
+            maniTwoBoneSolve solve = Solve(goal, (maniVec3){0.0f, 0.0f, 1.0f});
+            bool r = false;
+            CHECK(maniPose_SolveTwoBone(s_pose, &s_skeleton, &solve, &r) == mani_success, "solved");
+            maniVec3 ankle = At(s_pose, kAnkle);
+            reached = reached && r && Distance(ankle, goal) < 1e-5f * k;
+            maniQuat turns[2] = {maniPose_GetLocal(s_pose, s_bone[kHip]).rotation,
+                                 maniPose_GetLocal(s_pose, s_bone[kKnee]).rotation};
+            if (e == 0)
+            {
+                memcpy(first, turns, sizeof turns);
+            }
+            same = same && memcmp(first, turns, sizeof turns) == 0;
+        }
+    }
+    CHECK(reached, "the goal reached at every scale");
+    CHECK(same, "the same turns at every scale");
+}
+
 static void TestRefusals(void)
 {
     Bent(s_pose, 0.4f, 0.0f);
@@ -408,6 +448,7 @@ int main(void)
     TestEdges();
     TestTwistAndMirror();
     TestScaled();
+    TestFarScales();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

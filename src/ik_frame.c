@@ -117,17 +117,23 @@ maniQuat maniIkRotation(const maniIkFrame* f)
     return q;
 }
 
-// Whether a frame mirrors: never without scales.
+// Whether a frame mirrors: never without scales. The determinant is a
+// product of three scales, so it is taken in binary64, where no finite
+// frame's overflows or underflows to a zero that hides its sign.
 static bool Mirrored(const maniIkFrame* f)
 {
     if (!f->scaled)
     {
         return false;
     }
-    const float* a = f->affine.m;
-    float det = a[0] * (a[4] * a[8] - a[5] * a[7]) - a[3] * (a[1] * a[8] - a[2] * a[7]) +
-                a[6] * (a[1] * a[5] - a[2] * a[4]);
-    return det < 0.0f;
+    double a[9];
+    for (int i = 0; i < 9; ++i)
+    {
+        a[i] = (double)f->affine.m[i];
+    }
+    double det = a[0] * (a[4] * a[8] - a[5] * a[7]) - a[3] * (a[1] * a[8] - a[2] * a[7]) +
+                 a[6] * (a[1] * a[5] - a[2] * a[4]);
+    return det < 0.0;
 }
 
 // A model-space turn as a correction of a bone's local rotation under a
