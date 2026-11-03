@@ -152,19 +152,16 @@ bool maniGraphJsonBody(maniGraphReader* r, const maniGraphScope* scope, const ui
 }
 
 // ", key: " and a number.
-static void PutNumber(maniGraphWriter* w, const char* key, float value)
+// ", key: " and a number, unless it has the default's bits.
+static void PutNumber(maniGraphWriter* w, const char* key, float value, float fallback)
 {
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, key);
-    maniGraphJsonPutFloat(w, value);
+    maniGraphJsonPutNumberOr(w, key, value, fallback);
 }
 
 static void PutWeight(maniGraphWriter* w, const maniGraphSource* source, const char* key,
                       maniGraphScalar s)
 {
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, key);
-    maniGraphJsonPutScalar(w, source, s);
+    maniGraphJsonPutScalarOr(w, source, key, s, 1.0f);
 }
 
 static void PutEffector(maniGraphWriter* w, const maniGraphSource* source,
@@ -188,8 +185,8 @@ static void PutEffector(maniGraphWriter* w, const maniGraphSource* source,
     {
         PutWeight(w, source, "rotationWeight", e->rotationWeight);
     }
-    PutNumber(w, "strength", e->strength);
-    PutNumber(w, "pullChain", e->pullChain);
+    PutNumber(w, "strength", e->strength, 1.0f);
+    PutNumber(w, "pullChain", e->pullChain, 0.0f);
     maniGraphJsonPutText(w, "}");
 }
 
@@ -198,12 +195,15 @@ static void PutSetting(maniGraphWriter* w, const maniBodyBone* b)
     maniGraphJsonPutText(w, "{");
     maniGraphJsonPutKey(w, "bone");
     maniGraphJsonPutBone(w, b->bone);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "limit");
-    maniGraphJsonPutLimit(w, &b->limit);
-    maniGraphJsonPutVector(w, "preferred", b->preferred);
-    PutNumber(w, "rotationStiffness", b->rotationStiffness);
-    PutNumber(w, "positionStiffness", b->positionStiffness);
+    if (b->limit.kind != maniJointLimitNone)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "limit");
+        maniGraphJsonPutLimit(w, &b->limit);
+    }
+    maniGraphJsonPutVectorOr(w, "preferred", b->preferred);
+    PutNumber(w, "rotationStiffness", b->rotationStiffness, 0.0f);
+    PutNumber(w, "positionStiffness", b->positionStiffness, 0.0f);
     maniGraphJsonPutText(w, "}");
 }
 
@@ -212,6 +212,7 @@ void maniGraphJsonPutBody(maniGraphWriter* w, const maniGraphSource* source,
 {
     static const char* const kModes[3] = {"\"pinned\"", "\"free\"", "\"prePull\""};
     const maniGraphBodyNodeSource* s = &n->body;
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "top");
     maniGraphJsonPutBone(w, s->top);
     maniGraphJsonPutText(w, ", ");
@@ -224,9 +225,12 @@ void maniGraphJsonPutBody(maniGraphWriter* w, const maniGraphSource* source,
     maniGraphJsonPutText(w, "], ");
     maniGraphJsonPutKey(w, "iterations");
     maniGraphJsonPutUnsigned(w, s->iterations);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "topMode");
-    maniGraphJsonPutText(w, kModes[s->topMode]);
+    if (s->topMode != maniBodyTopPinned)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "topMode");
+        maniGraphJsonPutText(w, kModes[s->topMode]);
+    }
     if (s->boneCount > 0)
     {
         maniGraphJsonPutText(w, ", ");
@@ -244,6 +248,6 @@ void maniGraphJsonPutBody(maniGraphWriter* w, const maniGraphSource* source,
         maniGraphJsonPutKey(w, "stretch");
         maniGraphJsonPutBool(w, true);
     }
-    PutNumber(w, "tolerance", s->tolerance);
+    PutNumber(w, "tolerance", s->tolerance, 0.0f);
     PutWeight(w, source, "weight", s->weight);
 }

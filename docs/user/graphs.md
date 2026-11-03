@@ -24,6 +24,36 @@ maniFileResult graphOpened = maniOpenGraph(graphFile, graphSize, &graph);
 
 The JSON form names everything (parameters, clip slots, bones), so the text survives a reimport that reorders bones, and each list item is one line, so a change reviews as a one-line diff. `maniWriteGraphJson` writes a source as text. A text that is not JSON, or not the graph form, is refused with the byte offset and what was wrong. A key the reader does not know, or a version other than 1, is a later form's and is refused with `mani_errorVersion`; the same holds for both map forms.
 
+### Keys left out
+
+A key the graph form marks as optional may be left out, and reads as the value below. `maniWriteGraphJson` leaves out every key that holds that value, so a node at its defaults is written with only what it needs.
+
+| Object | Key left out reads as |
+|---|---|
+| Graph | `parameters`, `clips`, `syncGroups`, `databases`, `models`, `springSets`: empty |
+| Parameter | `default`: false, 0, zeros, or the identity rotation for a quaternion |
+| Sync group | `allEvents`: false |
+| `clip` | `syncGroup`: none; `speed`: 1; `loop`: `"clip"`; `leader`: false |
+| `blend` | `direct`: false |
+| `mask`, and the `mask` of a `oneShot` or `turnLimit` | `chains`: none; `defaultWeight`: 0; a chain's `subtree`: false |
+| `seek` | `time`: 0 |
+| `blendSpace1D`, `blendSpaceTriangles`, `blendSpaceBands` | the position's `y`: 0; `period`: 0; `triangles`: a Delaunay triangulation; `polar`: false |
+| `machine` | `entry`, `chainLimit`: 0; `transitions`, `finals`: none |
+| Transition | `priority`: 0; `interruption`: `"none"`; `entry`: `"restart"`; `fade`: `"linear"`; `duration`, `cooldown`: 0; `conditions`: none |
+| `oneShot` | `fadeOutTrigger`, `abort`: none; `curve`: `"linear"`; `fadeIn`, `fadeOut`: 0; `mask`: the whole body |
+| `inertialize` | `trigger`: none; `method`: `"inertialization"`; `duration`: 0; for dead blending, `halfLifeScale` 0.3, `halfLifeMin` 0.1, `halfLifeMax` 1 |
+| `match` | `trigger`: none; `query`: empty; `period`: 0.1; `jumpThreshold`, `endExclusion`, `historyTime`, `continuingBias`, `transitionCost`, `historyCount`: 0; `requiredTags`, `excludedTags`: 0; `duration`: 0 |
+| `learned` | `trigger`: none; `query`: empty; `period`: 0.1; `transitionCost`: 0; `requiredTags`, `excludedTags`: 0; `duration`: 0 |
+| `spring` | `position`, `rotation`, `reset`, `force`: none |
+| `twoBone` | `pole`: none; `hinge`: [0, 0, 0]; `twist`: 0; `soften`, `weight`: 1 |
+| `aim` | `shares`: equal; `pole`: none; `offset`, `up`: [0, 0, 0]; `twist`, `cone`: 0; `weight`: 1 |
+| `ccd`, `fabrik` | `step` (`ccd`): 0; `pole` (`fabrik`), `rotation`: none; `tolerance`: 0; `rotationWeight`, `weight`: 1; `limits`: none; a cone limit's `twist`: [-π, π] |
+| `bodyXpbd`, `bodySdls` | `topMode`: `"pinned"`; `bones`: none; `stretch`: false; `tolerance`: 0; `weight`: 1 |
+| Effector | `rotation`: none; `positionWeight`: 1; `rotationWeight`: 1 with a rotation; `strength`: 1; `pullChain`: 0 |
+| Bone setting | `limit`: `{"kind": "none"}`; `preferred`: [0, 0, 0]; `rotationStiffness`, `positionStiffness`: 0 |
+| `turnLimit` | `reset`: none; `mask`: every bone |
+| `subgraph` | `parameters`: none, for a subgraph without parameters |
+
 ## Playing a graph
 
 An opened graph is bound to the assets it names once, and each character gets an instance: its parameters, playheads and state, in the program's memory. Copying an instance's bytes copies the character's state, and `maniGraphInstance_Save` writes it to bytes for saving or rollback; called with no buffer, it reports the size it needs.

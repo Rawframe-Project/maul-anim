@@ -238,7 +238,7 @@ static const char kExpected[] =
     "2},\n"
     "    {\"name\": \"gait\", \"type\": \"int\", \"default\": -1, \"minimum\": -1, \"maximum\": "
     "2147483647},\n"
-    "    {\"name\": \"jump\", \"type\": \"trigger\", \"default\": false},\n"
+    "    {\"name\": \"jump\", \"type\": \"trigger\"},\n"
     "    {\"name\": \"lean\", \"type\": \"bool\", \"default\": true},\n"
     "    {\"name\": \"aim\", \"type\": \"vec2\", \"default\": [0.1, -0.2]},\n"
     "    {\"name\": \"dir\", \"type\": \"vec3\", \"default\": [1e+21, 1e-7, -0]},\n"
@@ -261,13 +261,12 @@ static const char kExpected[] =
     "    {\"kind\": \"timeScale\", \"inputs\": [2], \"scale\": {\"parameter\": \"speed\"}},\n"
     "    {\"kind\": \"seek\", \"inputs\": [3], \"trigger\": \"jump\", \"time\": 0.25},\n"
     "    {\"kind\": \"mask\", \"inputs\": [4, 5], \"chains\": [{\"bone\": \"spine\", \"weight\": "
-    "0.5, \"subtree\": true}, {\"bone\": \"arm\", \"weight\": 1, \"subtree\": false}], "
+    "0.5, \"subtree\": true}, {\"bone\": \"arm\", \"weight\": 1}], "
     "\"defaultWeight\": 0.1},\n"
-    "    {\"kind\": \"blend\", \"inputs\": [7, 8], \"weights\": [{\"parameter\": \"mix\"}, 0.75], "
-    "\"direct\": false},\n"
+    "    {\"kind\": \"blend\", \"inputs\": [7, 8], \"weights\": [{\"parameter\": \"mix\"}, "
+    "0.75]},\n"
     "    {\"kind\": \"select\", \"inputs\": [7, 11], \"parameter\": \"gait\"},\n"
-    "    {\"kind\": \"clip\", \"clip\": \"wave\", \"syncGroup\": null, \"speed\": 1, \"loop\": "
-    "\"repeat\", \"leader\": false},\n"
+    "    {\"kind\": \"clip\", \"clip\": \"wave\", \"loop\": \"repeat\"},\n"
     "    {\"kind\": \"clip\", \"clip\": \"walk\", \"syncGroup\": \"feet\", \"speed\": -1.5, "
     "\"loop\": \"clamp\", \"leader\": true},\n"
     "    {\"kind\": \"subgraph\", \"parameters\": {\"rate\": \"speed\"}, \"graph\": {\n"
@@ -282,7 +281,7 @@ static const char kExpected[] =
     "      ],\n"
     "      \"nodes\": [\n"
     "        {\"kind\": \"clip\", \"clip\": \"run\", \"syncGroup\": \"feet\", \"speed\": "
-    "{\"parameter\": \"rate\"}, \"loop\": \"clip\", \"leader\": false}\n"
+    "{\"parameter\": \"rate\"}}\n"
     "      ],\n"
     "      \"output\": 0\n"
     "    }},\n"
@@ -292,8 +291,7 @@ static const char kExpected[] =
     "\"weight\": {\"parameter\": \"mix\"}},\n"
     "    {\"kind\": \"aim\", \"inputs\": [10], \"bones\": [\"spine\", \"arm\"], \"shares\": "
     "[0.25, 1], \"goal\": \"dir\", \"pole\": \"dir\", \"forward\": [0, 0, 1], \"offset\": [0, "
-    "0.125, 0], \"up\": [0, 1, 0], \"twist\": {\"parameter\": \"speed\"}, \"cone\": 1.5, "
-    "\"weight\": 1}\n"
+    "0.125, 0], \"up\": [0, 1, 0], \"twist\": {\"parameter\": \"speed\"}, \"cone\": 1.5}\n"
     "  ],\n"
     "  \"output\": 0\n"
     "}\n";
@@ -305,9 +303,11 @@ static size_t Write(const maniGraphSource* source, maniBuildResult* resultOut)
     size_t size = 0;
     if (resultOut->result == mani_success)
     {
-        CHECK(maniBuilder_CopyBuilt(builder, s_text, sizeof s_text, &size) == mani_success,
+        CHECK(maniBuilder_CopyBuilt(builder, s_text, sizeof s_text - 1, &size) == mani_success,
               "copies");
     }
+    // Ended, so a search reads only this text.
+    s_text[size] = '\0';
     maniDestroyBuilder(builder);
     return size;
 }
@@ -450,27 +450,25 @@ static void TestRoundTrip(void)
 }
 
 // A source with an empty list, as written.
-static const char kMinimal[] =
-    "{\n"
-    "  \"format\": \"maul-anim graph\",\n"
-    "  \"version\": 1,\n"
-    "  \"parameters\": [\n"
-    "    {\"name\": \"q\", \"type\": \"quat\", \"default\": [0, 0, 0, 1]},\n"
-    "    {\"name\": \"n\", \"type\": \"int\", \"default\": 0}\n"
-    "  ],\n"
-    "  \"clips\": [\n"
-    "    \"walk\"\n"
-    "  ],\n"
-    "  \"syncGroups\": [],\n"
-    "  \"nodes\": [\n"
-    "    {\"kind\": \"clip\", \"clip\": \"walk\", \"syncGroup\": null, \"speed\": 1, \"loop\": "
-    "\"clip\", \"leader\": false}\n"
-    "  ],\n"
-    "  \"output\": 0\n"
-    "}\n";
+static const char kMinimal[] = "{\n"
+                               "  \"format\": \"maul-anim graph\",\n"
+                               "  \"version\": 1,\n"
+                               "  \"parameters\": [\n"
+                               "    {\"name\": \"q\", \"type\": \"quat\"},\n"
+                               "    {\"name\": \"n\", \"type\": \"int\"}\n"
+                               "  ],\n"
+                               "  \"clips\": [\n"
+                               "    \"walk\"\n"
+                               "  ],\n"
+                               "  \"nodes\": [\n"
+                               "    {\"kind\": \"clip\", \"clip\": \"walk\"}\n"
+                               "  ],\n"
+                               "  \"output\": 0\n"
+                               "}\n";
 
 // Members left out take their off values: a parameter's default, a clip
-// node's group, speed, loop and leader; written out in full.
+// node's group, speed, loop and leader. The writer leaves them out
+// again, and an empty list too.
 static void TestDefaults(void)
 {
     static const char kShort[] =
@@ -495,7 +493,7 @@ static void TestDefaults(void)
     size = Write(&source, &r);
     CHECK(r.result == mani_success && size == sizeof kMinimal - 1 &&
               memcmp(s_text, kMinimal, size) == 0,
-          "an empty list on one line");
+          "the defaults and an empty list left out");
 }
 
 // A seek's time, a mask's default weight, a chain's subtree, a blend's
@@ -529,6 +527,18 @@ static void TestNodeDefaults(void)
     maniBuildResult r = Read(kText, s_read, &size);
     CHECK(r.result == mani_success && size == want && memcmp(s_read, s_built, size) == 0,
           "node members left out");
+    // Written, they are left out again.
+    CHECK(Write(&source, &r) > 0 && r.result == mani_success &&
+              strstr(s_text, "{\"name\": \"t\", \"type\": \"trigger\"}\n") != NULL &&
+              strstr(s_text, "{\"name\": \"g\"}\n") != NULL &&
+              strstr(s_text, "{\"kind\": \"seek\", \"inputs\": [1], \"trigger\": \"t\"},") !=
+                  NULL &&
+              strstr(s_text, "{\"kind\": \"mask\", \"inputs\": [2, 3], \"chains\": [{\"bone\": "
+                             "\"spine\", \"weight\": 1}]},") != NULL &&
+              strstr(s_text, "{\"kind\": \"blend\", \"inputs\": [3], \"weights\": [1]},") != NULL &&
+              strstr(s_text, "{\"kind\": \"clip\", \"clip\": \"walk\", \"syncGroup\": \"g\"}\n") !=
+                  NULL,
+          "node members at their defaults written as left out");
 }
 
 // A two-bone node's pole, hinge, twist, soften and weight and an aim
@@ -579,6 +589,14 @@ static void TestIkDefaults(void)
     maniBuildResult r = Read(kText, s_read, &size);
     CHECK(r.result == mani_success && size == want && memcmp(s_read, s_built, size) == 0,
           "IK members left out");
+    CHECK(Write(&source, &r) > 0 && r.result == mani_success &&
+              strstr(s_text, "{\"kind\": \"aim\", \"inputs\": [1], \"bones\": [\"arm\"], "
+                             "\"goal\": \"g\", \"forward\": [1, 0, 0]},") != NULL &&
+              strstr(s_text,
+                     "{\"kind\": \"twoBone\", \"inputs\": [2], \"start\": \"hips\", "
+                     "\"middle\": \"spine\", \"end\": \"arm\", \"goal\": \"g\"},") != NULL &&
+              strstr(s_text, "{\"name\": \"g\", \"type\": \"vec3\"}\n") != NULL,
+          "IK members at their defaults written as left out");
 }
 
 // A text refused: the reason, the fault and the byte offset of the

@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// The searching nodes read from the graph JSON form: a motion matching
-// node by its database's name, a learned node by its model's name; each
-// query an array of parameters by name, tags a number or an int
-// parameter.
+// The searching nodes in the graph JSON form, read and written: a
+// motion matching node by its database's name, a learned node by its
+// model's name; each query an array of parameters by name, tags a number
+// or an int parameter.
 
 #include "graph_json_search.h"
 
 #include "arena.h"
 #include "graph_json_read.h"
+#include "graph_json_write.h"
+#include "invariant.h"
 #include "json.h"
 
 #include "maul-anim/base.h"
@@ -21,6 +23,7 @@
 
 typedef maniGraphReader Reader;
 typedef maniGraphScope Scope;
+typedef maniGraphWriter Writer;
 
 #define ABSENT MANI_JSON_NONE
 
@@ -112,4 +115,99 @@ bool maniGraphJsonLearned(Reader* r, const Scope* scope, const uint32_t* f,
            (f[6] == ABSENT || Tags(r, scope, f[6], &l->requiredTags)) &&
            (f[7] == ABSENT || Tags(r, scope, f[7], &l->excludedTags)) &&
            (f[8] == ABSENT || maniGraphJsonScalar(r, scope, f[8], &l->duration));
+}
+
+// ", key: tags" unless they are none: their bits, or {"parameter": name}.
+static void PutTags(Writer* w, const maniGraphSource* source, const char* key, maniGraphTags tags)
+{
+    if (tags.parameter == MANI_NO_PARAMETER && tags.value == 0)
+    {
+        return;
+    }
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, key);
+    if (tags.parameter == MANI_NO_PARAMETER)
+    {
+        maniGraphJsonPutUnsigned(w, tags.value);
+        return;
+    }
+    maniGraphJsonPutText(w, "{");
+    maniGraphJsonPutKey(w, "parameter");
+    maniGraphJsonPutParameterName(w, source, tags.parameter);
+    maniGraphJsonPutText(w, "}");
+}
+
+// ", trigger: name" when there is one, and ", query: [...]" when it is
+// not empty.
+static void PutSearch(Writer* w, const maniGraphSource* source, uint32_t trigger,
+                      const uint32_t* query, uint32_t queryCount)
+{
+    if (trigger != MANI_NO_PARAMETER)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "trigger");
+        maniGraphJsonPutParameterName(w, source, trigger);
+    }
+    if (queryCount == 0)
+    {
+        return;
+    }
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "query");
+    maniGraphJsonPutText(w, "[");
+    for (uint32_t q = 0; q < queryCount; ++q)
+    {
+        maniGraphJsonPutText(w, q > 0 ? ", " : "");
+        maniGraphJsonPutParameterName(w, source, query[q]);
+    }
+    maniGraphJsonPutText(w, "]");
+}
+
+// A motion matching node: its database by name, its trigger (when it has
+// one), its query's parameters, its numbers, tags and duration.
+void maniGraphJsonPutMatch(Writer* w, const maniGraphSource* source,
+                           const maniGraphMatchNodeSource* m)
+{
+    MANI_ASSERT(m->database < source->databaseCount);
+    const maniGraphDatabaseSource* d = &source->databases[m->database];
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "database");
+    maniGraphJsonPutString(w, d->name, d->nameLength);
+    PutSearch(w, source, m->trigger, m->query, m->queryCount);
+    static const char* const kKeys[6] = {"period",      "jumpThreshold",  "endExclusion",
+                                         "historyTime", "continuingBias", "transitionCost"};
+    const float values[6] = {m->period,      m->jumpThreshold,  m->endExclusion,
+                             m->historyTime, m->continuingBias, m->transitionCost};
+    // A period of 0.1 s left out, as Holden's and Unreal's; the rest 0.
+    for (uint32_t k = 0; k < 6; ++k)
+    {
+        maniGraphJsonPutNumberOr(w, kKeys[k], values[k], k == 0 ? 0.1f : 0.0f);
+    }
+    if (m->historyCount != 0)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "historyCount");
+        maniGraphJsonPutUnsigned(w, m->historyCount);
+    }
+    PutTags(w, source, "requiredTags", m->requiredTags);
+    PutTags(w, source, "excludedTags", m->excludedTags);
+    maniGraphJsonPutScalarOr(w, source, "duration", m->duration, 0.0f);
+}
+
+// A learned node: its model by name, its trigger (when it has one), its
+// query's parameters, its period and transition cost, tags and duration.
+void maniGraphJsonPutLearned(Writer* w, const maniGraphSource* source,
+                             const maniGraphLearnedNodeSource* l)
+{
+    MANI_ASSERT(l->model < source->modelCount);
+    const maniGraphModelSource* m = &source->models[l->model];
+    maniGraphJsonPutText(w, ", ");
+    maniGraphJsonPutKey(w, "model");
+    maniGraphJsonPutString(w, m->name, m->nameLength);
+    PutSearch(w, source, l->trigger, l->query, l->queryCount);
+    maniGraphJsonPutNumberOr(w, "period", l->period, 0.1f);
+    maniGraphJsonPutNumberOr(w, "transitionCost", l->transitionCost, 0.0f);
+    PutTags(w, source, "requiredTags", l->requiredTags);
+    PutTags(w, source, "excludedTags", l->excludedTags);
+    maniGraphJsonPutScalarOr(w, source, "duration", l->duration, 0.0f);
 }

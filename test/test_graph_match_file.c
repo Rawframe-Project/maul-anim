@@ -598,13 +598,11 @@ static void TestJson(void)
                               .databases = kDatabaseSlot};
     CHECK(RoundTrip(&source), "written and read to the same bytes");
     CHECK(strstr(s_text, "\"databases\": [\n    \"moves\"\n  ],") != NULL &&
-              strstr(s_text, "{\"kind\": \"match\", \"database\": \"moves\", \"trigger\": "
-                             "\"search\", \"query\": [\"ahead\"], \"period\": 1, "
-                             "\"jumpThreshold\": 0, \"endExclusion\": 0.2, \"historyTime\": 0, "
-                             "\"continuingBias\": 0, \"transitionCost\": 0, \"historyCount\": "
-                             "0, \"requiredTags\": 0, \"excludedTags\": 0, \"duration\": "
-                             "{\"parameter\": \"d\"}}") != NULL,
-          "the form");
+              strstr(s_text,
+                     "{\"kind\": \"match\", \"database\": \"moves\", \"trigger\": "
+                     "\"search\", \"query\": [\"ahead\"], \"period\": 1, "
+                     "\"endExclusion\": 0.2, \"duration\": {\"parameter\": \"d\"}}") != NULL,
+          "the form, its zeros and no tags left out");
     nodes[0].match.trigger = MANI_NO_PARAMETER;
     nodes[0].match.requiredTags = (maniGraphTags){2, 0};
     nodes[0].match.excludedTags = (maniGraphTags){MANI_NO_PARAMETER, 4294967295u};
@@ -615,6 +613,19 @@ static void TestJson(void)
               strstr(s_text, "\"historyCount\": 3, \"requiredTags\": {\"parameter\": "
                              "\"tags\"}, \"excludedTags\": 4294967295") != NULL,
           "no trigger, tags from a parameter and literal");
+    // Every member at its default but the query: only the database and
+    // the query written.
+    nodes[0].match = (maniGraphMatchNodeSource){.trigger = MANI_NO_PARAMETER,
+                                                .query = nodes[0].match.query,
+                                                .queryCount = nodes[0].match.queryCount,
+                                                .period = 0.1f,
+                                                .requiredTags = {MANI_NO_PARAMETER, 0},
+                                                .excludedTags = {MANI_NO_PARAMETER, 0},
+                                                .duration = {MANI_NO_PARAMETER, 0.0f}};
+    CHECK(RoundTrip(&source) &&
+              strstr(s_text, "{\"kind\": \"match\", \"database\": \"moves\", \"query\": "
+                             "[\"ahead\"]},") != NULL,
+          "the defaults left out");
     nodes[0].match.database = 1;
     CHECK(RefusedAlike(&source), "a database slot past the graph's databases");
 }

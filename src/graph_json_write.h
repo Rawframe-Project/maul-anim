@@ -49,4 +49,18 @@ void maniGraphJsonPutScalar(maniGraphWriter* w, const maniGraphSource* source, m
 void maniGraphJsonPutScalars(maniGraphWriter* w, const maniGraphSource* source,
                              const maniGraphScalar* scalars, uint32_t count);
 
+// Whether a number has a default's bits: what the reader takes when its
+// key is left out, so the writer leaves it out.
+bool maniGraphJsonIsDefault(float value, float fallback);
+
+// Whether a scalar is a literal with a default's bits.
+bool maniGraphJsonScalarIsDefault(maniGraphScalar s, float fallback);
+
+// ", key: value" unless the number has the default's bits.
+void maniGraphJsonPutNumberOr(maniGraphWriter* w, const char* key, float value, float fallback);
+
+// ", key: scalar" unless the scalar is a literal with the default's bits.
+void maniGraphJsonPutScalarOr(maniGraphWriter* w, const maniGraphSource* source, const char* key,
+                              maniGraphScalar s, float fallback);
+
 #endif // MAUL_ANIM_SRC_GRAPH_JSON_WRITE_H

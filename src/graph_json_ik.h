@@ -67,4 +67,8 @@ void maniGraphJsonPutBone(maniGraphWriter* w, uint32_t bone);
 void maniGraphJsonPutVector(maniGraphWriter* w, const char* key, maniVec3 v);
 void maniGraphJsonPutLimit(maniGraphWriter* w, const maniJointLimit* l);
 
+// ", key: [x, y, z]" unless every component is +0, the reader's when it
+// is left out.
+void maniGraphJsonPutVectorOr(maniGraphWriter* w, const char* key, maniVec3 v);
+
 #endif // MAUL_ANIM_SRC_GRAPH_JSON_IK_H

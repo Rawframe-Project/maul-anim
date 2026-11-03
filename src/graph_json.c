@@ -13,6 +13,7 @@
 #include "fpenv.h"
 #include "graph_json_body.h"
 #include "graph_json_ik.h"
+#include "graph_json_search.h"
 #include "graph_json_write.h"
 #include "invariant.h"
 
@@ -62,6 +63,31 @@ static void PutValue(Writer* w, maniGraphParameterType type, maniGraphValue v)
     maniGraphJsonPutText(w, "]");
 }
 
+// Whether a parameter's default is the one the reader gives when it is
+// left out: false, 0, zeros, or the identity rotation.
+static bool DefaultValue(maniGraphParameterType type, maniGraphValue v)
+{
+    if (type == maniGraphParameterBool || type == maniGraphParameterTrigger)
+    {
+        return v.b == 0;
+    }
+    if (type == maniGraphParameterInt)
+    {
+        return v.i == 0;
+    }
+    uint32_t n = type == maniGraphParameterFloat  ? 1u
+                 : type == maniGraphParameterVec2 ? 2u
+                 : type == maniGraphParameterVec3 ? 3u
+                                                  : 4u;
+    bool same = true;
+    for (uint32_t k = 0; k < n; ++k)
+    {
+        float fallback = type == maniGraphParameterQuat && k == 3 ? 1.0f : 0.0f;
+        same = same && maniGraphJsonIsDefault(v.f[k], fallback);
+    }
+    return same;
+}
+
 static void PutParameter(Writer* w, const maniGraphParameterSource* p)
 {
     maniGraphJsonPutText(w, "{");
@@ -72,7 +98,7 @@ static void PutParameter(Writer* w, const maniGraphParameterSource* p)
     // The build refused any other type.
     MANI_ASSERT((uint32_t)p->type < sizeof kTypes / sizeof kTypes[0]);
     maniGraphJsonPutString(w, kTypes[p->type], (uint32_t)strlen(kTypes[p->type]));
-    if (p->type != maniGraphParameterPose)
+    if (p->type != maniGraphParameterPose && !DefaultValue(p->type, p->defaultValue))
     {
         maniGraphJsonPutText(w, ", ");
         maniGraphJsonPutKey(w, "default");
@@ -97,35 +123,44 @@ static void PutClipNode(Writer* w, const maniGraphSource* source, const maniGrap
     MANI_ASSERT(c->clip < source->clipCount);
     MANI_ASSERT((uint32_t)c->loop < sizeof kLoops / sizeof kLoops[0]);
     const maniGraphClipSource* clip = &source->clips[c->clip];
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "clip");
     maniGraphJsonPutString(w, clip->name, clip->nameLength);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "syncGroup");
-    if (c->syncGroup == MANI_NO_SYNC_GROUP)
-    {
-        maniGraphJsonPutText(w, "null");
-    }
-    else
+    if (c->syncGroup != MANI_NO_SYNC_GROUP)
     {
         MANI_ASSERT(c->syncGroup < source->syncGroupCount);
         const maniGraphSyncGroupSource* g = &source->syncGroups[c->syncGroup];
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "syncGroup");
         maniGraphJsonPutString(w, g->name, g->nameLength);
     }
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "speed");
-    maniGraphJsonPutScalar(w, source, c->speed);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "loop");
-    maniGraphJsonPutText(w, kLoops[c->loop]);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "leader");
-    maniGraphJsonPutBool(w, (c->flags & maniGraphClipLeader) != 0);
+    maniGraphJsonPutScalarOr(w, source, "speed", c->speed, 1.0f);
+    if (c->loop != 0)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "loop");
+        maniGraphJsonPutText(w, kLoops[c->loop]);
+    }
+    if ((c->flags & maniGraphClipLeader) != 0)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "leader");
+        maniGraphJsonPutBool(w, true);
+    }
 }
 
-static void PutMaskNode(Writer* w, const maniGraphMaskNodeSource* m)
+// A mask's chains (when it has any) and default weight (when not 0),
+// first after the separator given.
+static void PutMaskNode(Writer* w, const maniGraphMaskNodeSource* m, const char* first)
 {
-    maniGraphJsonPutKey(w, "chains");
-    maniGraphJsonPutText(w, "[");
+    const char* separator = first;
+    if (m->chainCount > 0)
+    {
+        maniGraphJsonPutText(w, separator);
+        maniGraphJsonPutKey(w, "chains");
+        maniGraphJsonPutText(w, "[");
+        separator = ", ";
+    }
     for (uint32_t k = 0; k < m->chainCount; ++k)
     {
         size_t length = 0;
@@ -139,14 +174,37 @@ static void PutMaskNode(Writer* w, const maniGraphMaskNodeSource* m)
         maniGraphJsonPutText(w, ", ");
         maniGraphJsonPutKey(w, "weight");
         maniGraphJsonPutFloat(w, m->chains[k].weight);
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, "subtree");
-        maniGraphJsonPutBool(w, m->chains[k].subtree);
+        if (m->chains[k].subtree)
+        {
+            maniGraphJsonPutText(w, ", ");
+            maniGraphJsonPutKey(w, "subtree");
+            maniGraphJsonPutBool(w, true);
+        }
         maniGraphJsonPutText(w, "}");
     }
-    maniGraphJsonPutText(w, "], ");
-    maniGraphJsonPutKey(w, "defaultWeight");
-    maniGraphJsonPutFloat(w, m->defaultWeight);
+    if (m->chainCount > 0)
+    {
+        maniGraphJsonPutText(w, "]");
+    }
+    if (!maniGraphJsonIsDefault(m->defaultWeight, 0.0f))
+    {
+        maniGraphJsonPutText(w, separator);
+        maniGraphJsonPutKey(w, "defaultWeight");
+        maniGraphJsonPutFloat(w, m->defaultWeight);
+    }
+}
+
+// ", mask: {...}" for a node's mask, when it has one.
+static void PutMaskMember(Writer* w, const maniGraphMaskNodeSource* m)
+{
+    if (m != NULL)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "mask");
+        maniGraphJsonPutText(w, "{");
+        PutMaskNode(w, m, "");
+        maniGraphJsonPutText(w, "}");
+    }
 }
 
 // An inertialize node: its method and half-lives for dead blending only.
@@ -155,27 +213,23 @@ static void PutInertialize(Writer* w, const maniGraphSource* source,
 {
     if (s->trigger != MANI_NO_PARAMETER)
     {
+        maniGraphJsonPutText(w, ", ");
         maniGraphJsonPutKey(w, "trigger");
         maniGraphJsonPutParameterName(w, source, s->trigger);
+    }
+    if (s->method == maniGraphDeadBlending)
+    {
         maniGraphJsonPutText(w, ", ");
-    }
-    if (s->method == maniGraphDeadBlending)
-    {
         maniGraphJsonPutKey(w, "method");
-        maniGraphJsonPutText(w, "\"deadBlending\", ");
+        maniGraphJsonPutText(w, "\"deadBlending\"");
     }
-    maniGraphJsonPutKey(w, "duration");
-    maniGraphJsonPutScalar(w, source, s->duration);
+    maniGraphJsonPutScalarOr(w, source, "duration", s->duration, 0.0f);
     if (s->method == maniGraphDeadBlending)
     {
-        const char* const keys[3] = {"halfLifeScale", "halfLifeMin", "halfLifeMax"};
-        const float values[3] = {s->halfLifeScale, s->halfLifeMin, s->halfLifeMax};
-        for (uint32_t k = 0; k < 3; ++k)
-        {
-            maniGraphJsonPutText(w, ", ");
-            maniGraphJsonPutKey(w, keys[k]);
-            maniGraphJsonPutFloat(w, values[k]);
-        }
+        // Holden's half-lives, the reader's when they are left out.
+        maniGraphJsonPutNumberOr(w, "halfLifeScale", s->halfLifeScale, 0.3f);
+        maniGraphJsonPutNumberOr(w, "halfLifeMin", s->halfLifeMin, 0.1f);
+        maniGraphJsonPutNumberOr(w, "halfLifeMax", s->halfLifeMax, 1.0f);
     }
 }
 
@@ -189,33 +243,27 @@ static void PutShot(Writer* w, const maniGraphSource* source, const maniGraphOne
     {
         if (triggers[k] != MANI_NO_PARAMETER)
         {
+            maniGraphJsonPutText(w, ", ");
             maniGraphJsonPutKey(w, kKeys[k]);
             maniGraphJsonPutParameterName(w, source, triggers[k]);
-            maniGraphJsonPutText(w, ", ");
         }
     }
-    maniGraphJsonPutKey(w, "curve");
-    maniGraphJsonPutText(w,
-                         s->curve == maniGraphFadeSmoothstep ? "\"smoothstep\", " : "\"linear\", ");
-    maniGraphJsonPutKey(w, "fadeIn");
-    maniGraphJsonPutFloat(w, s->fadeIn);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "fadeOut");
-    maniGraphJsonPutFloat(w, s->fadeOut);
-    if (s->mask != NULL)
+    if (s->curve == maniGraphFadeSmoothstep)
     {
         maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, "mask");
-        maniGraphJsonPutText(w, "{");
-        PutMaskNode(w, s->mask);
-        maniGraphJsonPutText(w, "}");
+        maniGraphJsonPutKey(w, "curve");
+        maniGraphJsonPutText(w, "\"smoothstep\"");
     }
+    maniGraphJsonPutNumberOr(w, "fadeIn", s->fadeIn, 0.0f);
+    maniGraphJsonPutNumberOr(w, "fadeOut", s->fadeOut, 0.0f);
+    PutMaskMember(w, s->mask);
 }
 
 // A turn limit node: its speed, its reset trigger and mask when it has
 // them.
 static void PutTurn(Writer* w, const maniGraphSource* source, const maniGraphTurnLimitNodeSource* s)
 {
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "speed");
     maniGraphJsonPutScalar(w, source, s->speed);
     if (s->reset != MANI_NO_PARAMETER)
@@ -224,92 +272,25 @@ static void PutTurn(Writer* w, const maniGraphSource* source, const maniGraphTur
         maniGraphJsonPutKey(w, "reset");
         maniGraphJsonPutParameterName(w, source, s->reset);
     }
-    if (s->mask != NULL)
-    {
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, "mask");
-        maniGraphJsonPutText(w, "{");
-        PutMaskNode(w, s->mask);
-        maniGraphJsonPutText(w, "}");
-    }
+    PutMaskMember(w, s->mask);
 }
 
 // A seek node: its trigger and time.
 static void PutSeek(Writer* w, const maniGraphSource* source, const maniGraphSeekNodeSource* s)
 {
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "trigger");
     maniGraphJsonPutParameterName(w, source, s->trigger);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "time");
-    maniGraphJsonPutScalar(w, source, s->time);
+    maniGraphJsonPutScalarOr(w, source, "time", s->time, 0.0f);
 }
 
 // Tags: their bits, or {"parameter": name}.
-static void PutTags(Writer* w, const maniGraphSource* source, maniGraphTags tags)
-{
-    if (tags.parameter == MANI_NO_PARAMETER)
-    {
-        maniGraphJsonPutUnsigned(w, tags.value);
-        return;
-    }
-    maniGraphJsonPutText(w, "{");
-    maniGraphJsonPutKey(w, "parameter");
-    maniGraphJsonPutParameterName(w, source, tags.parameter);
-    maniGraphJsonPutText(w, "}");
-}
-
-// A motion matching node: its database by name, its trigger (when it has
-// one), its query's parameters, its numbers, tags and duration.
-static void PutMatch(Writer* w, const maniGraphSource* source, const maniGraphMatchNodeSource* m)
-{
-    MANI_ASSERT(m->database < source->databaseCount);
-    const maniGraphDatabaseSource* d = &source->databases[m->database];
-    maniGraphJsonPutKey(w, "database");
-    maniGraphJsonPutString(w, d->name, d->nameLength);
-    maniGraphJsonPutText(w, ", ");
-    if (m->trigger != MANI_NO_PARAMETER)
-    {
-        maniGraphJsonPutKey(w, "trigger");
-        maniGraphJsonPutParameterName(w, source, m->trigger);
-        maniGraphJsonPutText(w, ", ");
-    }
-    maniGraphJsonPutKey(w, "query");
-    maniGraphJsonPutText(w, "[");
-    for (uint32_t q = 0; q < m->queryCount; ++q)
-    {
-        maniGraphJsonPutText(w, q > 0 ? ", " : "");
-        maniGraphJsonPutParameterName(w, source, m->query[q]);
-    }
-    maniGraphJsonPutText(w, "]");
-    static const char* const kKeys[6] = {"period",      "jumpThreshold",  "endExclusion",
-                                         "historyTime", "continuingBias", "transitionCost"};
-    const float values[6] = {m->period,      m->jumpThreshold,  m->endExclusion,
-                             m->historyTime, m->continuingBias, m->transitionCost};
-    for (uint32_t k = 0; k < 6; ++k)
-    {
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, kKeys[k]);
-        maniGraphJsonPutFloat(w, values[k]);
-    }
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "historyCount");
-    maniGraphJsonPutUnsigned(w, m->historyCount);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "requiredTags");
-    PutTags(w, source, m->requiredTags);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "excludedTags");
-    PutTags(w, source, m->excludedTags);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "duration");
-    maniGraphJsonPutScalar(w, source, m->duration);
-}
-
 // A spring node's set by its slot's name, and the parameters it has.
 static void PutSpring(Writer* w, const maniGraphSource* source, const maniGraphSpringNodeSource* s)
 {
     MANI_ASSERT(s->springSet < source->springSetCount);
     const maniGraphSpringSetSource* set = &source->springSets[s->springSet];
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "springSet");
     maniGraphJsonPutString(w, set->name, set->nameLength);
     const char* const keys[4] = {"position", "rotation", "reset", "force"};
@@ -325,46 +306,6 @@ static void PutSpring(Writer* w, const maniGraphSource* source, const maniGraphS
     }
 }
 
-// A learned node: its model by name, its trigger (when it has one), its
-// query's parameters, its period and transition cost, tags and duration.
-static void PutLearned(Writer* w, const maniGraphSource* source,
-                       const maniGraphLearnedNodeSource* l)
-{
-    MANI_ASSERT(l->model < source->modelCount);
-    const maniGraphModelSource* m = &source->models[l->model];
-    maniGraphJsonPutKey(w, "model");
-    maniGraphJsonPutString(w, m->name, m->nameLength);
-    maniGraphJsonPutText(w, ", ");
-    if (l->trigger != MANI_NO_PARAMETER)
-    {
-        maniGraphJsonPutKey(w, "trigger");
-        maniGraphJsonPutParameterName(w, source, l->trigger);
-        maniGraphJsonPutText(w, ", ");
-    }
-    maniGraphJsonPutKey(w, "query");
-    maniGraphJsonPutText(w, "[");
-    for (uint32_t q = 0; q < l->queryCount; ++q)
-    {
-        maniGraphJsonPutText(w, q > 0 ? ", " : "");
-        maniGraphJsonPutParameterName(w, source, l->query[q]);
-    }
-    maniGraphJsonPutText(w, "], ");
-    maniGraphJsonPutKey(w, "period");
-    maniGraphJsonPutFloat(w, l->period);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "transitionCost");
-    maniGraphJsonPutFloat(w, l->transitionCost);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "requiredTags");
-    PutTags(w, source, l->requiredTags);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "excludedTags");
-    PutTags(w, source, l->excludedTags);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "duration");
-    maniGraphJsonPutScalar(w, source, l->duration);
-}
-
 static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, bool top);
 
 // A blend space's position: a vec2 parameter, or x (and, in a plane,
@@ -372,6 +313,7 @@ static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, b
 static void PutPosition(Writer* w, const maniGraphSource* source, const maniGraphPosition* p,
                         bool plane)
 {
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "position");
     maniGraphJsonPutText(w, "{");
     if (p->vector != MANI_NO_PARAMETER)
@@ -385,17 +327,16 @@ static void PutPosition(Writer* w, const maniGraphSource* source, const maniGrap
         maniGraphJsonPutScalar(w, source, p->x);
         if (plane)
         {
-            maniGraphJsonPutText(w, ", ");
-            maniGraphJsonPutKey(w, "y");
-            maniGraphJsonPutScalar(w, source, p->y);
+            maniGraphJsonPutScalarOr(w, source, "y", p->y, 0.0f);
         }
     }
-    maniGraphJsonPutText(w, "}, ");
+    maniGraphJsonPutText(w, "}");
 }
 
 // A blend space's points: numbers on a line, [x, y] pairs in a plane.
 static void PutPoints(Writer* w, const float* points, uint32_t count, bool pairs)
 {
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "points");
     maniGraphJsonPutText(w, "[");
     for (uint32_t k = 0; k < count; ++k)
@@ -500,13 +441,11 @@ static void PutCondition(Writer* w, const maniGraphSource* source,
 static void PutTransition(Writer* w, const maniGraphSource* source,
                           const maniGraphTransitionSource* t)
 {
-    static const char* const kInterruptions[] = {"\"none\"", "\"higher\"", "\"any\""};
-    static const char* const kEntries[] = {"\"restart\"", "\"keep\"", "\"match\""};
-    static const char* const kFades[] = {"\"linear\"", "\"smoothstep\"", "\"inertial\""};
-    // The build refused any other interruption, entry or fade.
-    MANI_ASSERT((uint32_t)t->interruption < sizeof kInterruptions / sizeof kInterruptions[0] &&
-                (uint32_t)t->entry < sizeof kEntries / sizeof kEntries[0] &&
-                (uint32_t)t->fade < sizeof kFades / sizeof kFades[0]);
+    static const char* const kKeys[3] = {"interruption", "entry", "fade"};
+    static const char* const kWords[3][3] = {{"\"none\"", "\"higher\"", "\"any\""},
+                                             {"\"restart\"", "\"keep\"", "\"match\""},
+                                             {"\"linear\"", "\"smoothstep\"", "\"inertial\""}};
+    const int32_t choices[3] = {t->interruption, t->entry, t->fade};
     maniGraphJsonPutText(w, "{");
     maniGraphJsonPutKey(w, "from");
     if (t->from == MANI_GRAPH_ANY_STATE)
@@ -520,33 +459,38 @@ static void PutTransition(Writer* w, const maniGraphSource* source,
     maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "to");
     maniGraphJsonPutUnsigned(w, t->to);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "priority");
-    maniGraphJsonPutUnsigned(w, t->priority);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "interruption");
-    maniGraphJsonPutText(w, kInterruptions[t->interruption]);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "entry");
-    maniGraphJsonPutText(w, kEntries[t->entry]);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "fade");
-    maniGraphJsonPutText(w, kFades[t->fade]);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "duration");
-    maniGraphJsonPutFloat(w, t->duration);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "cooldown");
-    maniGraphJsonPutFloat(w, t->cooldown);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "conditions");
-    maniGraphJsonPutText(w, "[");
+    if (t->priority != 0)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "priority");
+        maniGraphJsonPutUnsigned(w, t->priority);
+    }
+    // The first word of each, the reader's when it is left out.
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        // The build refused any other interruption, entry or fade.
+        MANI_ASSERT((uint32_t)choices[k] < 3);
+        if (choices[k] != 0)
+        {
+            maniGraphJsonPutText(w, ", ");
+            maniGraphJsonPutKey(w, kKeys[k]);
+            maniGraphJsonPutText(w, kWords[k][choices[k]]);
+        }
+    }
+    maniGraphJsonPutNumberOr(w, "duration", t->duration, 0.0f);
+    maniGraphJsonPutNumberOr(w, "cooldown", t->cooldown, 0.0f);
+    if (t->conditionCount > 0)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "conditions");
+        maniGraphJsonPutText(w, "[");
+    }
     for (uint32_t c = 0; c < t->conditionCount; ++c)
     {
         maniGraphJsonPutText(w, c > 0 ? ", " : "");
         PutCondition(w, source, &t->conditions[c]);
     }
-    maniGraphJsonPutText(w, "]}");
+    maniGraphJsonPutText(w, t->conditionCount > 0 ? "]}" : "}");
 }
 
 // A machine's entry, chain limit, transitions and finals, on the node's
@@ -554,43 +498,61 @@ static void PutTransition(Writer* w, const maniGraphSource* source,
 static void PutMachine(Writer* w, const maniGraphSource* source,
                        const maniGraphMachineNodeSource* m)
 {
-    maniGraphJsonPutKey(w, "entry");
-    maniGraphJsonPutUnsigned(w, m->entry);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "chainLimit");
-    maniGraphJsonPutUnsigned(w, m->chainLimit);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "transitions");
-    maniGraphJsonPutText(w, "[");
-    for (uint32_t t = 0; t < m->transitionCount; ++t)
+    static const char* const kKeys[2] = {"entry", "chainLimit"};
+    const uint32_t words[2] = {m->entry, m->chainLimit};
+    for (uint32_t k = 0; k < 2; ++k)
     {
-        maniGraphJsonPutText(w, t > 0 ? ", " : "");
-        PutTransition(w, source, &m->transitions[t]);
+        if (words[k] != 0)
+        {
+            maniGraphJsonPutText(w, ", ");
+            maniGraphJsonPutKey(w, kKeys[k]);
+            maniGraphJsonPutUnsigned(w, words[k]);
+        }
     }
-    maniGraphJsonPutText(w, "], ");
-    maniGraphJsonPutKey(w, "finals");
-    maniGraphJsonPutText(w, "[");
-    for (uint32_t k = 0; k < m->finalCount; ++k)
+    if (m->transitionCount > 0)
     {
-        maniGraphJsonPutText(w, k > 0 ? ", " : "");
-        maniGraphJsonPutUnsigned(w, m->finals[k]);
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "transitions");
+        maniGraphJsonPutText(w, "[");
+        for (uint32_t t = 0; t < m->transitionCount; ++t)
+        {
+            maniGraphJsonPutText(w, t > 0 ? ", " : "");
+            PutTransition(w, source, &m->transitions[t]);
+        }
+        maniGraphJsonPutText(w, "]");
     }
-    maniGraphJsonPutText(w, "]");
+    if (m->finalCount > 0)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "finals");
+        maniGraphJsonPutText(w, "[");
+        for (uint32_t k = 0; k < m->finalCount; ++k)
+        {
+            maniGraphJsonPutText(w, k > 0 ? ", " : "");
+            maniGraphJsonPutUnsigned(w, m->finals[k]);
+        }
+        maniGraphJsonPutText(w, "]");
+    }
 }
 
 static void PutSubgraphNode(Writer* w, const maniGraphSource* source,
                             const maniGraphSubgraphNodeSource* s, uint32_t depth)
 {
-    maniGraphJsonPutKey(w, "parameters");
-    maniGraphJsonPutText(w, "{");
-    for (uint32_t k = 0; k < s->graph->parameterCount; ++k)
+    if (s->graph->parameterCount > 0)
     {
-        maniGraphJsonPutText(w, k > 0 ? ", " : "");
-        maniGraphJsonPutParameterName(w, s->graph, k);
-        maniGraphJsonPutText(w, ": ");
-        maniGraphJsonPutParameterName(w, source, s->parameters[k]);
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "parameters");
+        maniGraphJsonPutText(w, "{");
+        for (uint32_t k = 0; k < s->graph->parameterCount; ++k)
+        {
+            maniGraphJsonPutText(w, k > 0 ? ", " : "");
+            maniGraphJsonPutParameterName(w, s->graph, k);
+            maniGraphJsonPutText(w, ": ");
+            maniGraphJsonPutParameterName(w, source, s->parameters[k]);
+        }
+        maniGraphJsonPutText(w, "}");
     }
-    maniGraphJsonPutText(w, "}, ");
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "graph");
     PutGraph(w, s->graph, depth, false);
 }
@@ -599,6 +561,7 @@ static void PutSubgraphNode(Writer* w, const maniGraphSource* source,
 // A blend's weights and direct flag, or an additive's weights.
 static void PutWeights(Writer* w, const maniGraphSource* source, const maniGraphNodeSource* n)
 {
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "weights");
     if (n->kind == maniGraphNodeAdditive)
     {
@@ -608,9 +571,12 @@ static void PutWeights(Writer* w, const maniGraphSource* source, const maniGraph
         return;
     }
     maniGraphJsonPutScalars(w, source, n->blend.weights, n->inputCount);
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "direct");
-    maniGraphJsonPutBool(w, n->blend.direct != 0);
+    if (n->blend.direct != 0)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "direct");
+        maniGraphJsonPutBool(w, true);
+    }
 }
 
 // An IK node's members after its inputs, by its kind.
@@ -630,6 +596,33 @@ static void PutIkNode(Writer* w, const maniGraphSource* source, const maniGraphN
     }
 }
 
+// A blend space's position, points and its kind's own member.
+static void PutSpace(Writer* w, const maniGraphSource* source, const maniGraphNodeSource* n)
+{
+    if (n->kind == maniGraphNodeBlendSpace1D)
+    {
+        PutPosition(w, source, &n->blendSpace1D.position, false);
+        PutPoints(w, n->blendSpace1D.points, n->inputCount, false);
+        maniGraphJsonPutNumberOr(w, "period", n->blendSpace1D.period, 0.0f);
+        return;
+    }
+    if (n->kind == maniGraphNodeBlendSpaceTriangles)
+    {
+        PutPosition(w, source, &n->triangulated.position, true);
+        PutPoints(w, n->triangulated.points, n->inputCount, true);
+        PutTriangles(w, &n->triangulated);
+        return;
+    }
+    PutPosition(w, source, &n->bands.position, true);
+    PutPoints(w, n->bands.points, n->inputCount, true);
+    if (n->bands.polar != 0)
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, "polar");
+        maniGraphJsonPutBool(w, true);
+    }
+}
+
 static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphNodeSource* n,
                       uint32_t depth)
 {
@@ -643,7 +636,7 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         PutWeights(w, source, n);
         return;
     case maniGraphNodeMask:
-        PutMaskNode(w, &n->mask);
+        PutMaskNode(w, &n->mask, ", ");
         return;
     case maniGraphNodeOneShot:
         PutShot(w, source, &n->oneShot);
@@ -652,10 +645,10 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         PutInertialize(w, source, &n->inertialize);
         return;
     case maniGraphNodeMatch:
-        PutMatch(w, source, &n->match);
+        maniGraphJsonPutMatch(w, source, &n->match);
         return;
     case maniGraphNodeLearned:
-        PutLearned(w, source, &n->learned);
+        maniGraphJsonPutLearned(w, source, &n->learned);
         return;
     case maniGraphNodeSpring:
         PutSpring(w, source, &n->spring);
@@ -670,32 +663,20 @@ static void PutFields(Writer* w, const maniGraphSource* source, const maniGraphN
         return;
     case maniGraphNodeSelect:
     case maniGraphNodePose:
+        maniGraphJsonPutText(w, ", ");
         maniGraphJsonPutKey(w, "parameter");
         maniGraphJsonPutParameterName(
             w, source, n->kind == maniGraphNodePose ? n->pose.parameter : n->select.parameter);
         return;
     case maniGraphNodeTimeScale:
+        maniGraphJsonPutText(w, ", ");
         maniGraphJsonPutKey(w, "scale");
         maniGraphJsonPutScalar(w, source, n->timeScale.scale);
         return;
     case maniGraphNodeBlendSpace1D:
-        PutPosition(w, source, &n->blendSpace1D.position, false);
-        PutPoints(w, n->blendSpace1D.points, n->inputCount, false);
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, "period");
-        maniGraphJsonPutFloat(w, n->blendSpace1D.period);
-        return;
     case maniGraphNodeBlendSpaceTriangles:
-        PutPosition(w, source, &n->triangulated.position, true);
-        PutPoints(w, n->triangulated.points, n->inputCount, true);
-        PutTriangles(w, &n->triangulated);
-        return;
     case maniGraphNodeBlendSpaceBands:
-        PutPosition(w, source, &n->bands.position, true);
-        PutPoints(w, n->bands.points, n->inputCount, true);
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, "polar");
-        maniGraphJsonPutBool(w, n->bands.polar != 0);
+        PutSpace(w, source, n);
         return;
     case maniGraphNodeMachine:
         PutMachine(w, source, &n->machine);
@@ -754,11 +735,12 @@ static void PutNode(Writer* w, const maniGraphSource* source, const maniGraphNod
     maniGraphJsonPutKey(w, "kind");
     maniGraphJsonPutText(w, "\"");
     maniGraphJsonPutText(w, KindName(n->kind));
-    maniGraphJsonPutText(w, "\", ");
+    maniGraphJsonPutText(w, "\"");
     if (n->kind != maniGraphNodeClip && n->kind != maniGraphNodeMatch &&
         n->kind != maniGraphNodeLearned && n->kind != maniGraphNodePose &&
         n->kind != maniGraphNodeSubgraph)
     {
+        maniGraphJsonPutText(w, ", ");
         maniGraphJsonPutKey(w, "inputs");
         maniGraphJsonPutText(w, "[");
         for (uint32_t k = 0; k < n->inputCount; ++k)
@@ -766,8 +748,7 @@ static void PutNode(Writer* w, const maniGraphSource* source, const maniGraphNod
             maniGraphJsonPutText(w, k > 0 ? ", " : "");
             maniGraphJsonPutUnsigned(w, n->inputs[k]);
         }
-        // A mirror node takes no other members.
-        maniGraphJsonPutText(w, n->kind == maniGraphNodeMirror ? "]" : "], ");
+        maniGraphJsonPutText(w, "]");
     }
     PutFields(w, source, n, depth);
     maniGraphJsonPutText(w, "}");
@@ -795,8 +776,8 @@ static void PutSlotName(Writer* w, const maniGraphSource* source, uint32_t list,
     }
 }
 
-// A list's opening, its items each on a line, and its closing; an empty
-// list on one line.
+// A list's opening, its items each on a line, and its closing; only a
+// list with items is written.
 static void PutList(Writer* w, const maniGraphSource* source, const char* key, uint32_t list,
                     uint32_t depth)
 {
@@ -824,9 +805,12 @@ static void PutList(Writer* w, const maniGraphSource* source, const char* key, u
             maniGraphJsonPutText(w, "{");
             maniGraphJsonPutKey(w, "name");
             maniGraphJsonPutString(w, g->name, g->nameLength);
-            maniGraphJsonPutText(w, ", ");
-            maniGraphJsonPutKey(w, "allEvents");
-            maniGraphJsonPutBool(w, (g->flags & maniGraphSyncAllEvents) != 0);
+            if ((g->flags & maniGraphSyncAllEvents) != 0)
+            {
+                maniGraphJsonPutText(w, ", ");
+                maniGraphJsonPutKey(w, "allEvents");
+                maniGraphJsonPutBool(w, true);
+            }
             maniGraphJsonPutText(w, "}");
         }
         else
@@ -834,10 +818,9 @@ static void PutList(Writer* w, const maniGraphSource* source, const char* key, u
             PutNode(w, source, &source->nodes[i], depth + 1);
         }
     }
-    if (counts[list] > 0)
-    {
-        maniGraphJsonLine(w, depth);
-    }
+    // The graph's lists are left out when empty, and its nodes are never.
+    MANI_ASSERT(counts[list] > 0);
+    maniGraphJsonLine(w, depth);
     maniGraphJsonPutText(w, "],");
 }
 
@@ -853,9 +836,19 @@ static void PutGraph(Writer* w, const maniGraphSource* source, uint32_t depth, b
         maniGraphJsonPutKey(w, "version");
         maniGraphJsonPutText(w, "1,");
     }
-    PutList(w, source, "parameters", 0, depth + 1);
-    PutList(w, source, "clips", 1, depth + 1);
-    PutList(w, source, "syncGroups", 2, depth + 1);
+    // Lists left out when empty, but the nodes, which a graph needs.
+    if (source->parameterCount > 0)
+    {
+        PutList(w, source, "parameters", 0, depth + 1);
+    }
+    if (source->clipCount > 0)
+    {
+        PutList(w, source, "clips", 1, depth + 1);
+    }
+    if (source->syncGroupCount > 0)
+    {
+        PutList(w, source, "syncGroups", 2, depth + 1);
+    }
     if (source->databaseCount > 0)
     {
         PutList(w, source, "databases", 4, depth + 1);
