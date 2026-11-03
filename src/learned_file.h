@@ -15,16 +15,15 @@
 
 #include <stdint.h>
 
-#define MANI_LEARNED_FORMAT_VERSION 2u
-#define MANI_LEARNED_SECTIONS       11u
+#define MANI_LEARNED_FORMAT_VERSION 3u
+#define MANI_LEARNED_SECTIONS       12u
 
 enum
 {
     // The skeleton's and the database's identities (u64 each), then u32
     // each: the bone, feature, channel, time, latent, scaled bone, float
     // track, event and Projector counts, the layer count over every
-    // network, the weight format, the step rate (binary32), the up and
-    // forward axes.
+    // network, the step rate (binary32), the up and forward axes.
     maniLearnedTagHeader = 1,
     // MANI_LEARNED_CHANNEL_SIZE each: kind, bone, axis, time count, first
     // time, first feature, feature count (u32 each), weight (binary32).
@@ -50,9 +49,12 @@ enum
     maniLearnedTagNames = 10,
     // The names, UTF-8, end to end.
     maniLearnedTagNameBytes = 11,
+    // The weight format (u32) when the weights are 16-bit; absent for
+    // binary32 weights.
+    maniLearnedTagWeightFormat = 12,
 };
 
-#define MANI_LEARNED_HEADER_SIZE  72u
+#define MANI_LEARNED_HEADER_SIZE  68u
 #define MANI_LEARNED_CHANNEL_SIZE 32u
 #define MANI_LEARNED_NETWORK_SIZE 12u
 #define MANI_LEARNED_LAYER_SIZE   8u

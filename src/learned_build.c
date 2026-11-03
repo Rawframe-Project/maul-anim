@@ -297,17 +297,17 @@ static void LayHeader(const maniLearnedModelSource* s, const Totals* t, uint8_t*
     const maniMotionDatabase* d = s->database;
     maniStoreU64(h, maniSkeleton_GetIdentity(s->skeleton));
     maniStoreU64(h + 8, maniMotionDatabase_GetIdentity(d));
-    const uint32_t words[11] = {
+    const uint32_t words[10] = {
         s->skeleton->boneCount, d->featureCount,    d->channelCount,    d->timeCount,
         s->latentCount,         s->scaledBoneCount, s->floatTrackCount, s->eventCount,
-        s->projectorCount,      t->layers,          s->weightFormat};
-    for (uint32_t k = 0; k < 11; ++k)
+        s->projectorCount,      t->layers};
+    for (uint32_t k = 0; k < 10; ++k)
     {
         maniStoreU32(h + 16 + 4 * k, words[k]);
     }
-    StoreF32(h + 60, s->stepRate);
-    maniStoreU32(h + 64, d->up);
-    maniStoreU32(h + 68, d->forward);
+    StoreF32(h + 56, s->stepRate);
+    maniStoreU32(h + 60, d->up);
+    maniStoreU32(h + 64, d->forward);
 }
 
 // The channels' first 32 bytes are the database's records' own layout.
@@ -445,7 +445,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniLearnedModelSource*
         4 * t->values,
         weightBytes,
         (uint64_t)(s->floatTrackCount + s->eventCount) * MANI_LEARNED_NAME_SIZE,
-        t->names};
+        t->names,
+        s->weightFormat != maniLearnedWeightsFloat32 ? 4u : 0u};
     uint64_t own = 0;
     for (uint32_t i = 0; i < MANI_LEARNED_SECTIONS; ++i)
     {
@@ -472,6 +473,10 @@ static maniBuildResult Write(maniBuilder* builder, const maniLearnedModelSource*
     LayBones(s, data[4]);
     LayNetworks(s, data[5], data[6], data[7], data[8]);
     LayNames(s, data[9], data[10]);
+    if (sizes[11] != 0)
+    {
+        maniStoreU32(data[11], (uint32_t)s->weightFormat);
+    }
     maniSectionSource sections[MANI_LEARNED_SECTIONS];
     const uint8_t* views[MANI_LEARNED_SECTIONS];
     uint32_t count = 0;
