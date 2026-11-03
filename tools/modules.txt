@@ -34,7 +34,7 @@ skin_file:
 skin: bytes container fpenv pose_memory skin_file vecmath
 skin_build: allocator builder bytes container fpenv skin_file
 influence_file:
-influences: bytes container fpenv influence_file
+influences: bytes container fpenv influence_file invariant
 skinning: bytes decompose fpenv influence_file vecmath
 influences_build: allocator builder bytes container fpenv influence_file
 centers_build: allocator builder bytes container elementary_float fpenv influence_file sort
@@ -56,7 +56,7 @@ spring_shape: bytes scalar spring_file vecmath
 spring_state: bytes fpenv pose_memory spring_file state_prefix vecmath
 spring_step: bytes pose_memory spring_file spring_shape spring_state vecmath
 spring_apply: bytes pose_memory spring_file spring_shape spring_state vecmath
-learned: bytes container fpenv learned_file match_file text
+learned: bytes container fpenv invariant learned_file match_file text
 learned_eval: bytes fpenv learned_file vecmath
 learned_build: allocator builder bytes container fpenv learned_file match_file text
 spring_build: allocator builder bytes container fpenv scalar spring_file spring_frame text vecmath

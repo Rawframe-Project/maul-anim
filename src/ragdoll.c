@@ -279,8 +279,8 @@ static MANI_NOINLINE maniFileResult OpenRagdollWork(const void* bytes, size_t si
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r =
-        maniOpenContainer(bytes, size, maniKindRagdoll, MANI_RAGDOLL_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindRagdoll, MANI_RAGDOLL_FORMAT_VERSION,
+                                         MANI_RAGDOLL_SECTIONS, &c);
     if (r.result != mani_success)
     {
         return r;

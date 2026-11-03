@@ -361,9 +361,13 @@ static void Rehash(uint8_t* file, size_t size)
     maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
                                           size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
-    CHECK(maniOpenContainer(file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-              mani_success,
-          "container");
+    // A table the container refuses keeps the identity: it is not read.
+    if (maniOpenContainer(file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, MANI_GRAPH_SECTIONS,
+                          &c)
+            .result != mani_success)
+    {
+        return;
+    }
     const uint8_t* sections[MANI_GRAPH_SECTIONS];
     uint64_t sizes[MANI_GRAPH_SECTIONS];
     for (uint32_t t = 1; t <= MANI_GRAPH_SECTIONS; ++t)
@@ -382,7 +386,8 @@ static uint64_t SectionAt(uint32_t tag)
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_built, s_builtSize, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_built, s_builtSize, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, &at),
           "the section");
@@ -502,9 +507,28 @@ static void TestOpenRefusals(void)
     uint32_t sections = maniLoadU32(s_built + 12);
     uint64_t last = first + (uint64_t)(sections - 1) * MANI_CONTAINER_ENTRY_SIZE;
     CHECK(Edit(first, 0, first), "a section tag of 0");
-    CHECK(Edit(last, MANI_GRAPH_SECTIONS + 1, last), "a section tag past the kinds");
-    CHECK(Edit(first + 16, 40, first + 16), "a header of another size");
-    CHECK(Edit(last + 16, 0, last + 16), "an empty section");
+    // A tag past the kind's is a later writer's.
+    memcpy(s_crafted, s_built, s_builtSize);
+    maniStoreU32(s_crafted + last, MANI_GRAPH_SECTIONS + 1);
+    Rehash(s_crafted, s_builtSize);
+    maniGraph later;
+    maniFileResult laterResult = maniOpenGraph(s_crafted, s_builtSize, &later);
+    CHECK(laterResult.result == mani_errorVersion && laterResult.offset == last,
+          "a section tag past the kinds");
+    // A header of 60 bytes still ends where the next section's padding
+    // starts; its last word zero, as padding is.
+    const uint64_t shorter[4] = {first + 16, 60, SectionAt(maniGraphTagHeader) + 60, 0};
+    CHECK(RefusedAt(shorter, 2, first + 16), "a header of another size");
+    // The last section empty, the file ending at its place.
+    memcpy(s_crafted, s_built, s_builtSize);
+    uint64_t lastAt = maniLoadU64(s_built + last + 8);
+    maniStoreU64(s_crafted + last + 16, 0);
+    maniStoreU64(s_crafted + 24, lastAt);
+    Rehash(s_crafted, (size_t)lastAt);
+    maniGraph emptied;
+    maniFileResult emptyResult = maniOpenGraph(s_crafted, s_builtSize, &emptied);
+    CHECK(emptyResult.result == mani_errorFormat && emptyResult.offset == last + 16,
+          "an empty section");
     uint64_t empty = maniHashBytes(MANI_HASH_INIT, NULL, 0);
     const uint64_t unnamed[6] = {parameters + 12, 0,
                                  parameters + 16, (uint32_t)empty,

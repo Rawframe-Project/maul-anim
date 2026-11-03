@@ -105,7 +105,8 @@ static void Exercise(const uint8_t* bytes, size_t size)
 static void FixIdentity(uint8_t* bytes, size_t size)
 {
     maniContainer c;
-    if (maniOpenContainer(bytes, size, maniKindLearnedModel, MANI_LEARNED_FORMAT_VERSION, &c)
+    if (maniOpenContainer(bytes, size, maniKindLearnedModel, MANI_LEARNED_FORMAT_VERSION,
+                          MANI_LEARNED_SECTIONS, &c)
             .result != 0)
     {
         return;

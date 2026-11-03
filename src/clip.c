@@ -240,15 +240,11 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
         uint64_t entryAt = MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE;
         const uint8_t* entry = c->bytes + entryAt;
         uint32_t tag = maniLoadU32(entry);
-        if (tag == 0 || tag > MANI_CLIP_ALL_SECTIONS)
-        {
-            return Fail(entryAt);
-        }
+        // The container keeps tags from 1 to the last.
+        MANI_ASSERT(tag >= 1 && tag <= MANI_CLIP_ALL_SECTIONS);
         uint64_t size = maniLoadU64(entry + 16);
-        if (size == 0)
-        {
-            return Fail(entryAt + 16);
-        }
+        // The container refuses an empty entry: an empty section is left out.
+        MANI_ASSERT(size > 0);
         uint64_t offset = maniLoadU64(entry + 8);
         s->data[tag - 1] = c->bytes + offset;
         s->sizes[tag - 1] = size;
@@ -307,7 +303,8 @@ static MANI_NOINLINE maniFileResult OpenClipWork(const void* bytes, size_t size,
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r = maniOpenContainer(bytes, size, maniKindClip, MANI_CLIP_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindClip, MANI_CLIP_FORMAT_VERSION,
+                                         MANI_CLIP_ALL_SECTIONS, &c);
     if (r.result != mani_success)
     {
         return r;

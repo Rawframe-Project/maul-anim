@@ -348,10 +348,10 @@ static uint64_t SectionAt(const uint8_t* file, size_t size, uint32_t tag, uint64
     const uint8_t* data = NULL;
     uint64_t at = 0;
     *length = 0;
-    bool found =
-        maniOpenContainer(file, size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION, &c)
-                .result == mani_success &&
-        maniContainerSection(&c, tag, &data, length, &at);
+    bool found = maniOpenContainer(file, size, maniKindMotionDatabase, MANI_MATCH_FORMAT_VERSION,
+                                   MANI_MATCH_SECTIONS, &c)
+                         .result == mani_success &&
+                 maniContainerSection(&c, tag, &data, length, &at);
     return found ? at : 0;
 }
 
@@ -381,7 +381,7 @@ static void TestOpen(void)
     CHECK(Opened(size) == records + 4, "an entry flag past the flags");
     maniContainer c;
     CHECK(maniOpenContainer(s_databaseFiles[0], size, maniKindMotionDatabase,
-                            MANI_MATCH_FORMAT_VERSION, &c)
+                            MANI_MATCH_FORMAT_VERSION, MANI_MATCH_SECTIONS, &c)
                   .result == mani_success,
           "the container");
     // The mirror section's entry in the table.
@@ -391,8 +391,10 @@ static void TestOpen(void)
     {
         entry += 24;
     }
+    // Its last four bytes zero, as padding before the next section is.
     memcpy(s_crafted, s_databaseFiles[0], size);
     maniStoreU64(s_crafted + entry + 16, 4);
+    maniStoreU32(s_crafted + maniLoadU64(s_crafted + entry + 8) + 4, 0);
     CHECK(maniLoadU32(s_databaseFiles[0] + entry) == maniMatchTagMirror &&
               Opened(size) == entry + 16,
           "a mirror section of 4 bytes");

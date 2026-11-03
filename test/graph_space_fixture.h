@@ -82,8 +82,9 @@ static inline void Rehash(uint8_t* file)
     maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
                                           s_size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
-    CHECK(maniOpenContainer(file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-              mani_success,
+    CHECK(maniOpenContainer(file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
+                  .result == mani_success,
           "container");
     const uint8_t* sections[MANI_GRAPH_SECTIONS];
     uint64_t sizes[MANI_GRAPH_SECTIONS];
@@ -108,8 +109,9 @@ static inline maniFileResult Crafted(const maniGraph* g, uint32_t p, uint32_t k,
     uint64_t at = 0;
     // Make built s_file; its size is in the container's header.
     s_size = (size_t)maniLoadU64(s_file + 24);
-    CHECK(maniOpenContainer(s_file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-                  mani_success &&
+    CHECK(maniOpenContainer(s_file, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
+                      .result == mani_success &&
               maniContainerSection(&c, maniGraphTagData, &data, &size, &at),
           "the data");
     uint32_t first = maniLoadU32(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);

@@ -430,6 +430,9 @@ static void TestOpenRefusals(void)
     maniSkeleton s;
     CHECK(maniOpenSkeleton(s_file, s_size, NULL).result == mani_errorInvalid, "null view");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
+    CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    // Tags 1 to 7 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 7), "a later writer's tag refused");
     CHECK(maniOpenSkeleton(s_file + 16, s_size, &s).result == mani_errorFormat, "not a file");
 }
 

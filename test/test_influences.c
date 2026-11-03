@@ -168,14 +168,16 @@ static void TestBuildsAndReads(void)
     CHECK(!maniInfluences_GetCenter(&v, 0, &center) && center.x == 0.0f && center.y == 0.0f &&
               center.z == 0.0f,
           "no centers yet: the center cleared");
+    CHECK(TestSectionAbsent(s_file, maniInfluenceTagCenters), "no centers: their section absent");
     maniInfluenceSource plain = Sample();
     plain.dualQuaternionWeights = NULL;
     plain.vertexCount = 2;
     CHECK(BuildFrom(&plain).result == mani_success, "one group");
     CHECK(maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
               maniInfluences_GetPerVertex(&v) == 8 &&
-              maniInfluences_GetDualQuaternionWeight(&v, 1) == 0.0f,
-          "no blend weights: 0");
+              maniInfluences_GetDualQuaternionWeight(&v, 1) == 0.0f &&
+              TestSectionAbsent(s_file, maniInfluenceTagDualQuaternionWeights),
+          "no blend weights: their section absent, read as 0");
     // Another skin: a skin of the same joints and other binds.
     maniSkin other = s_skin;
     other.identity ^= 1;
@@ -285,7 +287,8 @@ static void TestBuildRefusals(void)
 static void Craft(uint32_t tag, const void* bytes, uint64_t size)
 {
     maniContainer c;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindInfluences, MANI_INFLUENCE_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_file, s_size, maniKindInfluences, MANI_INFLUENCE_FORMAT_VERSION,
+                            MANI_INFLUENCE_SECTIONS, &c)
                   .result == mani_success,
           "container");
     const uint8_t* data[MANI_INFLUENCE_SECTIONS];
@@ -324,7 +327,8 @@ static uint64_t SectionAt(uint32_t tag)
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindInfluences, MANI_INFLUENCE_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_file, s_size, maniKindInfluences, MANI_INFLUENCE_FORMAT_VERSION,
+                            MANI_INFLUENCE_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, &at),
           "section");
@@ -428,6 +432,10 @@ static void TestOpenRefusals(void)
     maniInfluences none;
     CHECK(maniOpenInfluences(s_file, s_size, NULL).result == mani_errorInvalid, "no view");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
+    BuildSample();
+    CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    // Tags 1 to 5 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 5), "a later writer's tag refused");
     CHECK(maniOpenInfluences(NULL, 64, &none).result == mani_errorInvalid, "no bytes");
 }
 

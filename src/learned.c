@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "fpenv.h"
+#include "invariant.h"
 #include "learned_file.h"
 #include "match_file.h"
 #include "text.h"
@@ -80,15 +81,11 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
         uint64_t entryAt = MANI_CONTAINER_HEADER_SIZE + (uint64_t)i * MANI_CONTAINER_ENTRY_SIZE;
         const uint8_t* entry = c->bytes + entryAt;
         uint32_t tag = maniLoadU32(entry);
-        if (tag == 0 || tag > MANI_LEARNED_SECTIONS)
-        {
-            return Fail(entryAt);
-        }
+        // The container keeps tags from 1 to the last.
+        MANI_ASSERT(tag >= 1 && tag <= MANI_LEARNED_SECTIONS);
         uint64_t size = maniLoadU64(entry + 16);
-        if (size == 0)
-        {
-            return Fail(entryAt + 16);
-        }
+        // The container refuses an empty entry: an empty section is left out.
+        MANI_ASSERT(size > 0);
         uint64_t offset = maniLoadU64(entry + 8);
         s->data[tag - 1] = c->bytes + offset;
         s->sizes[tag - 1] = size;
@@ -498,8 +495,8 @@ static MANI_NOINLINE maniFileResult OpenLearnedModelWork(const void* bytes, size
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r =
-        maniOpenContainer(bytes, size, maniKindLearnedModel, MANI_LEARNED_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindLearnedModel,
+                                         MANI_LEARNED_FORMAT_VERSION, MANI_LEARNED_SECTIONS, &c);
     if (r.result != mani_success)
     {
         return r;

@@ -167,6 +167,9 @@ static void TestBuildsAndReads(void)
     maniMorphTargets m;
     CHECK(maniOpenMorphTargets(s_file, s_size, &m).result == mani_success, "opens");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
+    CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    // Tags 1 to 7 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 7), "a later writer's tag refused");
     CHECK(maniMorphTargets_GetVertexCount(&m) == kVertices &&
               maniMorphTargets_GetChannelCount(&m) == 3 &&
               maniMorphTargets_GetTargetCount(&m) == 5 &&
@@ -745,7 +748,8 @@ static void TestBuildRefusals(void)
 static void Craft(uint32_t tag, const void* bytes, uint64_t size)
 {
     maniContainer c;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindMorphTargets, MANI_MORPH_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_file, s_size, maniKindMorphTargets, MANI_MORPH_FORMAT_VERSION,
+                            MANI_MORPH_SECTIONS, &c)
                   .result == mani_success,
           "container");
     const uint8_t* data[MANI_MORPH_SECTIONS];
@@ -783,7 +787,8 @@ static uint64_t SectionAt(uint32_t tag)
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindMorphTargets, MANI_MORPH_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_file, s_size, maniKindMorphTargets, MANI_MORPH_FORMAT_VERSION,
+                            MANI_MORPH_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, &at),
           "section");
@@ -814,7 +819,8 @@ static void CraftU32(uint32_t tag, uint64_t byte, uint32_t value, uint64_t expec
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindMorphTargets, MANI_MORPH_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(s_file, s_size, maniKindMorphTargets, MANI_MORPH_FORMAT_VERSION,
+                            MANI_MORPH_SECTIONS, &c)
                       .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, &at),
           "section");

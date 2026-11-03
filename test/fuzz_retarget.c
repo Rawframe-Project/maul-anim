@@ -49,7 +49,8 @@ static void Exercise(const uint8_t* bytes, size_t size)
 static void FixIdentity(uint8_t* bytes, size_t size)
 {
     maniContainer c;
-    if (maniOpenContainer(bytes, size, maniKindRetargetMap, MANI_RETARGET_FORMAT_VERSION, &c)
+    if (maniOpenContainer(bytes, size, maniKindRetargetMap, MANI_RETARGET_FORMAT_VERSION,
+                          MANI_RETARGET_SECTIONS, &c)
             .result != 0)
     {
         return;

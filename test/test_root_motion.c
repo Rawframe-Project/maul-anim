@@ -754,8 +754,9 @@ static uint64_t SectionAt(uint32_t tag)
     const uint8_t* data = NULL;
     uint64_t size = 0;
     uint64_t at = 0;
-    CHECK(maniOpenContainer(s_file, s_size, maniKindClip, MANI_CLIP_FORMAT_VERSION, &c).result ==
-                  mani_success &&
+    CHECK(maniOpenContainer(s_file, s_size, maniKindClip, MANI_CLIP_FORMAT_VERSION,
+                            MANI_CLIP_ALL_SECTIONS, &c)
+                      .result == mani_success &&
               maniContainerSection(&c, tag, &data, &size, &at),
           "the section");
     return at;
@@ -767,8 +768,9 @@ static void Rehash(uint8_t* file)
     maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
                                           s_size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
-    CHECK(maniOpenContainer(file, s_size, maniKindClip, MANI_CLIP_FORMAT_VERSION, &c).result ==
-              mani_success,
+    CHECK(maniOpenContainer(file, s_size, maniKindClip, MANI_CLIP_FORMAT_VERSION,
+                            MANI_CLIP_ALL_SECTIONS, &c)
+                  .result == mani_success,
           "container");
     const uint8_t* sections[MANI_CLIP_ALL_SECTIONS];
     uint64_t sizes[MANI_CLIP_ALL_SECTIONS];

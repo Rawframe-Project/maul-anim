@@ -313,8 +313,9 @@ static void Rehash(uint8_t* file, size_t size)
     maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
                                           size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
-    CHECK(maniOpenContainer(file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-              mani_success,
+    CHECK(maniOpenContainer(file, size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
+                  .result == mani_success,
           "container");
     const uint8_t* sections[MANI_GRAPH_SECTIONS];
     uint64_t sizes[MANI_GRAPH_SECTIONS];

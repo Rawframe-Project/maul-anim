@@ -282,8 +282,8 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     maniContainer c;
-    maniFileResult r =
-        maniOpenContainer(bytes, size, maniKindRetargetMap, MANI_RETARGET_FORMAT_VERSION, &c);
+    maniFileResult r = maniOpenContainer(bytes, size, maniKindRetargetMap,
+                                         MANI_RETARGET_FORMAT_VERSION, MANI_RETARGET_SECTIONS, &c);
     if (r.result != mani_success)
     {
         return r;

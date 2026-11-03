@@ -1536,8 +1536,15 @@ static void TestOpenRefusals(void)
     uint32_t count = maniLoadU32(s_file + 12);
     CHECK(EntryOf(maniClipTagSamples) == 0 && EntryOf(maniClipTagFloatSamples) == 0,
           "no empty sections");
-    maniStoreU32(s_file + MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(count - 1), 17);
-    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(count - 1), "a tag past 16");
+    // A tag past 16 is a later writer's.
+    uint64_t last = MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(count - 1);
+    uint32_t lastTag = maniLoadU32(s_file + last);
+    maniStoreU32(s_file + last, 17);
+    Rehash();
+    maniClip later;
+    maniFileResult laterResult = Open(&later);
+    CHECK(laterResult.result == mani_errorVersion && laterResult.offset == last, "a tag past 16");
+    maniStoreU32(s_file + last, lastTag);
     maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 56, 0);
     maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 52, 0);
     ExpectFormat(EntryOf(maniClipTagForms) + 16, "compressed sections at full precision");

@@ -277,11 +277,11 @@ static void TestLongQuery(void)
     const uint8_t* bytes = NULL;
     uint64_t size = 0;
     uint64_t records = 0;
-    CHECK(
-        maniOpenContainer(s_crafted, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION, &c).result ==
-                mani_success &&
-            maniContainerSection(&c, maniGraphTagNodes, &bytes, &size, &records),
-        "the nodes");
+    CHECK(maniOpenContainer(s_crafted, s_size, maniKindGraph, MANI_GRAPH_FORMAT_VERSION,
+                            MANI_GRAPH_SECTIONS, &c)
+                      .result == mani_success &&
+              maniContainerSection(&c, maniGraphTagNodes, &bytes, &size, &records),
+          "the nodes");
     maniStoreU32(s_crafted + records + 16, MANI_GRAPH_LEARNED_WORDS + MANI_MAX_MATCH_FEATURES + 1);
     Rehash(s_crafted);
     maniGraph crafted;

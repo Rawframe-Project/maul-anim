@@ -196,6 +196,9 @@ static void TestPlan(void)
               maniOpenRetargetMap(s_file, s_size, &m).result == mani_success,
           "built and opened");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
+    CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    // Tags 1 to 4 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 4), "a later writer's tag refused");
     CHECK(maniRetargetMap_GetSourceIdentity(&m) == maniSkeleton_GetIdentity(&s_source) &&
               maniRetargetMap_GetTargetIdentity(&m) == maniSkeleton_GetIdentity(&s_target) &&
               maniRetargetMap_GetIdentity(&m) != 0 && m.sourceBoneCount == 8 &&
@@ -437,7 +440,8 @@ static void Rehash(uint8_t* file, size_t size)
     maniStoreU64(file + 32, maniHashBytes(MANI_HASH_INIT, file + MANI_CONTAINER_HEADER_SIZE,
                                           size - MANI_CONTAINER_HEADER_SIZE));
     maniContainer c;
-    CHECK(maniOpenContainer(file, size, maniKindRetargetMap, MANI_RETARGET_FORMAT_VERSION, &c)
+    CHECK(maniOpenContainer(file, size, maniKindRetargetMap, MANI_RETARGET_FORMAT_VERSION,
+                            MANI_RETARGET_SECTIONS, &c)
                   .result == mani_success,
           "container");
     const uint8_t* data[MANI_RETARGET_SECTIONS];

@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // The file container: round trips, a pinned file, and every refusal at
-// the offset it names.
+// the offset it names: sections placed and padded only as the writer
+// does, and a later writer's tag refused as another version.
 
 #include "bytes.h"
 #include "container.h"
@@ -16,6 +17,8 @@ enum
 {
     kCapacity = 2048,
     kKind = maniKindSkeleton,
+    // The sample's last tag is the kind's last.
+    kLastTag = 7,
 };
 
 static _Alignas(16) uint8_t s_file[kCapacity + 16];
@@ -44,7 +47,7 @@ static void Rehash(void)
 static maniFileResult Open(void)
 {
     maniContainer container;
-    return maniOpenContainer(s_file, (size_t)s_size, kKind, 1, &container);
+    return maniOpenContainer(s_file, (size_t)s_size, kKind, 1, kLastTag, &container);
 }
 
 static void ExpectFormat(uint64_t offset, const char* what)
@@ -60,7 +63,7 @@ static void TestRoundTrip(void)
     // Header 48, table 48, so the first section at 96, the second at 112.
     CHECK(s_size == 132, "laid out size");
     maniContainer container;
-    maniFileResult r = maniOpenContainer(s_file, (size_t)s_size, kKind, 1, &container);
+    maniFileResult r = maniOpenContainer(s_file, (size_t)s_size, kKind, 1, kLastTag, &container);
     CHECK(r.result == mani_success, "opens");
     CHECK(container.identity == 0x1122334455667788ull, "identity");
     CHECK(container.formatVersion == 1 && container.kind == kKind, "kind and version");
@@ -80,10 +83,10 @@ static void TestRoundTrip(void)
     CHECK(!maniContainerSection(&container, 5, &data, &size, &offset), "no such section");
 
     // A reader of a later version refuses an earlier file.
-    r = maniOpenContainer(s_file, (size_t)s_size, kKind, 2, &container);
+    r = maniOpenContainer(s_file, (size_t)s_size, kKind, 2, kLastTag, &container);
     CHECK(r.result == mani_errorVersion && r.offset == 6, "a later reader");
     // Trailing bytes past the file's size are the caller's, not the file's.
-    CHECK(maniOpenContainer(s_file, (size_t)s_size + 7, kKind, 1, &container).result ==
+    CHECK(maniOpenContainer(s_file, (size_t)s_size + 7, kKind, 1, kLastTag, &container).result ==
               mani_success,
           "trailing bytes");
 }
@@ -93,7 +96,8 @@ static void TestEmptyContainer(void)
     CHECK(maniContainerSize(NULL, 0, &s_size) && s_size == 48, "empty size");
     maniWriteContainer(s_file, kKind, 1, 0, NULL, 0);
     maniContainer container;
-    CHECK(maniOpenContainer(s_file, 48, kKind, 1, &container).result == mani_success, "empty");
+    CHECK(maniOpenContainer(s_file, 48, kKind, 1, kLastTag, &container).result == mani_success,
+          "empty");
     CHECK(container.sectionCount == 0, "no sections");
 }
 
@@ -101,10 +105,12 @@ static void TestBadArguments(void)
 {
     WriteSample();
     maniContainer container;
-    CHECK(maniOpenContainer(NULL, 48, kKind, 1, &container).result == mani_errorInvalid, "null");
-    CHECK(maniOpenContainer(s_file, (size_t)s_size, kKind, 1, NULL).result == mani_errorInvalid,
+    CHECK(maniOpenContainer(NULL, 48, kKind, 1, kLastTag, &container).result == mani_errorInvalid,
+          "null");
+    CHECK(maniOpenContainer(s_file, (size_t)s_size, kKind, 1, kLastTag, NULL).result ==
+              mani_errorInvalid,
           "null out");
-    CHECK(maniOpenContainer(s_file + 8, (size_t)s_size, kKind, 1, &container).result ==
+    CHECK(maniOpenContainer(s_file + 8, (size_t)s_size, kKind, 1, kLastTag, &container).result ==
               mani_errorInvalid,
           "misaligned");
 }
@@ -113,13 +119,13 @@ static void TestHeaderRefusals(void)
 {
     WriteSample();
     maniContainer container;
-    maniFileResult r = maniOpenContainer(s_file, 47, kKind, 1, &container);
+    maniFileResult r = maniOpenContainer(s_file, 47, kKind, 1, kLastTag, &container);
     CHECK(r.result == mani_errorFormat && r.offset == 47, "short of a header");
 
     s_file[1] = 'B';
     ExpectFormat(0, "magic");
     WriteSample();
-    r = maniOpenContainer(s_file, (size_t)s_size, maniKindClip, 1, &container);
+    r = maniOpenContainer(s_file, (size_t)s_size, maniKindClip, 1, kLastTag, &container);
     CHECK(r.result == mani_errorFormat && r.offset == 4, "kind");
 
     maniStoreU16(s_file + 6, 0);
@@ -204,6 +210,71 @@ static void TestTableRefusals(void)
     ExpectFormat(80, "offset past the end");
 }
 
+// Sections at the previous one's end rounded up to 16, after zero bytes,
+// and the file ending with its last section.
+static void TestPlacementRefusals(void)
+{
+    WriteSample();
+    // The first section ends at 101; the second is at 112.
+    for (uint64_t gap = 101; gap < 112; ++gap)
+    {
+        WriteSample();
+        s_file[gap] = 1;
+        Rehash();
+        ExpectFormat(gap, "a nonzero byte between sections");
+    }
+    WriteSample();
+    // The second section moved 16 bytes on, its place left zero.
+    memmove(s_file + 128, s_file + 112, 20);
+    memset(s_file + 112, 0, 16);
+    maniStoreU64(s_file + 80, 128);
+    s_size += 16;
+    maniStoreU64(s_file + 24, s_size);
+    Rehash();
+    ExpectFormat(80, "a section past its place");
+    WriteSample();
+    // A file 16 zero bytes longer than its last section.
+    memset(s_file + s_size, 0, 16);
+    s_size += 16;
+    maniStoreU64(s_file + 24, s_size);
+    Rehash();
+    ExpectFormat(24, "bytes past the last section");
+    WriteSample();
+    maniStoreU32(s_file + 48, 0);
+    Rehash();
+    ExpectFormat(48, "tag 0");
+    // The second section empty, the file ending at its place: an empty
+    // section is left out, never written empty.
+    WriteSample();
+    maniStoreU64(s_file + 88, 0);
+    s_size = 112;
+    maniStoreU64(s_file + 24, s_size);
+    Rehash();
+    ExpectFormat(88, "an empty section");
+    // An empty file ends at its table.
+    maniWriteContainer(s_file, kKind, 1, 0, NULL, 0);
+    s_size = 64;
+    maniStoreU64(s_file + 24, s_size);
+    memset(s_file + 48, 0, 16);
+    Rehash();
+    ExpectFormat(24, "an empty file past its header");
+}
+
+// A tag past the kind's last is a field only a later writer knows,
+// refused as another version once the hash shows no damage.
+static void TestLaterTag(void)
+{
+    WriteSample();
+    maniContainer container;
+    maniFileResult r = maniOpenContainer(s_file, (size_t)s_size, kKind, 1, 6, &container);
+    CHECK(r.result == mani_errorVersion && r.offset == 72 && r.tag == 0, "a later tag");
+    r = maniOpenContainer(s_file, (size_t)s_size, kKind, 1, 2, &container);
+    CHECK(r.result == mani_errorVersion && r.offset == 48, "the first later tag");
+    s_file[32] ^= 1;
+    r = maniOpenContainer(s_file, (size_t)s_size, kKind, 1, 6, &container);
+    CHECK(r.result == mani_errorFormat && r.offset == 32, "damage before a later tag");
+}
+
 // Every byte the hash or a check covers refuses when changed; the
 // writer's version and the identity are free fields.
 static void TestEveryByteFlip(void)
@@ -242,6 +313,8 @@ int main(void)
     TestBadArguments();
     TestHeaderRefusals();
     TestTableRefusals();
+    TestPlacementRefusals();
+    TestLaterTag();
     TestSectionLimit();
     TestEveryByteFlip();
     TestSizeLimits();
