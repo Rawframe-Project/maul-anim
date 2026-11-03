@@ -692,24 +692,27 @@ static void TestJsonForms(void)
         const char* text;
         uint32_t form;
         const char* marker;
+        // Refused as a later form's, mani_errorVersion.
+        bool later;
     } kRefusals[7] = {
-        {HEAD ", \"inputs\": []" TAIL, maniGraphFormMember, "inputs"},
-        {HEAD ", \"excludedTags\": 4294967296" TAIL, maniGraphFormValue, "4294967296"},
-        {HEAD ", \"excludedTags\": {\"parameter\": \"tags\"}" TAIL, maniGraphFormName, "tags\"}"},
-        {HEAD ", \"period\": \"often\"" TAIL, maniGraphFormValue, "often\""},
-        {HEAD ", \"trigger\": \"search\"" TAIL, maniGraphFormName, "search\""},
+        {HEAD ", \"inputs\": []" TAIL, maniGraphFormMember, "inputs", true},
+        {HEAD ", \"excludedTags\": 4294967296" TAIL, maniGraphFormValue, "4294967296", false},
+        {HEAD ", \"excludedTags\": {\"parameter\": \"tags\"}" TAIL, maniGraphFormName, "tags\"}",
+         false},
+        {HEAD ", \"period\": \"often\"" TAIL, maniGraphFormValue, "often\"", false},
+        {HEAD ", \"trigger\": \"search\"" TAIL, maniGraphFormName, "search\"", false},
         {"{\"format\": \"maul-anim graph\", \"version\": 1, \"models\": [\"others\"], "
          "\"nodes\": [], \"output\": 0}",
-         maniGraphFormUnbound, "others"},
+         maniGraphFormUnbound, "others", false},
         {"{\"format\": \"maul-anim graph\", \"version\": 1, \"nodes\": [{\"kind\": "
          "\"learned\", \"model\": \"steps\"}], \"output\": 0}",
-         maniGraphFormName, "steps\"}"}};
+         maniGraphFormName, "steps\"}", false}};
     for (int k = 0; k < 7; ++k)
     {
         maniBuildResult r = Read(kRefusals[k].text);
         const char* at = strstr(kRefusals[k].text, kRefusals[k].marker);
-        bool ok = r.result == mani_errorInvalid && r.reason == maniBuildReasonForm &&
-                  r.other == kRefusals[k].form && at != NULL &&
+        bool ok = r.result == (kRefusals[k].later ? mani_errorVersion : mani_errorInvalid) &&
+                  r.reason == maniBuildReasonForm && r.other == kRefusals[k].form && at != NULL &&
                   r.item == (uint32_t)(at - kRefusals[k].text);
         if (!ok)
         {

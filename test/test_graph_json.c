@@ -590,6 +590,8 @@ typedef struct Refusal
     uint32_t other;
     const char* marker;
     uint32_t occurrence;
+    // Refused as a later form's, mani_errorVersion; else mani_errorInvalid.
+    bool later;
 } Refusal;
 
 #define TOP  "{\"format\": \"maul-anim graph\", \"version\": 1, "
@@ -599,127 +601,127 @@ typedef struct Refusal
 #define AIM  "{\"kind\": \"aim\", \"inputs\": [1], \"goal\": \"g\", \"forward\": [1, 0, 0], "
 
 static const Refusal kRefusals[] = {
-    {TOP WALK "\"nodes\": [x]}", maniBuildReasonJson, 1, "x]", 1},
+    {TOP WALK "\"nodes\": [x]}", maniBuildReasonJson, 1, "x]", 1, false},
     {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"int\", \"default\": 2147483648}], " WALK
          "\"nodes\": [" NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "2147483648", 1},
+     maniBuildReasonForm, maniGraphFormValue, "2147483648", 1, false},
     {TOP "\"parameters\": [{\"name\": \"p\", \"type\": \"float\"}], " WALK
          "\"nodes\": [{\"kind\": \"subgraph\", \"graph\": {\"parameters\": [{\"name\": \"r\", "
          "\"type\": \"float\"}], " WALK "\"nodes\": [" NODE
          "], \"output\": 0}, \"parameters\": {}}], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMissing, "{}", 1},
+     maniBuildReasonForm, maniGraphFormMissing, "{}", 1, false},
     {TOP WALK "\"nodes\": [" NODE "], \"output\": 0, \"bogus\": 1}", maniBuildReasonForm,
-     maniGraphFormMember, "\"bogus", 1},
+     maniGraphFormMember, "\"bogus", 1, true},
     {TOP WALK "\"nodes\": [" NODE "], \"output\": 0, \"output\": 0}", maniBuildReasonForm,
-     maniGraphFormRepeat, "\"output", 2},
-    {TOP WALK "\"output\": 0}", maniBuildReasonForm, maniGraphFormMissing, "{", 1},
+     maniGraphFormRepeat, "\"output", 2, false},
+    {TOP WALK "\"output\": 0}", maniBuildReasonForm, maniGraphFormMissing, "{", 1, false},
     {TOP WALK "\"nodes\": [" NODE "], \"output\": -1}", maniBuildReasonForm, maniGraphFormValue,
-     "-1", 1},
+     "-1", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"clip\", \"clip\": \"jog\"}], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormName, "\"jog", 1},
+     maniBuildReasonForm, maniGraphFormName, "\"jog", 1, false},
     {"{\"format\": \"maul-anim graph\", \"version\": 2, " WALK "\"nodes\": [" NODE
      "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormVersion, "2,", 1},
+     maniBuildReasonForm, maniGraphFormVersion, "2,", 1, true},
     {"{\"format\": \"other\", \"version\": 1, " WALK "\"nodes\": [" NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormVersion, "\"other", 1},
+     maniBuildReasonForm, maniGraphFormVersion, "\"other", 1, false},
     {TOP "\"clips\": [\"jog\"], \"nodes\": [" NODE "], \"output\": 0}", maniBuildReasonForm,
-     maniGraphFormUnbound, "\"jog", 1},
+     maniGraphFormUnbound, "\"jog", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"dance\"}], \"output\": 0}", maniBuildReasonForm,
-     maniGraphFormValue, "\"dance", 1},
+     maniGraphFormValue, "\"dance", 1, false},
     {TOP WALK "\"nodes\": [{\"clip\": \"walk\"}], \"output\": 0}", maniBuildReasonForm,
-     maniGraphFormMissing, "{\"clip", 1},
+     maniGraphFormMissing, "{\"clip", 1, false},
     {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"float\", \"minimum\": 0}], " WALK
          "\"nodes\": [" NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMissing, "{\"name", 1},
+     maniBuildReasonForm, maniGraphFormMissing, "{\"name", 1, false},
     {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"bool\", \"minimum\": 0, \"maximum\": "
          "1}], " WALK "\"nodes\": [" NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMember, "\"minimum", 1},
+     maniBuildReasonForm, maniGraphFormMember, "\"minimum", 1, false},
     {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"pose\", \"default\": 0}], " WALK
          "\"nodes\": [" NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMember, "\"default", 1},
+     maniBuildReasonForm, maniGraphFormMember, "\"default", 1, false},
     {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"vec4\"}], " WALK "\"nodes\": [" NODE
          "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "\"vec4", 1},
+     maniBuildReasonForm, maniGraphFormValue, "\"vec4", 1, false},
     {TOP "\"parameters\": [{\"name\": \"a\", \"type\": \"vec2\", \"default\": [1]}], " WALK
          "\"nodes\": [" NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[1]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[1]", 1, false},
     {TOP "\"parameters\": [{\"name\": \"v\", \"type\": \"vec2\"}], " WALK
          "\"nodes\": [{\"kind\": \"blendSpace1D\", \"inputs\": [1, 2], \"position\": "
          "{\"vector\": \"v\", \"x\": 0}, \"points\": [0, 1]}, " NODE ", " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMember, "\"x", 1},
+     maniBuildReasonForm, maniGraphFormMember, "\"x", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpace1D\", \"inputs\": [1], \"position\": "
               "{\"x\": 0, \"y\": 0}, \"points\": [0]}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMember, "\"y", 1},
+     maniBuildReasonForm, maniGraphFormMember, "\"y", 1, true},
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceTriangles\", \"inputs\": [1], \"position\": "
               "{\"x\": 0}, \"points\": [[0, 0]], \"triangles\": []}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[]", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceTriangles\", \"inputs\": [1], \"position\": "
               "{\"x\": 0}, \"points\": [[0, 0]], \"triangles\": [[0, 1]]}, " NODE "], "
               "\"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[0, 1]]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[0, 1]]", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceTriangles\", \"inputs\": [1], \"position\": "
               "{\"x\": 0}, \"points\": [[0, 0]], \"triangles\": [[0, 1, -1]]}, " NODE "], "
               "\"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "-1]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "-1]", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceBands\", \"inputs\": [1], \"position\": "
               "{}, \"points\": [[0, 0]]}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMissing, "{}", 1},
+     maniBuildReasonForm, maniGraphFormMissing, "{}", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpace1D\", \"inputs\": [1, 2], \"position\": "
               "{\"x\": 0}, \"points\": [0]}, " NODE ", " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[0]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[0]", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"blendSpaceBands\", \"inputs\": [1], \"position\": "
               "{\"x\": 0}, \"points\": [[0]]}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[0]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[0]", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"clip\", \"clip\": \"walk\", \"speed\": 1e39}], "
               "\"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "1e39", 1},
+     maniBuildReasonForm, maniGraphFormValue, "1e39", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"clip\", \"clip\": \"walk\", \"loop\": \"twice\"}], "
               "\"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "\"twice", 1},
+     maniBuildReasonForm, maniGraphFormValue, "\"twice", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"blend\", \"inputs\": [1, 1], \"weights\": [1]}, " NODE
               "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[1]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[1]", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"mask\", \"inputs\": [1, 1], \"chains\": [{\"bone\": "
               "\"tail\", \"weight\": 1}]}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormName, "\"tail", 1},
+     maniBuildReasonForm, maniGraphFormName, "\"tail", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"timeScale\", \"inputs\": [1], \"scale\": "
               "{\"parameter\": \"pace\"}}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormName, "\"pace", 1},
+     maniBuildReasonForm, maniGraphFormName, "\"pace", 1, false},
     {TOP WALK "\"nodes\": [{\"kind\": \"subgraph\", \"graph\": {\"format\": \"x\"}}], "
               "\"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMember, "\"format\": \"x", 1},
+     maniBuildReasonForm, maniGraphFormMember, "\"format\": \"x", 1, true},
     {TOP "\"parameters\": [{\"name\": \"p\", \"type\": \"float\"}], " WALK
          "\"nodes\": [{\"kind\": \"subgraph\", \"graph\": {\"parameters\": [{\"name\": \"r\", "
          "\"type\": \"float\"}], " WALK "\"nodes\": [" NODE "], \"output\": 0}}], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMissing, "{\"kind\": \"subgraph", 1},
+     maniBuildReasonForm, maniGraphFormMissing, "{\"kind\": \"subgraph", 1, false},
     {TOP "\"parameters\": [{\"name\": \"p\", \"type\": \"float\"}], " WALK
          "\"nodes\": [{\"kind\": \"subgraph\", \"graph\": {\"parameters\": [{\"name\": \"r\", "
          "\"type\": \"float\"}], " WALK "\"nodes\": [" NODE
          "], \"output\": 0}, \"parameters\": {\"r\": \"p\", \"r\": \"p\"}}], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormRepeat, "\"r\": \"p\"", 2},
+     maniBuildReasonForm, maniGraphFormRepeat, "\"r\": \"p\"", 2, false},
     // Read, then refused by the build: a select on a float.
     {TOP "\"parameters\": [{\"name\": \"p\", \"type\": \"float\"}], " WALK
          "\"nodes\": [{\"kind\": \"select\", \"inputs\": [1, 1], \"parameter\": \"p\"}, " NODE
          "], \"output\": 0}",
-     maniBuildReasonNode, 0, NULL, 0},
+     maniBuildReasonNode, 0, NULL, 0, false},
     {TOP GOAL WALK "\"nodes\": [" AIM "\"bones\": []}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[]", 1, false},
     {TOP GOAL WALK "\"nodes\": [" AIM
                    "\"bones\": [\"arm\", \"arm\", \"arm\", \"arm\", \"arm\", \"arm\", "
                    "\"arm\", \"arm\", \"arm\"]}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[\"arm\", \"arm\", \"arm\", \"arm\"", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[\"arm\", \"arm\", \"arm\", \"arm\"", 1, false},
     {TOP GOAL WALK "\"nodes\": [" AIM "\"bones\": [\"leg\"]}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormName, "\"leg\"", 1},
+     maniBuildReasonForm, maniGraphFormName, "\"leg\"", 1, false},
     {TOP GOAL WALK "\"nodes\": [" AIM "\"bones\": [\"arm\"], \"shares\": [1, 2]}, " NODE
                    "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[1, 2]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[1, 2]", 1, false},
     {TOP GOAL WALK "\"nodes\": [{\"kind\": \"twoBone\", \"inputs\": [1], \"start\": "
                    "\"hips\", \"middle\": \"spine\", \"end\": \"arm\"}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormMissing, "{\"kind\": \"twoBone\"", 1},
+     maniBuildReasonForm, maniGraphFormMissing, "{\"kind\": \"twoBone\"", 1, false},
     {TOP GOAL WALK "\"nodes\": [{\"kind\": \"twoBone\", \"inputs\": [1], \"start\": "
                    "\"hips\", \"middle\": \"spine\", \"end\": \"arm\", \"goal\": \"g\", "
                    "\"hinge\": [0, 1]}, " NODE "], \"output\": 0}",
-     maniBuildReasonForm, maniGraphFormValue, "[0, 1]", 1},
+     maniBuildReasonForm, maniGraphFormValue, "[0, 1]", 1, false},
 };
 
 // The byte offset of a marker's occurrence, inside a string's quotes.
@@ -741,7 +743,8 @@ static void TestReadRefusals(void)
         const Refusal* c = &kRefusals[i];
         size_t size = 0;
         maniBuildResult r = Read(c->text, s_read, &size);
-        bool ok = r.result == mani_errorInvalid && r.reason == c->reason;
+        bool ok =
+            r.result == (c->later ? mani_errorVersion : mani_errorInvalid) && r.reason == c->reason;
         if (c->marker != NULL)
         {
             ok = ok && r.other == c->other && r.item == OffsetOf(c->text, c->marker, c->occurrence);

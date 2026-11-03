@@ -149,7 +149,9 @@ extern "C"
     /// @return As maniBuildMirrorMap, items by place in the text's lists;
     /// or `mani_errorInvalid` with maniBuildReasonNone for a NULL builder
     /// or skeleton or a NULL text with a length, maniBuildReasonJson or
-    /// maniBuildReasonForm (other a maniGraphForm), item the byte offset.
+    /// maniBuildReasonForm (other a maniGraphForm), item the byte offset;
+    /// `mani_errorVersion` with maniBuildReasonForm for a key or a version
+    /// only another version of the form has.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildMirrorMapJson(maniBuilder* builder,

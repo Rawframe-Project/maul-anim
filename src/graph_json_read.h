@@ -71,13 +71,21 @@ bool maniGraphJsonHostNames(maniGraphReader* r, const void* items, size_t stride
 // Records a fault at a value's first byte; returns false.
 bool maniGraphJsonFault(maniGraphReader* r, uint32_t value, maniGraphForm form);
 
+// Records, as mani_errorVersion, what only a later version of the form
+// writes at a value's first byte; returns false.
+bool maniGraphJsonLater(maniGraphReader* r, uint32_t value, maniGraphForm form);
+
+// A form's version: 1, the one this release reads; another integer is a
+// later (or earlier) form's, mani_errorVersion; anything else a fault.
+bool maniGraphJsonVersion(maniGraphReader* r, uint32_t value);
+
 // Records the arena failing; returns false.
 bool maniGraphJsonNoMemory(maniGraphReader* r);
 
 // An object's members among keys (at most 32): each key's value in
 // found, MANI_JSON_NONE when absent; refuses a value that is no object,
-// a key not among keys, a repeat, or one of the required (a bit per key)
-// missing.
+// a key not among keys (a later form's, mani_errorVersion), a repeat, or
+// one of the required (a bit per key) missing.
 bool maniGraphJsonMembers(maniGraphReader* r, uint32_t object, const char* const* keys,
                           uint32_t count, uint32_t required, uint32_t* found);
 

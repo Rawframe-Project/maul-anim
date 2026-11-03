@@ -595,18 +595,20 @@ static void TestJsonForms(void)
         const char* text;
         uint32_t form;
         const char* marker;
+        // Refused as a later form's, mani_errorVersion.
+        bool later;
     } kRefusals[4] = {
-        {HEAD TAIL, maniGraphFormMissing, "{\"kind\": \"oneShot"},
-        {HEAD ", \"fire\": \"go\", \"curve\": \"cubic\"" TAIL, maniGraphFormValue, "cubic"},
-        {HEAD ", \"fire\": \"stop\"" TAIL, maniGraphFormName, "stop"},
+        {HEAD TAIL, maniGraphFormMissing, "{\"kind\": \"oneShot", false},
+        {HEAD ", \"fire\": \"go\", \"curve\": \"cubic\"" TAIL, maniGraphFormValue, "cubic", false},
+        {HEAD ", \"fire\": \"stop\"" TAIL, maniGraphFormName, "stop", false},
         {HEAD ", \"fire\": \"go\", \"mask\": {\"chain\": []}" TAIL, maniGraphFormMember,
-         "chain\": []"}};
+         "chain\": []", true}};
     for (int k = 0; k < 4; ++k)
     {
         maniBuildResult r = Read(kRefusals[k].text);
         const char* at = strstr(kRefusals[k].text, kRefusals[k].marker);
-        bool ok = r.result == mani_errorInvalid && r.reason == maniBuildReasonForm &&
-                  r.other == kRefusals[k].form && at != NULL &&
+        bool ok = r.result == (kRefusals[k].later ? mani_errorVersion : mani_errorInvalid) &&
+                  r.reason == maniBuildReasonForm && r.other == kRefusals[k].form && at != NULL &&
                   r.item == (uint32_t)(at - kRefusals[k].text);
         if (!ok)
         {

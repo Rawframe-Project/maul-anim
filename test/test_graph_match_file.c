@@ -675,23 +675,26 @@ static void TestJsonForms(void)
         const char* text;
         uint32_t form;
         const char* marker;
+        // Refused as a later form's, mani_errorVersion.
+        bool later;
     } kRefusals[6] = {
-        {HEAD ", \"inputs\": []" TAIL, maniGraphFormMember, "inputs"},
-        {HEAD ", \"requiredTags\": 4294967296" TAIL, maniGraphFormValue, "4294967296"},
-        {HEAD ", \"excludedTags\": {\"parameter\": \"tags\"}" TAIL, maniGraphFormName, "tags\"}"},
-        {HEAD ", \"historyCount\": -1" TAIL, maniGraphFormValue, "-1"},
+        {HEAD ", \"inputs\": []" TAIL, maniGraphFormMember, "inputs", true},
+        {HEAD ", \"requiredTags\": 4294967296" TAIL, maniGraphFormValue, "4294967296", false},
+        {HEAD ", \"excludedTags\": {\"parameter\": \"tags\"}" TAIL, maniGraphFormName, "tags\"}",
+         false},
+        {HEAD ", \"historyCount\": -1" TAIL, maniGraphFormValue, "-1", false},
         {"{\"format\": \"maul-anim graph\", \"version\": 1, \"databases\": [\"others\"], "
          "\"nodes\": [], \"output\": 0}",
-         maniGraphFormUnbound, "others"},
+         maniGraphFormUnbound, "others", false},
         {"{\"format\": \"maul-anim graph\", \"version\": 1, \"clips\": [\"walk\"], "
          "\"nodes\": [{\"kind\": \"match\", \"database\": \"moves\"}], \"output\": 0}",
-         maniGraphFormName, "moves\"}"}};
+         maniGraphFormName, "moves\"}", false}};
     for (int k = 0; k < 6; ++k)
     {
         maniBuildResult r = Read(kRefusals[k].text);
         const char* at = strstr(kRefusals[k].text, kRefusals[k].marker);
-        bool ok = r.result == mani_errorInvalid && r.reason == maniBuildReasonForm &&
-                  r.other == kRefusals[k].form && at != NULL &&
+        bool ok = r.result == (kRefusals[k].later ? mani_errorVersion : mani_errorInvalid) &&
+                  r.reason == maniBuildReasonForm && r.other == kRefusals[k].form && at != NULL &&
                   r.item == (uint32_t)(at - kRefusals[k].text);
         if (!ok)
         {

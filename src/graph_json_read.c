@@ -20,14 +20,34 @@
 #include <stdint.h>
 #include <string.h>
 
-bool maniGraphJsonFault(maniGraphReader* r, uint32_t value, maniGraphForm form)
+static bool FaultWith(maniGraphReader* r, maniResult result, uint32_t value, maniGraphForm form)
 {
     if (r->fault.result == mani_success)
     {
-        r->fault = (maniBuildResult){mani_errorInvalid, maniBuildReasonForm,
-                                     r->json->values[value].start, form};
+        r->fault =
+            (maniBuildResult){result, maniBuildReasonForm, r->json->values[value].start, form};
     }
     return false;
+}
+
+bool maniGraphJsonFault(maniGraphReader* r, uint32_t value, maniGraphForm form)
+{
+    return FaultWith(r, mani_errorInvalid, value, form);
+}
+
+bool maniGraphJsonLater(maniGraphReader* r, uint32_t value, maniGraphForm form)
+{
+    return FaultWith(r, mani_errorVersion, value, form);
+}
+
+bool maniGraphJsonVersion(maniGraphReader* r, uint32_t value)
+{
+    int64_t version = 0;
+    if (!maniJsonInteger(r->json, value, INT64_MIN, INT64_MAX, &version))
+    {
+        return maniGraphJsonFault(r, value, maniGraphFormVersion);
+    }
+    return version == 1 || maniGraphJsonLater(r, value, maniGraphFormVersion);
 }
 
 bool maniGraphJsonNoMemory(maniGraphReader* r)
@@ -73,9 +93,10 @@ bool maniGraphJsonMembers(maniGraphReader* r, uint32_t object, const char* const
     for (uint32_t m = 0; m < r->json->values[object].count; ++m)
     {
         uint32_t k = KeyOf(r, key, keys, count);
+        // A key this release does not know: a later one's.
         if (k == count)
         {
-            return maniGraphJsonFault(r, key, maniGraphFormMember);
+            return maniGraphJsonLater(r, key, maniGraphFormMember);
         }
         if (found[k] != MANI_JSON_NONE)
         {
