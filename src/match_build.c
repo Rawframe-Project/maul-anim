@@ -556,8 +556,7 @@ static void LayEntries(const Work* w, uint8_t* entries, uint8_t* clips, uint8_t*
     memcpy(header + 36, &s->sampleRate, 4);
     maniStoreU32(header + 40, s->up);
     maniStoreU32(header + 44, s->forward);
-    maniStoreU32(header + 48, t->leaf);
-    maniStoreU32(header + 52, t->nodes);
+    maniStoreU32(header + 48, t->nodes);
 }
 
 // Whether an entry is mirrored: the file then keeps the map's identity.
@@ -571,6 +570,24 @@ static bool Mirrors(const maniMotionDatabaseSource* s)
         }
     }
     return false;
+}
+
+// The sections the work holds: the normalization and the tree's.
+static void TreeSections(const Work* w, const uint8_t** data, uint64_t* lengths)
+{
+    const Totals* t = &w->totals;
+    data[5] = (const uint8_t*)w->normalization;
+    lengths[5] = 8 * (uint64_t)t->features;
+    data[6] = (const uint8_t*)w->treeFeatures;
+    lengths[6] = 4 * (uint64_t)w->featureFloats;
+    data[7] = (const uint8_t*)w->boxes;
+    lengths[7] = 4 * (uint64_t)w->boxFloats;
+    data[10] = w->nodes;
+    lengths[10] = (uint64_t)t->nodes * MANI_MATCH_NODE_SIZE;
+    data[11] = w->positions;
+    lengths[11] = (uint64_t)t->frames * MANI_MATCH_POSITION_SIZE;
+    data[12] = w->places;
+    lengths[12] = 4 * (uint64_t)t->frames;
 }
 
 static maniBuildResult Write(maniBuilder* builder, const Work* w)
@@ -591,7 +608,8 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
                                                  mirrors ? 8u : 0u,
                                                  0,
                                                  0,
-                                                 0};
+                                                 0,
+                                                 t->leaf != MANI_MATCH_DEFAULT_LEAF ? 4u : 0u};
     uint64_t own = 0;
     for (uint32_t i = 0; i < MANI_MATCH_SECTIONS; ++i)
     {
@@ -620,18 +638,11 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w)
     {
         maniStoreU64((uint8_t*)data[9], s->mirrorMap->identity);
     }
-    data[5] = (const uint8_t*)w->normalization;
-    lengths[5] = 8 * (uint64_t)t->features;
-    data[6] = (const uint8_t*)w->treeFeatures;
-    lengths[6] = 4 * (uint64_t)w->featureFloats;
-    data[7] = (const uint8_t*)w->boxes;
-    lengths[7] = 4 * (uint64_t)w->boxFloats;
-    data[10] = w->nodes;
-    lengths[10] = (uint64_t)t->nodes * MANI_MATCH_NODE_SIZE;
-    data[11] = w->positions;
-    lengths[11] = (uint64_t)t->frames * MANI_MATCH_POSITION_SIZE;
-    data[12] = w->places;
-    lengths[12] = 4 * (uint64_t)t->frames;
+    if (sizes[13] != 0)
+    {
+        maniStoreU32((uint8_t*)data[13], t->leaf);
+    }
+    TreeSections(w, data, lengths);
     maniSectionSource sections[MANI_MATCH_SECTIONS];
     uint32_t count = 0;
     for (uint32_t i = 0; i < MANI_MATCH_SECTIONS; ++i)

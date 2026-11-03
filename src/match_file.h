@@ -22,15 +22,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MANI_MATCH_FORMAT_VERSION 4u
-#define MANI_MATCH_SECTIONS       13u
+#define MANI_MATCH_FORMAT_VERSION 5u
+#define MANI_MATCH_SECTIONS       14u
 
 enum
 {
     // The skeleton's identity (u64), then u32 each: its bone count, the
     // frame, feature, channel, time, entry and clip counts, the sample
-    // rate (binary32), the up and forward axes, the leaf size and the
-    // node count.
+    // rate (binary32), the up and forward axes and the node count.
     maniMatchTagHeader = 1,
     // MANI_MATCH_CHANNEL_SIZE each: kind, bone, axis, time count, first
     // time, first feature, feature count (u32 each), weight (binary32),
@@ -64,12 +63,15 @@ enum
     maniMatchTagPositions = 12,
     // A u32 per frame: its position.
     maniMatchTagPlaces = 13,
+    // The leaf size (u32) when it is not MANI_MATCH_DEFAULT_LEAF, else
+    // nothing.
+    maniMatchTagLeaf = 14,
 };
 
 // Every flag an entry may carry.
 #define MANI_MATCH_ENTRY_FLAGS (maniMatchEntryLoop | maniMatchEntryNoJump | maniMatchEntryMirrored)
 
-#define MANI_MATCH_HEADER_SIZE   56u
+#define MANI_MATCH_HEADER_SIZE   52u
 #define MANI_MATCH_CHANNEL_SIZE  40u
 #define MANI_MATCH_ENTRY_SIZE    32u
 #define MANI_MATCH_NODE_SIZE     12u
