@@ -148,7 +148,8 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
 }
 
 // The header's counts within their limits, the rate, the axes on two
-// different lines, the leaf size and the tree's node count.
+// different lines, the leaf size (its own section's, absent the default,
+// present only off it) and the tree's node count.
 static maniFileResult CheckHeader(const Sections* s, maniMotionDatabase* d)
 {
     if (s->sizes[0] != MANI_MATCH_HEADER_SIZE)
@@ -189,15 +190,24 @@ static maniFileResult CheckHeader(const Sections* s, maniMotionDatabase* d)
     {
         return Fail(at + 44);
     }
-    uint32_t leaf = maniLoadU32(h + 48);
-    if (!maniMatchLeafValid(leaf))
+    uint32_t leaf = MANI_MATCH_DEFAULT_LEAF;
+    if (s->sizes[13] != 0)
     {
-        return Fail(at + 48);
+        if (s->sizes[13] != 4)
+        {
+            return Fail(s->entry[13]);
+        }
+        // The sizes but the default.
+        leaf = maniLoadU32(s->data[13]);
+        if (leaf != 8 && leaf != 32)
+        {
+            return Fail(s->at[13]);
+        }
     }
-    uint32_t nodes = maniLoadU32(h + 52);
+    uint32_t nodes = maniLoadU32(h + 48);
     if (nodes != maniMatchNodeCount(counts[1], leaf))
     {
-        return Fail(at + 52);
+        return Fail(at + 48);
     }
     *d = (maniMotionDatabase){.skeletonIdentity = maniLoadU64(h),
                               .skeletonBoneCount = counts[0],
@@ -215,29 +225,30 @@ static maniFileResult CheckHeader(const Sections* s, maniMotionDatabase* d)
     return kOk;
 }
 
-// Every section but the names and the mirror of the size the header's
-// counts give.
+// Every section but the names, the mirror and the leaf size of the size
+// the header's counts give.
 static maniFileResult CheckSizes(const Sections* s, maniMotionDatabase* d)
 {
     uint64_t features = d->featureCount;
     uint64_t frames = d->frameCount;
     uint64_t nodes = d->nodeCount;
-    // By tag: the header is checked, the names and mirror below.
-    const uint64_t sizes[MANI_MATCH_SECTIONS] = {MANI_MATCH_HEADER_SIZE,
-                                                 (uint64_t)d->channelCount *
-                                                     MANI_MATCH_CHANNEL_SIZE,
-                                                 4 * (uint64_t)d->timeCount,
-                                                 8 * (uint64_t)d->clipCount,
-                                                 (uint64_t)d->entryCount * MANI_MATCH_ENTRY_SIZE,
-                                                 8 * features,
-                                                 4 * features * frames,
-                                                 8 * features * nodes,
-                                                 s->sizes[8],
-                                                 s->sizes[9],
-                                                 nodes * MANI_MATCH_NODE_SIZE,
-                                                 frames * MANI_MATCH_POSITION_SIZE,
-                                                 4 * frames};
-    for (uint32_t k = 1; k < MANI_MATCH_SECTIONS; ++k)
+    // By tag but the leaf size: the header is checked, the names and
+    // mirror below, the leaf size with the header.
+    const uint64_t sizes[MANI_MATCH_SECTIONS - 1] = {
+        MANI_MATCH_HEADER_SIZE,
+        (uint64_t)d->channelCount * MANI_MATCH_CHANNEL_SIZE,
+        4 * (uint64_t)d->timeCount,
+        8 * (uint64_t)d->clipCount,
+        (uint64_t)d->entryCount * MANI_MATCH_ENTRY_SIZE,
+        8 * features,
+        4 * features * frames,
+        8 * features * nodes,
+        s->sizes[8],
+        s->sizes[9],
+        nodes * MANI_MATCH_NODE_SIZE,
+        frames * MANI_MATCH_POSITION_SIZE,
+        4 * frames};
+    for (uint32_t k = 1; k < MANI_MATCH_SECTIONS - 1; ++k)
     {
         if (s->sizes[k] != sizes[k])
         {

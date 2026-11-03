@@ -216,8 +216,8 @@ static void TestFeatures(void)
     CHECK(TestSectionAbsent(s_database, maniMatchTagMirror) &&
               maniMotionDatabase_GetMirrorMapIdentity(&d) == 0,
           "no mirrored entry: the mirror section absent, read as none");
-    // Tags 1 to 13 (file-formats.md).
-    CHECK(TestLaterTagRefused(s_database, s_size, OpenFile, 13), "a later writer's tag refused");
+    // Tags 1 to 14 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_database, s_size, OpenFile, 14), "a later writer's tag refused");
     CHECK(d.frameCount == 32 && d.featureCount == 12 && d.channelCount == 4 && d.timeCount == 5 &&
               d.entryCount == 3 && d.clipCount == 3 && d.skeletonBoneCount == 3,
           "the counts: 10 looping frames, 11 and 11 clamped");
@@ -707,7 +707,7 @@ static void TestOpenRefusals(void)
     uint32_t first = maniLoadU32(s_database + positions);
     uint32_t second = maniLoadU32(s_database + positions + 8);
     uint32_t entry = maniLoadU32(s_database + positions + 4);
-    CHECK(maniLoadU32(s_database + header + 52) == 3 && maniLoadU32(s_database + nodes) == 2,
+    CHECK(maniLoadU32(s_database + header + 48) == 3 && maniLoadU32(s_database + nodes) == 2,
           "a root and two leaves");
     const uint64_t kCases[][3] = {{header + 8, 0, header + 8},
                                   {header + 36, 0, header + 36},
@@ -727,8 +727,7 @@ static void TestOpenRefusals(void)
                                   {normal + 4 * 12, BitsOf(0.0f), normal + 4 * 12},
                                   {normal + 4, BitsOf(HUGE_VALF), normal + 4},
                                   {features + 8, BitsOf(NAN), features + 8},
-                                  {header + 48, 12, header + 48},
-                                  {header + 52, 4, header + 52},
+                                  {header + 48, 4, header + 48},
                                   {positions, 32, positions},
                                   {positions, second, places + 4 * (uint64_t)second},
                                   {places + 4 * (uint64_t)first, 5, places + 4 * (uint64_t)first},
@@ -861,6 +860,34 @@ static void TestLeafSizes(void)
     maniDestroyBuilder(builder);
 }
 
+// The leaf size is a section of its own, written only off the default
+// (16): absent, the default; present, one of the other sizes.
+static void TestLeafSection(void)
+{
+    maniMotionDatabaseSource source = Source();
+    maniMotionDatabase d;
+    static const uint32_t kDefaults[2] = {0, MANI_MATCH_DEFAULT_LEAF};
+    for (uint32_t k = 0; k < 2; ++k)
+    {
+        source.leafFrames = kDefaults[k];
+        CHECK(Build(&source).result == mani_success &&
+                  TestSectionAbsent(s_database, maniMatchTagLeaf) &&
+                  maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success &&
+                  d.leafFrames == MANI_MATCH_DEFAULT_LEAF,
+              "the default leaf size: its section absent, read as 16");
+    }
+    source.leafFrames = 8;
+    CHECK(Build(&source).result == mani_success, "leaves of 8");
+    uint64_t leaf = Section(maniMatchTagLeaf);
+    CHECK(maniLoadU32(s_database + leaf) == 8 &&
+              maniOpenMotionDatabase(s_database, s_size, &d).result == mani_success &&
+              d.leafFrames == 8,
+          "leaves of 8: their section");
+    CHECK(RefusedAt(leaf, MANI_MATCH_DEFAULT_LEAF, leaf) && RefusedAt(leaf, 12, leaf) &&
+              RefusedAt(leaf, 0, leaf),
+          "a leaf size at the default, written, or not one of the sizes");
+}
+
 static bool WriteFile(const char* path, const void* data, size_t size)
 {
     FILE* out = fopen(path, "wb");
@@ -920,6 +947,7 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestOtherVersions();
     TestLeafSizes();
+    TestLeafSection();
     TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

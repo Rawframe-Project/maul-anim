@@ -149,8 +149,7 @@ static uint8_t* Header(const Layout* l, uint8_t* h)
     PutF32(h + 36, RATE);
     maniStoreU32(h + 40, 1);
     maniStoreU32(h + 44, 2);
-    maniStoreU32(h + 48, l->leaf);
-    maniStoreU32(h + 52, maniMatchNodeCount(l->frames, l->leaf));
+    maniStoreU32(h + 48, maniMatchNodeCount(l->frames, l->leaf));
     return h + MANI_MATCH_HEADER_SIZE;
 }
 
@@ -224,6 +223,11 @@ static void Write(const Layout* l, maniMotionDatabase* d)
         ends[tags[k]] = treeEnds[k];
     }
     at[8] = at[9] = ends[8] = ends[9] = treeEnds[4];
+    // The leaf size's section, off the default only.
+    static uint8_t s_leaf[4];
+    maniStoreU32(s_leaf, l->leaf);
+    at[13] = s_leaf;
+    ends[13] = s_leaf + (l->leaf != MANI_MATCH_DEFAULT_LEAF ? 4 : 0);
     const uint8_t* data[MANI_MATCH_SECTIONS];
     uint64_t sizes[MANI_MATCH_SECTIONS];
     maniSectionSource sections[MANI_MATCH_SECTIONS];
