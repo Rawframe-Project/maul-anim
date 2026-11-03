@@ -20,6 +20,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 // Below this sine of the pole's angle to the aim line the pole's plane
 // blends toward the chain's own.
@@ -196,7 +197,7 @@ maniQuat maniIkPlane(maniVec3 u, maniVec3 n, maniVec3 pole)
     maniVec3 zero = maniVec3Make(0.0f, 0.0f, 0.0f);
     float poleLength = maniVec3Length(pole);
     n = maniVec3Sub(n, maniVec3Scale(u, maniVec3Dot(n, u)));
-    if (!(poleLength > 0.0f) || maniVec3Dot(n, n) == 0.0f)
+    if (!(poleLength > 0.0f) || !maniIkNonzero(n))
     {
         return maniQuatIdentity();
     }
@@ -230,4 +231,57 @@ maniIkFrame maniIkParentModel(const maniPose* pose, const maniSkeleton* skeleton
 {
     uint32_t parent = maniSkeleton_GetParent(skeleton, bone);
     return parent != MANI_NO_BONE ? maniIkBelow(pose, skeleton, MANI_NO_BONE, parent) : kIdentity;
+}
+
+bool maniIkNonzero(maniVec3 v)
+{
+    return maniVec3Length(v) > 0.0f;
+}
+
+static float Larger(float a, float b)
+{
+    return a > b ? a : b;
+}
+
+// The largest of v's components, 0 when one is not finite.
+static float Largest(maniVec3 v)
+{
+    float largest = Larger(Larger(fabsf(v.x), fabsf(v.y)), fabsf(v.z));
+    return isfinite(largest) ? largest : 0.0f;
+}
+
+// The exponent e of a finite x of at least 0 with x in [2^(e-1), 2^e),
+// read from its bits (-126 for any subnormal and for 0).
+static int Exponent(float x)
+{
+    uint32_t bits = 0;
+    memcpy(&bits, &x, sizeof bits);
+    return (int)(bits >> 23) - 126;
+}
+
+// 2^n for n from -126 to 127, built from its bits.
+static float Power(int n)
+{
+    uint32_t bits = (uint32_t)(127 + n) << 23;
+    float x = 0.0f;
+    memcpy(&x, &bits, sizeof x);
+    return x;
+}
+
+void maniIkRescale(maniVec3 v[3])
+{
+    float largest = Larger(Largest(v[0]), Largest(v[1]));
+    if (!(largest > 0x1p24f || (largest > 0.0f && largest < 0x1p-24f)))
+    {
+        return;
+    }
+    int e = Exponent(largest);
+    int g = Exponent(Largest(v[2]));
+    e = e < 0 && e < g - 127 ? g - 127 : e;
+    float first = Power(-e / 2);
+    float second = Power(-e - -e / 2);
+    for (int k = 0; k < 3; ++k)
+    {
+        v[k] = maniVec3Scale(maniVec3Scale(v[k], first), second);
+    }
 }

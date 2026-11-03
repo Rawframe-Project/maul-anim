@@ -34,7 +34,7 @@ static void Pole(maniIkChain* chain, maniPose* pose, const maniSkeleton* skeleto
     maniVec3 root = maniIkOrigin(&chain->frames[0]);
     maniVec3 u = maniVec3Sub(solve->goal, root);
     float length = maniVec3Length(u);
-    if (!(length > 0.0f) || maniVec3Dot(solve->pole, solve->pole) == 0.0f)
+    if (!(length > 0.0f) || !maniIkNonzero(solve->pole))
     {
         return;
     }
@@ -93,7 +93,7 @@ static MANI_NOINLINE maniResult SolveFabrikWork(maniPose* pose, const maniSkelet
             maniVec3 head = maniIkOrigin(&chain.frames[k]);
             maniVec3 now = maniVec3Sub(maniIkOrigin(&chain.frames[k + 1]), head);
             maniVec3 wanted = maniVec3Sub(places[k + 1], head);
-            if (!(maniVec3Dot(now, now) > 0.0f) || !(maniVec3Dot(wanted, wanted) > 0.0f))
+            if (!maniIkNonzero(now) || !maniIkNonzero(wanted))
             {
                 continue;
             }

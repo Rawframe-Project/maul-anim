@@ -58,7 +58,7 @@ static MANI_NOINLINE maniResult SolveCcdWork(maniPose* pose, const maniSkeleton*
             maniVec3 head = maniIkOrigin(&chain.frames[k]);
             maniVec3 toEnd = maniVec3Sub(maniIkChainEnd(&chain), head);
             maniVec3 toGoal = maniVec3Sub(solve->goal, head);
-            if (!(maniVec3Dot(toEnd, toEnd) > 0.0f) || !(maniVec3Dot(toGoal, toGoal) > 0.0f))
+            if (!maniIkNonzero(toEnd) || !maniIkNonzero(toGoal))
             {
                 continue;
             }

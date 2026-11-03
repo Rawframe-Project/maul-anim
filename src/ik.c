@@ -26,65 +26,10 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
 
 static float Larger(float a, float b)
 {
     return a > b ? a : b;
-}
-
-// The largest of v's components, 0 when one is not finite.
-static float Largest(maniVec3 v)
-{
-    float largest = Larger(Larger(fabsf(v.x), fabsf(v.y)), fabsf(v.z));
-    return isfinite(largest) ? largest : 0.0f;
-}
-
-// The exponent e of a finite x of at least 0 with x in [2^(e-1), 2^e),
-// read from its bits (-126 for any subnormal and for 0).
-static int Exponent(float x)
-{
-    uint32_t bits = 0;
-    memcpy(&bits, &x, sizeof bits);
-    return (int)(bits >> 23) - 126;
-}
-
-// 2^n for n from -126 to 127, built from its bits.
-static float Power(int n)
-{
-    uint32_t bits = (uint32_t)(127 + n) << 23;
-    float x = 0.0f;
-    memcpy(&x, &bits, sizeof x);
-    return x;
-}
-
-// Scales the bones and the goal from the start, v, by a power of two.
-// The turns depend on the chain's shape alone, and Hinge and Middle
-// multiply up to four lengths, which leave binary32's range for lengths
-// near 2^32 or 2^-32. A chain whose bones' largest component is past
-// 2^24 or below 2^-24, a margin for a bone shorter than that, is scaled
-// by 2^-e to put it in [0.5, 1); any other is left as it is, with its
-// bits. A tiny chain is scaled up only as far as keeps the goal finite.
-// The scale is two factors, each within binary32's range, so each value
-// that ends normal is scaled exactly; every square root the solve takes
-// is of a product of an even number of lengths, so it moves by a whole
-// power of two as well.
-static MANI_NOINLINE void Rescale(maniVec3 v[3])
-{
-    float largest = Larger(Largest(v[0]), Largest(v[1]));
-    if (!(largest > 0x1p24f || (largest > 0.0f && largest < 0x1p-24f)))
-    {
-        return;
-    }
-    int e = Exponent(largest);
-    int g = Exponent(Largest(v[2]));
-    e = e < 0 && e < g - 127 ? g - 127 : e;
-    float first = Power(-e / 2);
-    float second = Power(-e - -e / 2);
-    for (int k = 0; k < 3; ++k)
-    {
-        v[k] = maniVec3Scale(maniVec3Scale(v[k], first), second);
-    }
 }
 
 // The goal from the start, softened as ozz's; whether it is reached.
@@ -115,7 +60,7 @@ static maniVec3 Hinge(const maniTwoBoneSolve* solve, const maniIkFrame* middle, 
 {
     maniVec3 zero = maniVec3Make(0.0f, 0.0f, 0.0f);
     maniQuat r = maniIkRotation(middle);
-    if (maniVec3Dot(solve->hinge, solve->hinge) > 0.0f)
+    if (maniIkNonzero(solve->hinge))
     {
         return maniVec3Normalize(maniQuatRotate(r, solve->hinge), zero);
     }
@@ -200,7 +145,12 @@ static MANI_NOINLINE maniResult SolveTwoBoneWork(maniPose* pose, const maniSkele
     maniVec3 m = maniIkOrigin(&middle);
     maniVec3 v[3] = {maniVec3Sub(m, s), maniVec3Sub(maniIkOrigin(&end), m),
                      maniVec3Sub(solve->goal, s)};
-    Rescale(v);
+    // The turns depend on the chain's shape alone, and Hinge and Middle
+    // multiply up to four lengths, which leave binary32's range for
+    // lengths near 2^32 or 2^-32: the bones lead the scale, the goal kept
+    // finite. Every square root the solve takes is of a product of an
+    // even number of lengths, so it moves by a whole power of two too.
+    maniIkRescale(v);
     maniVec3 a = v[0];
     maniVec3 b = v[1];
     bool reached = false;

@@ -28,18 +28,22 @@
 
 // The direction the aiming bone's forward takes from its origin so that
 // its line through the offset point passes through the goal t (from the
-// origin); false when the offset lies further from the forward line than
-// the goal from the origin.
+// origin), at a length of order 1; false when the offset lies further
+// from the forward line than the goal from the origin. The direction
+// depends on the shape of t and the offset alone, and both are squared
+// here, so they are scaled together first.
 static bool Aimed(maniVec3 forward, maniVec3 offset, maniVec3 t, maniVec3* aimedOut)
 {
-    float ao = maniVec3Dot(forward, offset);
-    float ac2 = maniVec3Dot(offset, offset) - ao * ao;
-    float r2 = maniVec3Dot(t, t);
+    maniVec3 v[3] = {t, offset, maniVec3Make(0.0f, 0.0f, 0.0f)};
+    maniIkRescale(v);
+    float ao = maniVec3Dot(forward, v[1]);
+    float ac2 = maniVec3Dot(v[1], v[1]) - ao * ao;
+    float r2 = maniVec3Dot(v[0], v[0]);
     if (!(r2 > 0.0f) || ac2 > r2)
     {
         return false;
     }
-    *aimedOut = maniVec3Add(offset, maniVec3Scale(forward, sqrtf(r2 - ac2) - ao));
+    *aimedOut = maniVec3Add(v[1], maniVec3Scale(forward, sqrtf(r2 - ac2) - ao));
     return true;
 }
 

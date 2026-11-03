@@ -8,7 +8,8 @@
 // softening keeps it short of full extension; a solve on its own result
 // changes nothing; a pole swept across the goal line moves the knee
 // continuously; weight 0 changes nothing; a goal at the hip turns
-// nothing there; the hinge given or the bend plane's alike; a mirrored
+// nothing there; the hinge given or the bend plane's alike, a short
+// hinge as a unit one; a mirrored
 // parent; the same turns at any power-of-two scale; the refusals.
 
 #include "test_harness.h"
@@ -285,6 +286,20 @@ static void TestEdges(void)
               maniPose_SolveTwoBone(s_other, &s_skeleton, &hinged, NULL) == mani_success,
           "with and without the hinge");
     CHECK(Distance(At(s_pose, kKnee), At(s_other, kKnee)) < 1e-5f, "the hinge as the bend plane's");
+    // A hinge 2^-80 long acts as the unit hinge, bit for bit, off the
+    // bend plane so that taking it as none would show.
+    Bent(s_pose, 0.4f, 0.3f);
+    Bent(s_other, 0.4f, 0.3f);
+    maniTwoBoneSolve unit = solve;
+    unit.hinge = (maniVec3){-0.8f, 0.0f, 0.6f};
+    maniTwoBoneSolve shorter = solve;
+    shorter.hinge = (maniVec3){-0.8f * 0x1p-80f, 0.0f, 0.6f * 0x1p-80f};
+    CHECK(maniPose_SolveTwoBone(s_pose, &s_skeleton, &unit, NULL) == mani_success &&
+              maniPose_SolveTwoBone(s_other, &s_skeleton, &shorter, NULL) == mani_success,
+          "with either hinge");
+    maniQuat knees[2] = {maniPose_GetLocal(s_pose, s_bone[kKnee]).rotation,
+                         maniPose_GetLocal(s_other, s_bone[kKnee]).rotation};
+    CHECK(memcmp(&knees[0], &knees[1], sizeof knees[0]) == 0, "a short hinge as the unit hinge");
     // A straight leg without hinge or pole still bends to reach.
     Bent(s_pose, 0.0f, 0.0f);
     solve = Solve((maniVec3){0.0f, 0.4f, 0.0f}, (maniVec3){0.0f, 0.0f, 0.0f});

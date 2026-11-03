@@ -11,7 +11,8 @@
 // unchanged bit for bit; the end taking the wanted rotation; weights 0
 // and 0.5; a goal at the root left without a NaN, the root unturned; a
 // goal within the tolerance leaving the pose, one at the end reached
-// with tolerance 0; the refusals, a path of 33 bones among them.
+// with tolerance 0; the same turns at any power-of-two scale; the
+// refusals, a path of 33 bones among them.
 
 #include "negative_kinds.h"
 #include "test_harness.h"
@@ -464,6 +465,45 @@ static void TestEdges(void)
           "a path of 33 bones at the limit");
 }
 
+// A chain scaled by a power of two takes the same turns bit for bit:
+// the tail under a root scale from 2^-100 to 2^100 against 2^1, eight
+// iterations without a tolerance, and reaches the goal as at 2^1. A
+// binary32 squared length read every direction below about 2^-75 as
+// zero.
+static void TestFarScales(void)
+{
+    const int exponents[7] = {1, -100, -80, -60, 60, 80, 100};
+    maniQuat first[BONES];
+    bool firstReached = false;
+    bool same = true;
+    for (int e = 0; e < 7; ++e)
+    {
+        float k = ldexpf(1.0f, exponents[e]);
+        Bent(s_pose);
+        maniTransform root = maniPose_GetLocal(s_pose, 0);
+        root.scale = (maniVec3){k, k, k};
+        maniPose_SetLocal(s_pose, 0, root);
+        maniChainSolve solve = Solve((maniVec3){0.4f * k, 0.6f * k, 0.3f * k});
+        solve.iterations = 8;
+        solve.tolerance = 0.0f;
+        bool r = false;
+        CHECK(maniPose_SolveCcd(s_pose, &s_skeleton, &solve, &r) == mani_success, "solved");
+        maniQuat turns[BONES];
+        for (uint32_t b = 0; b < BONES; ++b)
+        {
+            turns[b] = maniPose_GetLocal(s_pose, b).rotation;
+        }
+        if (e == 0)
+        {
+            memcpy(first, turns, sizeof turns);
+            firstReached = r;
+        }
+        same = same && r == firstReached && memcmp(first, turns, sizeof turns) == 0;
+    }
+    CHECK(firstReached, "reached at 2^1");
+    CHECK(same, "the same turns and reach at every scale");
+}
+
 static void TestRefusals(void)
 {
     Bent(s_pose);
@@ -549,6 +589,7 @@ int main(void)
     TestEndRotation();
     TestWeight();
     TestEdges();
+    TestFarScales();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }
