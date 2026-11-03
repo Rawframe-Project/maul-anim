@@ -36,7 +36,7 @@ elementary: elementary_float
 ceiling core       O2 69698
 ceiling skinning   O2 13000
 ceiling graph      O2 111000
-ceiling ik         O2 31000
+ceiling ik         O2 32000
 ceiling bodyik     O2 27000
 ceiling springs    O2 30000
 ceiling ragdoll    O2 16000
@@ -63,7 +63,7 @@ ceiling elementary O3 8000
 ceiling core       O2-avx2 71000
 ceiling skinning   O2-avx2 12000
 ceiling graph      O2-avx2 111000
-ceiling ik         O2-avx2 30000
+ceiling ik         O2-avx2 31000
 ceiling bodyik     O2-avx2 26000
 ceiling springs    O2-avx2 28000
 ceiling ragdoll    O2-avx2 15000
@@ -76,7 +76,7 @@ ceiling elementary O2-avx2 6000
 ceiling core       O3-avx2 89000
 ceiling skinning   O3-avx2 15000
 ceiling graph      O3-avx2 138000
-ceiling ik         O3-avx2 32000
+ceiling ik         O3-avx2 33000
 ceiling bodyik     O3-avx2 34000
 ceiling springs    O3-avx2 30000
 ceiling ragdoll    O3-avx2 16000
