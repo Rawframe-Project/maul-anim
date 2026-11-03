@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Sirac Ozmen
 //
-// Opening a retargeting map: the container, the header (bone
-// counts, the pelvis's bones and numbers, its fixed form without a
-// pelvis), both sides' references (finite, rotations of length 1), each
-// target bone's plan in its one form, and the identity. Whether the plan
+// Opening a retargeting map: the container, the header (bone counts),
+// both sides' references (finite, rotations of length 1), the pelvis
+// when there is one (its bones and numbers), each target bone's plan in
+// its one form, and the identity. Whether the plan
 // fits the skeletons (chains being paths, the pelvis's heights) needs
 // them: their identities, checked where the map is used, stand for the
 // builder's checks.
@@ -101,50 +101,64 @@ typedef struct Sections
     uint64_t at[MANI_RETARGET_SECTIONS];
 } Sections;
 
-// The header's pelvis: its bones within the counts (or MANI_NO_BONE
-// both), its numbers finite and in range, without one its fixed form.
-static maniFileResult PelvisHeader(const uint8_t* h, uint64_t at, const maniRetargetMap* m)
+// A map without a pelvis: MANI_NO_BONE (0xFFFF) both, the axis +y, the
+// scales and the ratio 1 (binary32 0x3F800000), the rest 0; little-endian.
+static const uint8_t kNoPelvis[MANI_RETARGET_PELVIS_SIZE] = {
+    [maniRetargetPelvisSourceBone] = 0xFF,     [maniRetargetPelvisSourceBone + 1] = 0xFF,
+    [maniRetargetPelvisTargetBone] = 0xFF,     [maniRetargetPelvisTargetBone + 1] = 0xFF,
+    [maniRetargetPelvisUp + 6] = 0x80,         [maniRetargetPelvisUp + 7] = 0x3F,
+    [maniRetargetPelvisHorizontal + 2] = 0x80, [maniRetargetPelvisHorizontal + 3] = 0x3F,
+    [maniRetargetPelvisVertical + 2] = 0x80,   [maniRetargetPelvisVertical + 3] = 0x3F,
+    [maniRetargetPelvisRatio + 2] = 0x80,      [maniRetargetPelvisRatio + 3] = 0x3F,
+};
+
+// The pelvis section, when there is one: its size, its bones within the
+// counts, its numbers finite and in range. Its tag is the last, so its
+// size is in the table's last entry, of count.
+static maniFileResult Pelvis(const Sections* s, uint32_t count, const maniRetargetMap* m)
 {
-    uint32_t source = maniLoadU32(h + maniRetargetHeaderPelvisSource);
-    uint32_t target = maniLoadU32(h + maniRetargetHeaderPelvisTarget);
-    bool none = source == MANI_NO_BONE && target == MANI_NO_BONE;
-    if (!none && (source >= m->sourceBoneCount || target >= m->targetBoneCount))
+    const uint8_t* h = s->data[4];
+    uint64_t at = s->at[4];
+    if (s->sizes[4] != MANI_RETARGET_PELVIS_SIZE)
     {
-        return Fail(at + maniRetargetHeaderPelvisSource);
+        return Fail(MANI_CONTAINER_HEADER_SIZE + (uint64_t)(count - 1) * MANI_CONTAINER_ENTRY_SIZE +
+                    16);
     }
-    // The axis, the two scales and the 13 numbers after them.
-    uint32_t k = FirstNotFinite(h + maniRetargetHeaderUp, 18);
-    if (k < 18)
+    if (maniLoadU32(h + maniRetargetPelvisSourceBone) >= m->sourceBoneCount ||
+        maniLoadU32(h + maniRetargetPelvisTargetBone) >= m->targetBoneCount)
     {
-        return Fail(at + maniRetargetHeaderUp + 4 * k);
+        return Fail(at + maniRetargetPelvisSourceBone);
     }
-    float x = LoadF32(h + maniRetargetHeaderUp);
-    float y = LoadF32(h + maniRetargetHeaderUp + 4);
-    float z = LoadF32(h + maniRetargetHeaderUp + 8);
-    if (!Unit(x * x + y * y + z * z) || (none && (x != 0.0f || y != 1.0f || z != 0.0f)))
+    // The axis, the two scales, the 13 numbers after them and the ratio.
+    uint32_t k = FirstNotFinite(h + maniRetargetPelvisUp, 19);
+    if (k < 19)
     {
-        return Fail(at + maniRetargetHeaderUp);
+        return Fail(at + maniRetargetPelvisUp + 4 * k);
+    }
+    float x = LoadF32(h + maniRetargetPelvisUp);
+    float y = LoadF32(h + maniRetargetPelvisUp + 4);
+    float z = LoadF32(h + maniRetargetPelvisUp + 8);
+    if (!Unit(x * x + y * y + z * z))
+    {
+        return Fail(at + maniRetargetPelvisUp);
     }
     for (uint32_t w = 0; w < 2; ++w)
     {
-        float scale = LoadF32(h + maniRetargetHeaderHorizontal + 4 * w);
-        if (!(scale >= 0.0f) || (none && scale != 1.0f))
+        if (!(LoadF32(h + maniRetargetPelvisHorizontal + 4 * w) >= 0.0f))
         {
-            return Fail(at + maniRetargetHeaderHorizontal + 4 * w);
+            return Fail(at + maniRetargetPelvisHorizontal + 4 * w);
         }
     }
     // The blends and the weight in [0, 1]; the positions, any finite
-    // values; without a pelvis every one 0.
-    for (uint32_t w = 0; w < 13; ++w)
+    // values.
+    for (uint32_t w = 0; w < 7; ++w)
     {
-        float v = LoadF32(h + maniRetargetHeaderAbsolute + 4 * w);
-        bool share = w >= 7 || Share(v);
-        if (!share || (none && v != 0.0f))
+        if (!Share(LoadF32(h + maniRetargetPelvisAbsolute + 4 * w)))
         {
-            return Fail(at + maniRetargetHeaderAbsolute + 4 * w);
+            return Fail(at + maniRetargetPelvisAbsolute + 4 * w);
         }
     }
-    return kOk;
+    return LoadF32(h + maniRetargetPelvisRatio) > 0.0f ? kOk : Fail(at + maniRetargetPelvisRatio);
 }
 
 static maniFileResult Header(const Sections* s, maniRetargetMap* m)
@@ -167,16 +181,7 @@ static maniFileResult Header(const Sections* s, maniRetargetMap* m)
     {
         return Fail(at + maniRetargetHeaderTargetBones);
     }
-    maniFileResult r = PelvisHeader(h, at, m);
-    if (r.result != mani_success)
-    {
-        return r;
-    }
-    float ratio = LoadF32(h + maniRetargetHeaderRatio);
-    bool none = maniLoadU32(h + maniRetargetHeaderPelvisTarget) == MANI_NO_BONE;
-    return !(ratio > 0.0f) || !Finite(ratio) || (none && ratio != 1.0f)
-               ? Fail(at + maniRetargetHeaderRatio)
-               : kOk;
+    return kOk;
 }
 
 // The references: a rotation (or two) of length 1, the rest finite.
@@ -260,8 +265,8 @@ static maniFileResult Plans(const Sections* s, const maniRetargetMap* m)
     {
         return Fail(s->at[0] + maniRetargetHeaderTargetBones);
     }
-    uint32_t pelvisSource = maniLoadU32(s->data[0] + maniRetargetHeaderPelvisSource);
-    uint32_t pelvisTarget = maniLoadU32(s->data[0] + maniRetargetHeaderPelvisTarget);
+    uint32_t pelvisSource = maniLoadU32(m->pelvis + maniRetargetPelvisSourceBone);
+    uint32_t pelvisTarget = maniLoadU32(m->pelvis + maniRetargetPelvisTargetBone);
     for (uint32_t b = 0; b < m->targetBoneCount; ++b)
     {
         const uint8_t* e = s->data[3] + (size_t)b * MANI_RETARGET_PLAN_SIZE;
@@ -299,8 +304,10 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
     }
     maniRetargetMap map;
     memset(&map, 0, sizeof map);
+    map.pelvis = s.sizes[4] != 0 ? s.data[4] : kNoPelvis;
     r = Header(&s, &map);
     r = r.result == mani_success ? References(&s, &map) : r;
+    r = r.result == mani_success && s.sizes[4] != 0 ? Pelvis(&s, c.sectionCount, &map) : r;
     r = r.result == mani_success ? Plans(&s, &map) : r;
     if (r.result != mani_success)
     {
@@ -310,7 +317,6 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
     {
         return Fail(40);
     }
-    map.header = s.data[0];
     map.sourceBones = s.data[1];
     map.targetBones = s.data[2];
     map.plan = s.data[3];

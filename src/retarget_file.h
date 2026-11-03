@@ -12,8 +12,8 @@
 
 #include <stdint.h>
 
-#define MANI_RETARGET_FORMAT_VERSION 3u
-#define MANI_RETARGET_SECTIONS       4u
+#define MANI_RETARGET_FORMAT_VERSION 4u
+#define MANI_RETARGET_SECTIONS       5u
 
 enum
 {
@@ -28,38 +28,46 @@ enum
     maniRetargetTagTarget = 3,
     // MANI_RETARGET_PLAN_SIZE a target bone, laid out below.
     maniRetargetTagPlan = 4,
+    // The pelvis, laid out below; absent in a map without one.
+    maniRetargetTagPelvis = 5,
 };
 
-#define MANI_RETARGET_HEADER_SIZE 108u
+#define MANI_RETARGET_HEADER_SIZE 24u
 #define MANI_RETARGET_SOURCE_SIZE 40u
 #define MANI_RETARGET_TARGET_SIZE 56u
 #define MANI_RETARGET_PLAN_SIZE   28u
+#define MANI_RETARGET_PELVIS_SIZE 84u
 
 // Header offsets: u64 the source's and the target's identities; u32 their
-// bone counts; u32 the pelvis's source and target bones (MANI_NO_BONE
-// both without one); binary32: the up axis (3), the horizontal and
-// vertical scales (the height ratio times the factors), the absolute
-// blends (3), the source blends (3), the translation weight, the source
-// and target reference pelvis positions (3 each), the height ratio.
-// Without a pelvis the axis is +y, the scales and the ratio 1 and
-// every other number 0.
+// bone counts.
 enum
 {
     maniRetargetHeaderSourceIdentity = 0,
     maniRetargetHeaderTargetIdentity = 8,
     maniRetargetHeaderSourceBones = 16,
     maniRetargetHeaderTargetBones = 20,
-    maniRetargetHeaderPelvisSource = 24,
-    maniRetargetHeaderPelvisTarget = 28,
-    maniRetargetHeaderUp = 32,
-    maniRetargetHeaderHorizontal = 44,
-    maniRetargetHeaderVertical = 48,
-    maniRetargetHeaderAbsolute = 52,
-    maniRetargetHeaderToSource = 64,
-    maniRetargetHeaderTranslationWeight = 76,
-    maniRetargetHeaderSourcePelvis = 80,
-    maniRetargetHeaderTargetPelvis = 92,
-    maniRetargetHeaderRatio = 104,
+};
+
+// Pelvis offsets: u32 the pelvis's source and target bones; binary32:
+// the up axis (3), the horizontal and vertical scales (the height ratio
+// times the factors), the absolute blends (3), the source blends (3),
+// the translation weight, the source and target reference pelvis
+// positions (3 each), the height ratio. A map without a pelvis reads as
+// MANI_NO_BONE both, the axis +y, the scales and the ratio 1 and every
+// other number 0.
+enum
+{
+    maniRetargetPelvisSourceBone = 0,
+    maniRetargetPelvisTargetBone = 4,
+    maniRetargetPelvisUp = 8,
+    maniRetargetPelvisHorizontal = 20,
+    maniRetargetPelvisVertical = 24,
+    maniRetargetPelvisAbsolute = 28,
+    maniRetargetPelvisToSource = 40,
+    maniRetargetPelvisTranslationWeight = 52,
+    maniRetargetPelvisSourcePosition = 56,
+    maniRetargetPelvisTargetPosition = 68,
+    maniRetargetPelvisRatio = 80,
 };
 
 // A target bone's plan: u32 its kind; u32 source bones a and b; binary32

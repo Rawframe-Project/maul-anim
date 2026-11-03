@@ -78,12 +78,12 @@ static MANI_NOINLINE maniVec3 RetargetRootMotionWork(const maniRetargetMap* map,
     {
         return delta;
     }
-    maniVec3 up = LoadVec(map->header + maniRetargetHeaderUp);
+    maniVec3 up = LoadVec(map->pelvis + maniRetargetPelvisUp);
     maniVec3 vertical = maniVec3Scale(up, maniVec3Dot(up, delta));
     maniVec3 horizontal = maniVec3Sub(delta, vertical);
     return maniVec3Add(
-        maniVec3Scale(horizontal, LoadF32(map->header + maniRetargetHeaderHorizontal)),
-        maniVec3Scale(vertical, LoadF32(map->header + maniRetargetHeaderVertical)));
+        maniVec3Scale(horizontal, LoadF32(map->pelvis + maniRetargetPelvisHorizontal)),
+        maniVec3Scale(vertical, LoadF32(map->pelvis + maniRetargetPelvisVertical)));
 }
 
 maniVec3 maniRetargetMap_RetargetRootMotion(const maniRetargetMap* map, maniVec3 delta)
@@ -143,14 +143,14 @@ static maniVec3 SourcePosition(const Transfer* x, uint32_t bone)
 // and then the source's own position, weighted from the reference.
 static maniVec3 PelvisPosition(const Transfer* x, uint32_t sourcePelvis)
 {
-    const uint8_t* h = x->map->header;
-    maniVec3 reference = LoadVec(h + maniRetargetHeaderTargetPelvis);
+    const uint8_t* h = x->map->pelvis;
+    maniVec3 reference = LoadVec(h + maniRetargetPelvisTargetPosition);
     maniVec3 now = SourcePosition(x, sourcePelvis);
-    maniVec3 change = maniVec3Sub(now, LoadVec(h + maniRetargetHeaderSourcePelvis));
+    maniVec3 change = maniVec3Sub(now, LoadVec(h + maniRetargetPelvisSourcePosition));
     maniVec3 scaled = maniRetargetMap_RetargetRootMotion(x->map, change);
-    maniVec3 absolute = LoadVec(h + maniRetargetHeaderAbsolute);
-    maniVec3 toSource = LoadVec(h + maniRetargetHeaderToSource);
-    float weight = LoadF32(h + maniRetargetHeaderTranslationWeight);
+    maniVec3 absolute = LoadVec(h + maniRetargetPelvisAbsolute);
+    maniVec3 toSource = LoadVec(h + maniRetargetPelvisToSource);
+    float weight = LoadF32(h + maniRetargetPelvisTranslationWeight);
     const float s[3] = {scaled.x, scaled.y, scaled.z};
     const float c[3] = {change.x, change.y, change.z};
     const float r[3] = {reference.x, reference.y, reference.z};
@@ -176,7 +176,7 @@ static void Carry(const Transfer* x, uint32_t bone, uint32_t a, uint32_t transla
         maniVec3 from = maniPose_GetLocal(x->sourcePose, a).translation;
         if (translation == maniRetargetTranslationScaled)
         {
-            float ratio = LoadF32(x->map->header + maniRetargetHeaderRatio);
+            float ratio = LoadF32(x->map->pelvis + maniRetargetPelvisRatio);
             from = maniVec3Scale(maniVec3Sub(from, LoadVec(SourceBone(x->map, a) + 16)), ratio);
         }
         // From the source parent's reference model frame to the target
@@ -214,7 +214,7 @@ static maniTransform SameFrame(const Transfer* x, uint32_t b, uint32_t a, maniQu
     }
     else if (translation == maniRetargetTranslationScaled)
     {
-        float ratio = LoadF32(x->map->header + maniRetargetHeaderRatio);
+        float ratio = LoadF32(x->map->pelvis + maniRetargetPelvisRatio);
         local.translation =
             maniVec3Add(local.translation,
                         maniVec3Scale(maniVec3Sub(given.translation, local.translation), ratio));

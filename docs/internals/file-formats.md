@@ -37,7 +37,7 @@ Opening needs no scratch memory: a skeleton's depth-first order, for instance, i
 | Skeleton | 1 | 2 | |
 | Clip | 2 | 5 | its skeleton |
 | Graph | 3 | 7 | its skeleton, its clips, databases, models, spring sets and maps |
-| Retargeting map | 4 | 3 | its source and target skeletons |
+| Retargeting map | 4 | 4 | its source and target skeletons |
 | Skin | 5 | 2 | its skeleton |
 | Influences | 6 | 2 | its skin |
 | Morph targets | 7 | 2 | |
@@ -55,7 +55,7 @@ A refusal names the tag of the section holding the first byte found wrong (`mani
 | Skeleton | 1 parents, 2 subtree ends, 3 rests, 4 name hashes, 5 name order, 6 name spans, 7 name bytes |
 | Clip | 1 header, 2 tracks, 3 samples, 4 float tracks, 5 float samples, 6 discrete tracks, 7 discrete keys, 8 events, 9 markers, 10 names, 11 forms, 12 constants, 13 ranges, 14 segments, 15 segment data, 16 root motion, 17 loop policy, 18 additive basis |
 | Graph | 1 header, 2 parameters, 3 nodes, 4 inputs, 5 data, 6 clips, 7 sync groups, 8 mask weights, 9 databases, 10 database clips, 11 names, 12 models, 13 spring sets, 14 maps, 15 mirror |
-| Retargeting map | 1 header, 2 source, 3 target, 4 plan |
+| Retargeting map | 1 header, 2 source, 3 target, 4 plan, 5 pelvis |
 | Skin | 1 binding, 2 joints, 3 inverse binds |
 | Influences | 1 binding, 2 joints, 3 weights, 4 dual quaternion weights, 5 centers |
 | Morph targets | 1 header, 2 attributes, 3 channels, 4 targets, 5 indices, 6 deltas, 7 names |
@@ -66,7 +66,7 @@ A refusal names the tag of the section holding the first byte found wrong (`mani
 | Mirror map | 1 header, 2 bones, 3 names, 4 strings |
 | Learned checkpoint | 1 progress, 2 latents, 3 and on the networks' training state, 16 and on the networks |
 
-Every kind's header section (tag 1) is required, and so is every section of a skeleton and of a skin: a file without one is refused with `mani_errorFormat`. Any other section that is absent is empty, which is its default: no records of that table. An opener refuses an empty section that the header's counts need with `mani_errorFormat`, as it refuses a section of the wrong size, so a writer leaves a section out exactly when it holds no records. The sections that mean something when absent are a clip's root motion (16, a clip without root motion), loop policy (17, `maniLoopClamp`) and additive basis (18, `maniAdditiveNone`), each present only off that default, a graph's mirror (15, no mirror map), the influences' dual quaternion weights and centers (4 and 5, no dual quaternion skinning) and a motion database's mirror (10, no mirrored entries).
+Every kind's header section (tag 1) is required, and so is every section of a skeleton and of a skin: a file without one is refused with `mani_errorFormat`. Any other section that is absent is empty, which is its default: no records of that table. An opener refuses an empty section that the header's counts need with `mani_errorFormat`, as it refuses a section of the wrong size, so a writer leaves a section out exactly when it holds no records. The sections that mean something when absent are a clip's root motion (16, a clip without root motion), loop policy (17, `maniLoopClamp`) and additive basis (18, `maniAdditiveNone`), each present only off that default, a graph's mirror (15, no mirror map), a retargeting map's pelvis (5, no pelvis: the up axis +y, the scales and the height ratio 1, the blends, weight and positions 0), the influences' dual quaternion weights and centers (4 and 5, no dual quaternion skinning) and a motion database's mirror (10, no mirrored entries).
 
 The learned checkpoint is a state, not an asset ([overview.md](overview.md)): only the release that wrote it reads it, so its reader takes no tag a later writer adds and refuses any section count but its own with `mani_errorFormat`.
 

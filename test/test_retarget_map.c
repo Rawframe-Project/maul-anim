@@ -197,8 +197,8 @@ static void TestPlan(void)
           "built and opened");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
-    // Tags 1 to 4 (file-formats.md).
-    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 4), "a later writer's tag refused");
+    // Tags 1 to 5 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 5), "a later writer's tag refused");
     CHECK(maniRetargetMap_GetSourceIdentity(&m) == maniSkeleton_GetIdentity(&s_source) &&
               maniRetargetMap_GetTargetIdentity(&m) == maniSkeleton_GetIdentity(&s_target) &&
               maniRetargetMap_GetIdentity(&m) != 0 && m.sourceBoneCount == 8 &&
@@ -222,16 +222,17 @@ static void TestPlan(void)
               PlanIs(&m, 8, maniRetargetPlanReference, none, none, 0.0f, 0.0f, 0, 0),
           "one to one: the extra target bone at its reference");
     CHECK(PlanIs(&m, 9, one, 7, none, 0.0f, 1.0f, 0, 0), "the head by name");
-    const uint8_t* h = m.header;
-    CHECK(maniLoadU32(h + maniRetargetHeaderPelvisSource) == 1 &&
-              maniLoadU32(h + maniRetargetHeaderPelvisTarget) == 1 &&
-              fabsf(LoadF32(h + maniRetargetHeaderHorizontal) - 0.9f) <= 1e-6f &&
-              fabsf(LoadF32(h + maniRetargetHeaderVertical) - 0.45f) <= 1e-6f &&
-              LoadF32(h + maniRetargetHeaderAbsolute + 4) == 1.0f &&
-              LoadF32(h + maniRetargetHeaderToSource) == 0.25f &&
-              LoadF32(h + maniRetargetHeaderSourcePelvis + 4) == 1.0f &&
-              LoadF32(h + maniRetargetHeaderTargetPelvis + 4) == 0.9f &&
-              fabsf(LoadF32(h + maniRetargetHeaderRatio) - 0.9f) <= 1e-6f,
+    const uint8_t* h = m.pelvis;
+    CHECK(!TestSectionAbsent(s_file, maniRetargetTagPelvis) &&
+              maniLoadU32(h + maniRetargetPelvisSourceBone) == 1 &&
+              maniLoadU32(h + maniRetargetPelvisTargetBone) == 1 &&
+              fabsf(LoadF32(h + maniRetargetPelvisHorizontal) - 0.9f) <= 1e-6f &&
+              fabsf(LoadF32(h + maniRetargetPelvisVertical) - 0.45f) <= 1e-6f &&
+              LoadF32(h + maniRetargetPelvisAbsolute + 4) == 1.0f &&
+              LoadF32(h + maniRetargetPelvisToSource) == 0.25f &&
+              LoadF32(h + maniRetargetPelvisSourcePosition + 4) == 1.0f &&
+              LoadF32(h + maniRetargetPelvisTargetPosition + 4) == 0.9f &&
+              fabsf(LoadF32(h + maniRetargetPelvisRatio) - 0.9f) <= 1e-6f,
           "the pelvis: heights 1 and 0.9, the scales their ratio times the factors");
     // A pair on the head: the name leaves it.
     const maniRetargetPairSource head = {9, 4, 1.0f, maniRetargetTranslationOwn, false};
@@ -254,10 +255,17 @@ static void TestPlan(void)
               PlanIs(&m, 8, one, 6, none, 0.0f, 0.5f, maniRetargetTranslationScaled, 1) &&
               PlanIs(&m, 0, maniRetargetPlanReference, none, none, 0.0f, 0.0f, 0, 0),
           "one to one reversed; nothing by name");
-    CHECK(maniLoadU32(m.header + maniRetargetHeaderPelvisSource) == none &&
-              LoadF32(m.header + maniRetargetHeaderUp + 4) == 1.0f &&
-              LoadF32(m.header + maniRetargetHeaderHorizontal) == 1.0f,
-          "no pelvis: its fixed form");
+    CHECK(TestSectionAbsent(s_file, maniRetargetTagPelvis) &&
+              maniLoadU32(m.pelvis + maniRetargetPelvisSourceBone) == none &&
+              maniLoadU32(m.pelvis + maniRetargetPelvisTargetBone) == none &&
+              LoadF32(m.pelvis + maniRetargetPelvisUp) == 0.0f &&
+              LoadF32(m.pelvis + maniRetargetPelvisUp + 4) == 1.0f &&
+              LoadF32(m.pelvis + maniRetargetPelvisUp + 8) == 0.0f &&
+              LoadF32(m.pelvis + maniRetargetPelvisHorizontal) == 1.0f &&
+              LoadF32(m.pelvis + maniRetargetPelvisVertical) == 1.0f &&
+              LoadF32(m.pelvis + maniRetargetPelvisRatio) == 1.0f &&
+              maniRetargetMap_RetargetRootMotion(&m, (maniVec3){0.5f, 2.0f, -3.0f}).y == 2.0f,
+          "no pelvis: its section absent, read as its defaults");
 }
 
 // A reference pose given for the target: its locals stored and its model
@@ -528,31 +536,53 @@ static void TestFile(void)
     CHECK(maniOpenRetargetMap(s_crafted, s_size, &m).result == mani_success,
           "rehashed unchanged, opened");
     CHECK(maniOpenRetargetMap(s_file, s_size, &m).result == mani_success, "the original");
-    size_t h = (size_t)(m.header - s_file);
+    // The header is the first section.
+    size_t h = (size_t)maniLoadU64(s_file + MANI_CONTAINER_HEADER_SIZE + 8);
+    size_t pv = (size_t)(m.pelvis - s_file);
     size_t sb = (size_t)(m.sourceBones - s_file);
     size_t tb = (size_t)(m.targetBones - s_file);
     size_t p = (size_t)(m.plan - s_file);
     CHECK(WordRefused(h + maniRetargetHeaderSourceBones, 0, h + maniRetargetHeaderSourceBones) &&
               WordRefused(h + maniRetargetHeaderTargetBones, 9, h + maniRetargetHeaderTargetBones),
           "bone counts zero or not the sections'");
-    CHECK(WordRefused(h + maniRetargetHeaderPelvisSource, 8, h + maniRetargetHeaderPelvisSource),
-          "a pelvis bone past");
-    CHECK(WordRefused(h + maniRetargetHeaderUp + 4, Bits(2.0f), h + maniRetargetHeaderUp) &&
-              WordRefused(h + maniRetargetHeaderUp, Bits(NAN), h + maniRetargetHeaderUp),
+    CHECK(
+        WordRefused(pv + maniRetargetPelvisSourceBone, 8, pv + maniRetargetPelvisSourceBone) &&
+            WordRefused(pv + maniRetargetPelvisTargetBone, 10, pv + maniRetargetPelvisSourceBone) &&
+            WordRefused(pv + maniRetargetPelvisTargetBone, MANI_NO_BONE,
+                        pv + maniRetargetPelvisSourceBone),
+        "a pelvis bone past, or none in a pelvis's section");
+    CHECK(WordRefused(pv + maniRetargetPelvisUp + 4, Bits(2.0f), pv + maniRetargetPelvisUp) &&
+              WordRefused(pv + maniRetargetPelvisUp, Bits(NAN), pv + maniRetargetPelvisUp),
           "the axis not of length 1 or not finite");
-    CHECK(WordRefused(h + maniRetargetHeaderVertical, Bits(-1.0f), h + maniRetargetHeaderVertical),
-          "a scale below 0");
-    CHECK(WordRefused(h + maniRetargetHeaderToSource + 8, Bits(1.5f),
-                      h + maniRetargetHeaderToSource + 8) &&
-              WordRefused(h + maniRetargetHeaderTranslationWeight, Bits(-0.5f),
-                          h + maniRetargetHeaderTranslationWeight),
+    CHECK(
+        WordRefused(pv + maniRetargetPelvisVertical, Bits(-1.0f), pv + maniRetargetPelvisVertical),
+        "a scale below 0");
+    CHECK(WordRefused(pv + maniRetargetPelvisToSource + 8, Bits(1.5f),
+                      pv + maniRetargetPelvisToSource + 8) &&
+              WordRefused(pv + maniRetargetPelvisTranslationWeight, Bits(-0.5f),
+                          pv + maniRetargetPelvisTranslationWeight),
           "a blend or the weight outside [0, 1]");
-    CHECK(WordRefused(h + maniRetargetHeaderTargetPelvis + 4, Bits(INFINITY),
-                      h + maniRetargetHeaderTargetPelvis + 4),
+    CHECK(WordRefused(pv + maniRetargetPelvisTargetPosition + 4, Bits(INFINITY),
+                      pv + maniRetargetPelvisTargetPosition + 4),
           "a pelvis position not finite");
-    CHECK(WordRefused(h + maniRetargetHeaderRatio, Bits(0.0f), h + maniRetargetHeaderRatio) &&
-              WordRefused(h + maniRetargetHeaderRatio, Bits(INFINITY), h + maniRetargetHeaderRatio),
-          "a height ratio not positive and finite");
+    CHECK(
+        WordRefused(pv + maniRetargetPelvisRatio, Bits(0.0f), pv + maniRetargetPelvisRatio) &&
+            WordRefused(pv + maniRetargetPelvisRatio, Bits(INFINITY), pv + maniRetargetPelvisRatio),
+        "a height ratio not positive and finite");
+    // The pelvis's section 4 bytes short, the file ending with it: refused
+    // at its size in the table's last entry.
+    {
+        uint64_t last = MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(maniLoadU32(s_file + 12) - 1);
+        memcpy(s_crafted, s_file, s_size);
+        maniStoreU64(s_crafted + last + 16, MANI_RETARGET_PELVIS_SIZE - 4);
+        size_t shorter = s_size - 4;
+        maniStoreU64(s_crafted + 24, shorter);
+        Rehash(s_crafted, shorter);
+        maniFileResult r = maniOpenRetargetMap(s_crafted, shorter, &m);
+        CHECK(maniLoadU32(s_file + last) == maniRetargetTagPelvis && r.result == mani_errorFormat &&
+                  r.offset == last + 16,
+              "a pelvis's section of the wrong size");
+    }
     CHECK(WordRefused(sb + MANI_RETARGET_SOURCE_SIZE * 3 + 12, Bits(0.5f),
                       sb + MANI_RETARGET_SOURCE_SIZE * 3) &&
               WordRefused(tb + MANI_RETARGET_TARGET_SIZE * 2 + 20, Bits(NAN),
@@ -602,14 +632,7 @@ static void TestFile(void)
     CHECK(Build(&source).result == mani_success &&
               maniOpenRetargetMap(s_file, s_size, &m).result == mani_success,
           "a map without a pelvis");
-    h = (size_t)(m.header - s_file);
-    CHECK(WordRefused(h + maniRetargetHeaderHorizontal, Bits(0.5f),
-                      h + maniRetargetHeaderHorizontal) &&
-              WordRefused(h + maniRetargetHeaderUp + 4, Bits(-1.0f), h + maniRetargetHeaderUp) &&
-              WordRefused(h + maniRetargetHeaderSourcePelvis, Bits(0.5f),
-                          h + maniRetargetHeaderSourcePelvis) &&
-              WordRefused(h + maniRetargetHeaderRatio, Bits(0.5f), h + maniRetargetHeaderRatio),
-          "no pelvis: scales 1, the axis +y, the rest 0");
+    CHECK(TestSectionAbsent(s_file, maniRetargetTagPelvis), "no pelvis: its section absent");
 }
 
 // The map of TestPlan written to path.

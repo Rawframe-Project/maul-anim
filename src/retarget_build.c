@@ -349,27 +349,26 @@ static void StoreQuat(uint8_t* p, maniQuat q)
 
 static void LayHeader(const maniRetargetMapSource* s, const Work* w, uint8_t* h)
 {
-    const maniRetargetPelvisSource* p = s->pelvis;
     maniStoreU64(h + maniRetargetHeaderSourceIdentity, maniSkeleton_GetIdentity(s->source));
     maniStoreU64(h + maniRetargetHeaderTargetIdentity, maniSkeleton_GetIdentity(s->target));
     maniStoreU32(h + maniRetargetHeaderSourceBones, w->sourceCount);
     maniStoreU32(h + maniRetargetHeaderTargetBones, w->targetCount);
-    maniStoreU32(h + maniRetargetHeaderPelvisSource, p != NULL ? p->source : MANI_NO_BONE);
-    maniStoreU32(h + maniRetargetHeaderPelvisTarget, p != NULL ? p->target : MANI_NO_BONE);
-    StoreVec(h + maniRetargetHeaderUp,
-             p != NULL ? maniVec3Normalize(p->up, maniVec3Make(0.0f, 1.0f, 0.0f))
-                       : maniVec3Make(0.0f, 1.0f, 0.0f));
-    StoreF32(h + maniRetargetHeaderHorizontal, p != NULL ? w->ratio * p->horizontal : 1.0f);
-    StoreF32(h + maniRetargetHeaderVertical, p != NULL ? w->ratio * p->vertical : 1.0f);
-    StoreF32(h + maniRetargetHeaderRatio, w->ratio);
-    if (p != NULL)
-    {
-        StoreVec(h + maniRetargetHeaderAbsolute, p->absolute);
-        StoreVec(h + maniRetargetHeaderToSource, p->toSource);
-        StoreF32(h + maniRetargetHeaderTranslationWeight, p->translationWeight);
-        StoreVec(h + maniRetargetHeaderSourcePelvis, Position(&w->source[p->source]));
-        StoreVec(h + maniRetargetHeaderTargetPelvis, Position(&w->target[p->target]));
-    }
+}
+
+// The pelvis section, for a map with a pelvis.
+static void LayPelvis(const maniRetargetPelvisSource* p, const Work* w, uint8_t* h)
+{
+    maniStoreU32(h + maniRetargetPelvisSourceBone, p->source);
+    maniStoreU32(h + maniRetargetPelvisTargetBone, p->target);
+    StoreVec(h + maniRetargetPelvisUp, maniVec3Normalize(p->up, maniVec3Make(0.0f, 1.0f, 0.0f)));
+    StoreF32(h + maniRetargetPelvisHorizontal, w->ratio * p->horizontal);
+    StoreF32(h + maniRetargetPelvisVertical, w->ratio * p->vertical);
+    StoreVec(h + maniRetargetPelvisAbsolute, p->absolute);
+    StoreVec(h + maniRetargetPelvisToSource, p->toSource);
+    StoreF32(h + maniRetargetPelvisTranslationWeight, p->translationWeight);
+    StoreVec(h + maniRetargetPelvisSourcePosition, Position(&w->source[p->source]));
+    StoreVec(h + maniRetargetPelvisTargetPosition, Position(&w->target[p->target]));
+    StoreF32(h + maniRetargetPelvisRatio, w->ratio);
 }
 
 static void LayBones(const Work* w, uint8_t* source, uint8_t* target, uint8_t* plan)
@@ -437,11 +436,14 @@ static void MarkSame(const maniRetargetMapSource* s, Work* w)
 
 static maniBuildResult Write(maniBuilder* builder, const maniRetargetMapSource* s, const Work* w)
 {
+    // The pelvis's section, the last, left out without one.
     const uint64_t sizes[MANI_RETARGET_SECTIONS] = {
         MANI_RETARGET_HEADER_SIZE, (uint64_t)w->sourceCount * MANI_RETARGET_SOURCE_SIZE,
         (uint64_t)w->targetCount * MANI_RETARGET_TARGET_SIZE,
-        (uint64_t)w->targetCount * MANI_RETARGET_PLAN_SIZE};
-    size_t own = (size_t)(sizes[0] + sizes[1] + sizes[2] + sizes[3]);
+        (uint64_t)w->targetCount * MANI_RETARGET_PLAN_SIZE,
+        s->pelvis != NULL ? MANI_RETARGET_PELVIS_SIZE : 0};
+    uint32_t count = s->pelvis != NULL ? MANI_RETARGET_SECTIONS : MANI_RETARGET_SECTIONS - 1;
+    size_t own = (size_t)(sizes[0] + sizes[1] + sizes[2] + sizes[3] + sizes[4]);
     uint8_t* staging = maniAllocate(&builder->allocator, own, 1, 8);
     if (staging == NULL)
     {
@@ -450,8 +452,9 @@ static maniBuildResult Write(maniBuilder* builder, const maniRetargetMapSource* 
     memset(staging, 0, own);
     uint8_t* data[MANI_RETARGET_SECTIONS] = {staging, staging + sizes[0],
                                              staging + sizes[0] + sizes[1],
-                                             staging + sizes[0] + sizes[1] + sizes[2]};
-    const uint8_t* views[MANI_RETARGET_SECTIONS] = {data[0], data[1], data[2], data[3]};
+                                             staging + sizes[0] + sizes[1] + sizes[2],
+                                             staging + sizes[0] + sizes[1] + sizes[2] + sizes[3]};
+    const uint8_t* views[MANI_RETARGET_SECTIONS] = {data[0], data[1], data[2], data[3], data[4]};
     maniSectionSource sections[MANI_RETARGET_SECTIONS];
     for (uint32_t i = 0; i < MANI_RETARGET_SECTIONS; ++i)
     {
@@ -459,17 +462,20 @@ static maniBuildResult Write(maniBuilder* builder, const maniRetargetMapSource* 
     }
     LayHeader(s, w, data[0]);
     LayBones(w, data[1], data[2], data[3]);
+    if (s->pelvis != NULL)
+    {
+        LayPelvis(s->pelvis, w, data[4]);
+    }
     uint64_t fileSize = 0;
     uint8_t* file = NULL;
-    if (maniContainerSize(sections, MANI_RETARGET_SECTIONS, &fileSize) && fileSize <= SIZE_MAX)
+    if (maniContainerSize(sections, count, &fileSize) && fileSize <= SIZE_MAX)
     {
         file = maniAllocate(&builder->allocator, (size_t)fileSize, 1, 8);
     }
     if (file != NULL)
     {
         maniWriteContainer(file, maniKindRetargetMap, MANI_RETARGET_FORMAT_VERSION,
-                           maniRetargetComputeIdentity(views, sizes), sections,
-                           MANI_RETARGET_SECTIONS);
+                           maniRetargetComputeIdentity(views, sizes), sections, count);
         maniBuilderKeep(builder, maniKindRetargetMap, file, (size_t)fileSize, NULL, 0);
     }
     maniRelease(&builder->allocator, staging, own, 1, 8);

@@ -56,7 +56,7 @@ extern "C"
     // it.
     typedef struct maniRetargetMap
     {
-        const uint8_t* header;
+        const uint8_t* pelvis;
         const uint8_t* sourceBones;
         const uint8_t* targetBones;
         const uint8_t* plan;
@@ -68,9 +68,10 @@ extern "C"
     } maniRetargetMap;
 
     /// Opens a retargeting map file in place: checks the container, the
-    /// header (the skeletons' identities and bone counts, the pelvis's
-    /// bones, axis and numbers), both reference poses (finite, rotations
-    /// of length 1) and every target bone's plan (its kind, its source
+    /// header (the skeletons' identities and bone counts), the pelvis when
+    /// the map has one (its bones, axis and numbers; absent, no pelvis),
+    /// both reference poses (finite, rotations of length 1) and every
+    /// target bone's plan (its kind, its source
     /// bones within the source's count, its place and weight in [0, 1],
     /// its translation and scale settings, unused words 0).
     ///
