@@ -84,27 +84,23 @@ static const char kExpected[] =
     "  \"format\": \"maul-anim retarget map\",\n"
     "  \"version\": 1,\n"
     "  \"sourceReference\": [\n"
-    "    {\"bone\": \"armL\", \"translation\": [0.2, 0.1, 0], \"rotation\": [0, 0, 0.70710677, "
-    "0.70710677], \"scale\": [1, 1, 1]},\n"
-    "    {\"bone\": \"handL\", \"translation\": [0.3, 0, -0], \"rotation\": [0, 0, 0, 1], "
-    "\"scale\": [1, 1.5, 1]}\n"
+    "    {\"bone\": \"armL\", \"rotation\": [0, 0, 0.70710677, 0.70710677]},\n"
+    "    {\"bone\": \"handL\", \"translation\": [0.3, 0, -0], \"scale\": [1, 1.5, 1]}\n"
     "  ],\n"
-    "  \"targetReference\": [],\n"
     "  \"pairs\": [\n"
-    "    {\"target\": \"head\", \"source\": \"head\", \"rotationWeight\": 0.5, "
-    "\"translation\": \"absolute\", \"scale\": true}\n"
+    "    {\"target\": \"head\", \"source\": \"head\", \"rotationWeight\": 0.5, \"translation\": "
+    "\"absolute\", \"scale\": true}\n"
     "  ],\n"
     "  \"chains\": [\n"
     "    {\"sourceStart\": \"s1\", \"sourceEnd\": \"chest\", \"targetStart\": \"sp1\", "
-    "\"targetEnd\": \"chest\", \"rotation\": \"interpolated\", \"rotationWeight\": 1, "
-    "\"translation\": \"own\", \"scale\": false},\n"
+    "\"targetEnd\": \"chest\", \"rotation\": \"interpolated\", \"rotationWeight\": 1},\n"
     "    {\"sourceStart\": \"armL\", \"sourceEnd\": \"handL\", \"targetStart\": \"upperarm\", "
     "\"targetEnd\": \"hand\", \"rotation\": \"oneToOneReversed\", \"rotationWeight\": 0.25, "
     "\"translation\": \"scaled\", \"scale\": true}\n"
     "  ],\n"
     "  \"pelvis\": {\"source\": \"hips\", \"target\": \"pelvis\", \"up\": [0, 1, 0], "
-    "\"horizontal\": 1, \"vertical\": 0.5, \"absolute\": [0, 1, 0], \"toSource\": [0.25, 0, "
-    "0], \"translationWeight\": 1, \"rotationWeight\": 0.75},\n"
+    "\"horizontal\": 1, \"vertical\": 0.5, \"absolute\": [0, 1, 0], \"toSource\": [0.25, 0, 0], "
+    "\"translationWeight\": 1, \"rotationWeight\": 0.75},\n"
     "  \"matchNames\": true\n"
     "}\n";
 
@@ -116,7 +112,8 @@ static size_t Write(const maniRetargetMapSource* source, maniBuildResult* result
     size_t size = 0;
     if (resultOut->result == mani_success)
     {
-        size = CopyText(builder, s_text, sizeof s_text);
+        // One byte kept, for a caller that ends the text.
+        size = CopyText(builder, s_text, sizeof s_text - 1);
     }
     maniDestroyBuilder(builder);
     return size;
@@ -178,16 +175,11 @@ static void TestWrite(void)
     CHECK(ReadsAs(kExpected, &source), "read back bit for bit");
 }
 
-// No reference, pair, chain or pelvis: each list on one line, the
-// pelvis null; the rest given in full written as none.
+// No reference, pair, chain or pelvis: each left out; the rest given in
+// full written as none.
 static const char kMinimal[] = "{\n"
                                "  \"format\": \"maul-anim retarget map\",\n"
                                "  \"version\": 1,\n"
-                               "  \"sourceReference\": [],\n"
-                               "  \"targetReference\": [],\n"
-                               "  \"pairs\": [],\n"
-                               "  \"chains\": [],\n"
-                               "  \"pelvis\": null,\n"
                                "  \"matchNames\": true\n"
                                "}\n";
 
@@ -198,13 +190,36 @@ static void TestMinimal(void)
     size_t size = Write(&source, &r);
     CHECK(r.result == mani_success && size == sizeof kMinimal - 1 &&
               memcmp(s_text, kMinimal, size) == 0,
-          "empty lists on one line");
+          "empty lists and no pelvis left out");
     source.targetReference = s_targetReference;
     size = Write(&source, &r);
     CHECK(r.result == mani_success && size == sizeof kMinimal - 1 &&
               memcmp(s_text, kMinimal, size) == 0,
           "the rest written as no reference");
     CHECK(ReadsAs(kMinimal, &source), "and read back");
+}
+
+// A pair at its own translation without scale, a pelvis without blends
+// and no name matching: written without those members, and read back.
+static void TestWrittenDefaults(void)
+{
+    static const maniRetargetPairSource kPlain = {9, 7, 0.5f, maniRetargetTranslationOwn, false};
+    static const maniRetargetPelvisSource kStill = {
+        1, 1, {0.0f, 1.0f, 0.0f}, 1.0f, 0.5f, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 1.0f, 0.75f};
+    maniRetargetMapSource source = {.source = &s_source,
+                                    .target = &s_target,
+                                    .pairs = &kPlain,
+                                    .pelvis = &kStill,
+                                    .pairCount = 1};
+    maniBuildResult r;
+    size_t size = Write(&source, &r);
+    s_text[size] = '\0';
+    CHECK(r.result == mani_success &&
+              strstr(s_text, "{\"target\": \"head\", \"source\": \"head\", \"rotationWeight\": "
+                             "0.5}\n") != NULL &&
+              strstr(s_text, "\"vertical\": 0.5, \"translationWeight\": 1, ") != NULL &&
+              strstr(s_text, "\"matchNames\"") == NULL && ReadsAs(s_text, &source),
+          "a pair's carry, the pelvis's blends and no name matching left out");
 }
 
 // Members left out take their off values: the lists, the pelvis,
@@ -364,6 +379,7 @@ int main(int argc, char** argv)
     TestWrite();
     TestMinimal();
     TestDefaults();
+    TestWrittenDefaults();
     TestReadRefusals();
     TestWriteRefusals();
     TestAllocationFailure(Call);

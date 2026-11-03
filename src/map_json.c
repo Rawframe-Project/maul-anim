@@ -160,7 +160,7 @@ void maniMapJsonPutHeader(maniGraphWriter* w, const char* format)
     maniGraphJsonPutText(w, ",");
     maniGraphJsonLine(w, 1);
     maniGraphJsonPutKey(w, "version");
-    maniGraphJsonPutText(w, "1,");
+    maniGraphJsonPutText(w, "1");
 }
 
 void maniMapJsonPutFloats(maniGraphWriter* w, const char* key, const float* values, uint32_t count)
@@ -178,6 +178,7 @@ void maniMapJsonPutFloats(maniGraphWriter* w, const char* key, const float* valu
 
 void maniMapJsonPutOpen(maniGraphWriter* w, const char* key)
 {
+    maniGraphJsonPutText(w, ",");
     maniGraphJsonLine(w, 1);
     maniGraphJsonPutKey(w, key);
     maniGraphJsonPutText(w, "[");
@@ -189,38 +190,45 @@ void maniMapJsonPutItem(maniGraphWriter* w, uint32_t i)
     maniGraphJsonLine(w, 2);
 }
 
-void maniMapJsonPutClose(maniGraphWriter* w, uint32_t count, bool last)
+void maniMapJsonPutClose(maniGraphWriter* w)
 {
-    if (count > 0)
-    {
-        maniGraphJsonLine(w, 1);
-    }
-    maniGraphJsonPutText(w, last ? "]" : "],");
+    maniGraphJsonLine(w, 1);
+    maniGraphJsonPutText(w, "]");
 }
 
 static_assert(sizeof(maniTransform) == 10 * sizeof(float), "ten floats");
 
 // Whether a local is its bone's rest bit for bit.
+// Whether count floats have the same bits.
+static bool SameBits(const float* a, const float* b, uint32_t count)
+{
+    uint32_t x = 0;
+    uint32_t y = 0;
+    bool same = true;
+    for (uint32_t k = 0; k < count; ++k)
+    {
+        memcpy(&x, &a[k], sizeof x);
+        memcpy(&y, &b[k], sizeof y);
+        same = same && x == y;
+    }
+    return same;
+}
+
+// Whether a local is its bone's rest bit for bit.
 static bool AtRest(const maniSkeleton* skeleton, uint32_t bone, const maniTransform* t)
 {
     maniTransform rest = maniSkeleton_GetRest(skeleton, bone);
-    uint32_t a[10];
-    uint32_t b[10];
+    float a[10];
+    float b[10];
     memcpy(a, &rest, sizeof a);
     memcpy(b, t, sizeof b);
-    bool same = true;
-    for (uint32_t k = 0; k < 10; ++k)
-    {
-        same = same && a[k] == b[k];
-    }
-    return same;
+    return SameBits(a, b, 10);
 }
 
 void maniMapJsonPutReference(maniGraphWriter* w, const char* key, const maniTransform* given)
 {
     uint32_t bones = given != NULL ? maniSkeleton_GetBoneCount(w->skeleton) : 0u;
     uint32_t n = 0;
-    maniMapJsonPutOpen(w, key);
     for (uint32_t b = 0; b < bones; ++b)
     {
         const maniTransform* t = &given[b];
@@ -228,19 +236,41 @@ void maniMapJsonPutReference(maniGraphWriter* w, const char* key, const maniTran
         {
             continue;
         }
+        maniTransform rest = maniSkeleton_GetRest(w->skeleton, b);
         const float translation[3] = {t->translation.x, t->translation.y, t->translation.z};
         const float rotation[4] = {t->rotation.x, t->rotation.y, t->rotation.z, t->rotation.w};
         const float scale[3] = {t->scale.x, t->scale.y, t->scale.z};
+        const float restTranslation[3] = {rest.translation.x, rest.translation.y,
+                                          rest.translation.z};
+        const float restRotation[4] = {rest.rotation.x, rest.rotation.y, rest.rotation.z,
+                                       rest.rotation.w};
+        const float restScale[3] = {rest.scale.x, rest.scale.y, rest.scale.z};
+        if (n == 0)
+        {
+            maniMapJsonPutOpen(w, key);
+        }
         maniMapJsonPutItem(w, n++);
         maniGraphJsonPutText(w, "{");
         maniGraphJsonPutKey(w, "bone");
         maniGraphJsonPutBone(w, b);
-        maniMapJsonPutFloats(w, "translation", translation, 3);
-        maniMapJsonPutFloats(w, "rotation", rotation, 4);
-        maniMapJsonPutFloats(w, "scale", scale, 3);
+        if (!SameBits(translation, restTranslation, 3))
+        {
+            maniMapJsonPutFloats(w, "translation", translation, 3);
+        }
+        if (!SameBits(rotation, restRotation, 4))
+        {
+            maniMapJsonPutFloats(w, "rotation", rotation, 4);
+        }
+        if (!SameBits(scale, restScale, 3))
+        {
+            maniMapJsonPutFloats(w, "scale", scale, 3);
+        }
         maniGraphJsonPutText(w, "}");
     }
-    maniMapJsonPutClose(w, n, false);
+    if (n > 0)
+    {
+        maniMapJsonPutClose(w);
+    }
 }
 
 maniBuildResult maniMapJsonKeep(maniBuilder* builder, maniBuildResult built,

@@ -204,45 +204,59 @@ static void Draw(Writer* w, const void* source)
     const maniMirrorMapSource* s = source;
     maniGraphJsonPutText(w, "{");
     maniMapJsonPutHeader(w, kFormat);
+    maniGraphJsonPutText(w, ",");
     maniGraphJsonLine(w, 1);
     maniGraphJsonPutKey(w, "axis");
     maniGraphJsonPutText(w, "\"");
     maniGraphJsonPutText(w, kAxes[s->axis]);
-    maniGraphJsonPutText(w, "\",");
+    maniGraphJsonPutText(w, "\"");
     maniMapJsonPutReference(w, "reference", s->reference);
-    maniMapJsonPutOpen(w, "pairs");
-    for (uint32_t i = 0; i < s->pairCount; ++i)
+    // Each list only when it has items, the reader's empty list else.
+    if (s->pairCount > 0)
     {
-        size_t first = 0;
-        size_t second = 0;
-        const char* a = maniSkeleton_GetBoneName(s->skeleton, s->pairs[i].first, &first);
-        const char* b = maniSkeleton_GetBoneName(s->skeleton, s->pairs[i].second, &second);
-        maniMapJsonPutItem(w, i);
-        PutTwo(w, a, first, b, second);
+        maniMapJsonPutOpen(w, "pairs");
+        for (uint32_t i = 0; i < s->pairCount; ++i)
+        {
+            size_t first = 0;
+            size_t second = 0;
+            const char* a = maniSkeleton_GetBoneName(s->skeleton, s->pairs[i].first, &first);
+            const char* b = maniSkeleton_GetBoneName(s->skeleton, s->pairs[i].second, &second);
+            maniMapJsonPutItem(w, i);
+            PutTwo(w, a, first, b, second);
+        }
+        maniMapJsonPutClose(w);
     }
-    maniMapJsonPutClose(w, s->pairCount, false);
-    maniMapJsonPutOpen(w, "rules");
-    for (uint32_t i = 0; i < s->ruleCount; ++i)
+    if (s->ruleCount > 0)
     {
-        maniMapJsonPutItem(w, i);
-        PutRule(w, &s->rules[i]);
+        maniMapJsonPutOpen(w, "rules");
+        for (uint32_t i = 0; i < s->ruleCount; ++i)
+        {
+            maniMapJsonPutItem(w, i);
+            PutRule(w, &s->rules[i]);
+        }
+        maniMapJsonPutClose(w);
     }
-    maniMapJsonPutClose(w, s->ruleCount, false);
-    maniMapJsonPutOpen(w, "namePairs");
-    for (uint32_t i = 0; i < s->namePairCount; ++i)
+    if (s->namePairCount > 0)
     {
-        const maniMirrorNamePairSource* p = &s->namePairs[i];
-        maniMapJsonPutItem(w, i);
-        PutTwo(w, p->first, p->firstLength, p->second, p->secondLength);
+        maniMapJsonPutOpen(w, "namePairs");
+        for (uint32_t i = 0; i < s->namePairCount; ++i)
+        {
+            const maniMirrorNamePairSource* p = &s->namePairs[i];
+            maniMapJsonPutItem(w, i);
+            PutTwo(w, p->first, p->firstLength, p->second, p->secondLength);
+        }
+        maniMapJsonPutClose(w);
     }
-    maniMapJsonPutClose(w, s->namePairCount, false);
-    maniMapJsonPutOpen(w, "names");
-    for (uint32_t i = 0; i < s->nameCount; ++i)
+    if (s->nameCount > 0)
     {
-        maniMapJsonPutItem(w, i);
-        maniGraphJsonPutString(w, s->names[i].name, s->names[i].nameLength);
+        maniMapJsonPutOpen(w, "names");
+        for (uint32_t i = 0; i < s->nameCount; ++i)
+        {
+            maniMapJsonPutItem(w, i);
+            maniGraphJsonPutString(w, s->names[i].name, s->names[i].nameLength);
+        }
+        maniMapJsonPutClose(w);
     }
-    maniMapJsonPutClose(w, s->nameCount, true);
     maniGraphJsonPutText(w, "\n}\n");
 }
 
