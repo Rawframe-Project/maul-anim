@@ -782,8 +782,10 @@ static void TestOtherVersions(void)
 {
     maniMotionDatabaseSource source = Source();
     CHECK(Build(&source).result == mani_success, "built");
-    const uint16_t versions[3] = {1, 2, MANI_MATCH_FORMAT_VERSION + 1};
-    for (uint32_t k = 0; k < 3; ++k)
+    // The one before this, whose header held the leaf size, among them.
+    const uint16_t versions[4] = {1, 2, MANI_MATCH_FORMAT_VERSION - 1,
+                                  MANI_MATCH_FORMAT_VERSION + 1};
+    for (uint32_t k = 0; k < 4; ++k)
     {
         memcpy(s_crafted, s_database, s_size);
         maniStoreU16(s_crafted + 6, versions[k]);
@@ -886,6 +888,21 @@ static void TestLeafSection(void)
     CHECK(RefusedAt(leaf, MANI_MATCH_DEFAULT_LEAF, leaf) && RefusedAt(leaf, 12, leaf) &&
               RefusedAt(leaf, 0, leaf),
           "a leaf size at the default, written, or not one of the sizes");
+    // The section 4 bytes longer, the file ending with it: refused at its
+    // size in the table's last entry.
+    uint64_t last = MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(maniLoadU32(s_database + 12) - 1);
+    size_t longer = s_size + 4;
+    memcpy(s_crafted, s_database, s_size);
+    memset(s_crafted + s_size, 0, 4);
+    maniStoreU64(s_crafted + last + 16, 8);
+    maniStoreU64(s_crafted + 24, longer);
+    maniStoreU64(s_crafted + 32,
+                 maniHashBytes(MANI_HASH_INIT, s_crafted + MANI_CONTAINER_HEADER_SIZE,
+                               longer - MANI_CONTAINER_HEADER_SIZE));
+    maniFileResult r = maniOpenMotionDatabase(s_crafted, longer, &d);
+    CHECK(maniLoadU32(s_database + last) == maniMatchTagLeaf && r.result == mani_errorFormat &&
+              r.offset == last + 16,
+          "a leaf size's section of the wrong size");
 }
 
 static bool WriteFile(const char* path, const void* data, size_t size)
