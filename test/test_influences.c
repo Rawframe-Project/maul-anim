@@ -168,14 +168,16 @@ static void TestBuildsAndReads(void)
     CHECK(!maniInfluences_GetCenter(&v, 0, &center) && center.x == 0.0f && center.y == 0.0f &&
               center.z == 0.0f,
           "no centers yet: the center cleared");
+    CHECK(TestSectionAbsent(s_file, maniInfluenceTagCenters), "no centers: their section absent");
     maniInfluenceSource plain = Sample();
     plain.dualQuaternionWeights = NULL;
     plain.vertexCount = 2;
     CHECK(BuildFrom(&plain).result == mani_success, "one group");
     CHECK(maniOpenInfluences(s_file, s_size, &v).result == mani_success &&
               maniInfluences_GetPerVertex(&v) == 8 &&
-              maniInfluences_GetDualQuaternionWeight(&v, 1) == 0.0f,
-          "no blend weights: 0");
+              maniInfluences_GetDualQuaternionWeight(&v, 1) == 0.0f &&
+              TestSectionAbsent(s_file, maniInfluenceTagDualQuaternionWeights),
+          "no blend weights: their section absent, read as 0");
     // Another skin: a skin of the same joints and other binds.
     maniSkin other = s_skin;
     other.identity ^= 1;

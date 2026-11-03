@@ -369,6 +369,20 @@ static void TestColliderRefusals(void)
     s = Source();
     s_groups[0].colliders = NULL;
     CHECK(Refused(&s, maniBuildReasonColliderGroup, 0, 0), "a group's count without its list");
+    // No colliders: their section absent, never empty, and read as none.
+    s = Source();
+    s.colliders = NULL;
+    s.colliderGroups = NULL;
+    s.colliderCount = 0;
+    s.colliderGroupCount = 0;
+    s_springs[0].colliderGroups = NULL;
+    s_springs[0].colliderGroupCount = 0;
+    s_springs[1].colliderGroups = NULL;
+    s_springs[1].colliderGroupCount = 0;
+    CHECK(Build(&s).result == mani_success && TestSectionAbsent(s_file, maniSpringTagColliders) &&
+              maniOpenSpringSet(s_file, s_size, &set).result == mani_success &&
+              set.colliderCount == 0,
+          "no colliders: their section absent");
 }
 
 static void TestSpringRefusals(void)

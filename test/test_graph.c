@@ -552,6 +552,10 @@ static void TestOpenRefusals(void)
           "misuses");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    CHECK(TestSectionAbsent(s_file, maniGraphTagMirror) &&
+              maniOpenGraph(s_file, s_size, &g).result == mani_success &&
+              maniGraph_GetMirrorMapIdentity(&g) == 0,
+          "no mirror: its section absent, read as none");
     // Tags 1 to 15 (file-formats.md).
     CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 15), "a later writer's tag refused");
 }

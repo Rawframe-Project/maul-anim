@@ -140,8 +140,8 @@ static uint64_t FirstNonzero(const uint8_t* b, uint64_t at, uint64_t end)
 
 // The table's entries: zero where zero is due, tags from 1 increasing,
 // each section where the writer puts it (the previous one's end, or the
-// table's, rounded up to 16) after zero padding, inside the file, and
-// the file ending where its last section ends. *laterOut is the first
+// table's, rounded up to 16) after zero padding, not empty, inside the
+// file, and the file ending where its last section ends. *laterOut is the first
 // entry whose tag is past lastTag, a field only a later writer knows,
 // or 0.
 static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t count,
@@ -180,7 +180,10 @@ static maniFileResult CheckTable(const uint8_t* b, uint64_t fileSize, uint32_t c
         {
             return Malformed(nonzero);
         }
-        if (sectionSize > fileSize - offset)
+        // An empty section is left out of the table, so a file has one
+        // layout. A size of 0 wraps to UINT64_MAX on purpose, so this one
+        // comparison refuses it too.
+        if (sectionSize - 1 >= fileSize - offset)
         {
             return Malformed(at + 16);
         }

@@ -19,8 +19,9 @@
 // magic and two u32 leave the u64 fields two bytes short whatever their
 // order. The table, from byte 48, holds per section: tag (u32), zero
 // (u32, aligning the offset), offset (u64), size (u64). Sections follow
-// the table in table order, tags strictly increasing from 1, each at the
-// previous one's end (or the table's) rounded up to 16 after zero bytes;
+// the table in table order, tags strictly increasing from 1, none empty
+// (an empty section is left out), each at the previous one's end (or the
+// table's) rounded up to 16 after zero bytes;
 // the file ends where its last section ends. A kind's tags run from 1 to
 // its last, and a tag past it is a field only a later writer knows.
 

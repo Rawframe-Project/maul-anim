@@ -205,6 +205,10 @@ static void TestHeader(void)
     CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success, "opens");
     CHECK(TestOtherVersionsRefused(s_file, s_size, OpenFile), "another format version refused");
     CHECK(TestPlacementRefused(s_file, s_size, OpenFile), "sections placed as written, or refused");
+    maniRootMotionSource none;
+    CHECK(TestSectionAbsent(s_file, maniClipTagRootMotion) &&
+              !maniClip_GetRootMotionSource(&clip, &none),
+          "no root motion: its section absent, read as none");
     // Tags 1 to 16 (file-formats.md).
     CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 16), "a later writer's tag refused");
     CHECK(maniClip_GetDuration(&clip) == 1.0f, "duration from the last key");

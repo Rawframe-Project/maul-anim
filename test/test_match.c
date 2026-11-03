@@ -213,6 +213,9 @@ static void TestFeatures(void)
     CHECK(TestOtherVersionsRefused(s_database, s_size, OpenFile), "another format version refused");
     CHECK(TestPlacementRefused(s_database, s_size, OpenFile),
           "sections placed as written, or refused");
+    CHECK(TestSectionAbsent(s_database, maniMatchTagMirror) &&
+              maniMotionDatabase_GetMirrorMapIdentity(&d) == 0,
+          "no mirrored entry: the mirror section absent, read as none");
     // Tags 1 to 13 (file-formats.md).
     CHECK(TestLaterTagRefused(s_database, s_size, OpenFile, 13), "a later writer's tag refused");
     CHECK(d.frameCount == 32 && d.featureCount == 12 && d.channelCount == 4 && d.timeCount == 5 &&

@@ -85,10 +85,8 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
         // The container keeps tags from 1 to the last.
         MANI_ASSERT(tag >= 1 && tag <= MANI_MORPH_SECTIONS);
         uint64_t size = maniLoadU64(entry + 16);
-        if (size == 0)
-        {
-            return Fail(entryAt + 16);
-        }
+        // The container refuses an empty entry: an empty section is left out.
+        MANI_ASSERT(size > 0);
         s->data[tag - 1] = c->bytes + maniLoadU64(entry + 8);
         s->sizes[tag - 1] = size;
         s->at[tag - 1] = maniLoadU64(entry + 8);

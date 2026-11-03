@@ -243,6 +243,14 @@ static void TestPlacementRefusals(void)
     maniStoreU32(s_file + 48, 0);
     Rehash();
     ExpectFormat(48, "tag 0");
+    // The second section empty, the file ending at its place: an empty
+    // section is left out, never written empty.
+    WriteSample();
+    maniStoreU64(s_file + 88, 0);
+    s_size = 112;
+    maniStoreU64(s_file + 24, s_size);
+    Rehash();
+    ExpectFormat(88, "an empty section");
     // An empty file ends at its table.
     maniWriteContainer(s_file, kKind, 1, 0, NULL, 0);
     s_size = 64;
