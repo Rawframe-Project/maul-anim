@@ -13,8 +13,10 @@
 #include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 // A frame: a rotation and an origin while every scale composed into it
 // is exactly 1 (composed as quaternions, its rotation read without a
@@ -89,6 +91,35 @@ bool maniIkFiniteVec(maniVec3 v);
 // finite vector, above 0. A binary32 dot(v, v) reads a vector shorter
 // than about 2^-75 as zero.
 bool maniIkNonzero(maniVec3 v);
+
+// The largest of v's components, 0 when one is not finite.
+static inline float maniIkLargest(maniVec3 v)
+{
+    float x = fabsf(v.x);
+    float y = fabsf(v.y);
+    float z = fabsf(v.z);
+    float largest = x > y ? x : y;
+    largest = largest > z ? largest : z;
+    return isfinite(largest) ? largest : 0.0f;
+}
+
+// The exponent e of a finite x of at least 0 with x in [2^(e-1), 2^e),
+// read from its bits (-126 for any subnormal and for 0).
+static inline int maniIkExponent(float x)
+{
+    uint32_t bits = 0;
+    memcpy(&bits, &x, sizeof bits);
+    return (int)(bits >> 23) - 126;
+}
+
+// 2^n for n from -126 to 127, built from its bits.
+static inline float maniIkPower(int n)
+{
+    uint32_t bits = (uint32_t)(127 + n) << 23;
+    float x = 0.0f;
+    memcpy(&x, &bits, sizeof x);
+    return x;
+}
 
 // Scales v[0], v[1] and v[2] by one power of two, 2^-e, chosen from the
 // first two: when their largest component is past 2^24 or below 2^-24,

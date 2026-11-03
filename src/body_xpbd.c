@@ -266,7 +266,7 @@ static MANI_NOINLINE maniResult SolveBodyXpbdWork(maniPose* pose, const maniSkel
     Bodies b = Lay(&part);
     Masses(&part, solve, &b);
     maniBodyPrepare(&part, solve);
-    for (uint32_t i = 0; i < solve->iterations && Miss(&part, solve, &b) > solve->tolerance; ++i)
+    for (uint32_t i = 0; i < solve->iterations && Miss(&part, solve, &b) > part.tolerance; ++i)
     {
         for (uint32_t e = 0; e < part.effectors; ++e)
         {

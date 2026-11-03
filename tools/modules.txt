@@ -71,7 +71,7 @@ ik_limit: scalar vecmath
 ik_chain: ik_frame ik_limit vecmath
 ik_ccd: fpenv ik_chain ik_frame scalar vecmath
 ik_fabrik: fpenv ik_chain ik_frame vecmath
-body_ik: ik_frame ik_limit vecmath
+body_ik: fpenv ik_frame ik_limit vecmath
 body_xpbd: body_ik fpenv vecmath
 body_sdls: body_ik fpenv jacobi_svd vecmath
 jacobi_svd:

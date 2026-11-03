@@ -197,4 +197,40 @@ static inline bool Finite(const maniPose* pose)
     return finite;
 }
 
+// The figure under a root scale from 2^-100 to 2^100, both hands' goals
+// and the tolerance scaled with it, solved by solve: whether every turn
+// is bit for bit the one at 2^1 and the reach the same, reached there.
+static inline bool SameAtScales(bool (*solve)(maniPose*, const maniBodySolve*, bool*))
+{
+    const int exponents[7] = {1, -100, -80, -60, 60, 80, 100};
+    maniQuat first[BONES];
+    bool firstReached = false;
+    bool same = true;
+    for (int e = 0; e < 7; ++e)
+    {
+        float k = ldexpf(1.0f, exponents[e]);
+        Bent(s_pose);
+        maniTransform root = maniPose_GetLocal(s_pose, kRoot);
+        root.scale = (maniVec3){k, k, k};
+        maniPose_SetLocal(s_pose, kRoot, root);
+        maniBodySolve s = Solve((maniVec3){0.6f * k, 1.2f * k, 0.3f * k},
+                                (maniVec3){-0.5f * k, 1.6f * k, 0.2f * k});
+        s.tolerance *= k;
+        bool r = false;
+        same = same && solve(s_pose, &s, &r);
+        maniQuat turns[BONES];
+        for (uint32_t b = 0; b < BONES; ++b)
+        {
+            turns[b] = maniPose_GetLocal(s_pose, b).rotation;
+        }
+        if (e == 0)
+        {
+            memcpy(first, turns, sizeof turns);
+            firstReached = r;
+        }
+        same = same && r == firstReached && memcmp(first, turns, sizeof turns) == 0;
+    }
+    return same && firstReached;
+}
+
 #endif // MAUL_ANIM_TEST_BODY_FIGURE_H
