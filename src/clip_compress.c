@@ -367,20 +367,34 @@ static void Header(const maniClip* c, uint32_t segments, uint8_t h[MANI_CLIP_HEA
     maniStoreU32(h + 12, c->sampleCount);
     StoreF32(h + 16, c->sampleRate);
     StoreF32(h + 20, c->duration);
-    const uint32_t fields[8] = {c->loop,
-                                c->trackCount,
+    const uint32_t fields[7] = {c->trackCount,
                                 c->floatsPerSample,
                                 c->floatTrackCount,
                                 c->discreteTrackCount,
                                 c->eventCount,
                                 c->markerCount,
                                 segments};
-    for (uint32_t i = 0; i < 8; ++i)
+    for (uint32_t i = 0; i < 7; ++i)
     {
         maniStoreU32(h + 24 + 4 * i, fields[i]);
     }
-    maniStoreU32(h + 60, c->additive);
-    maniStoreU32(h + 56, 1);
+}
+
+// The root motion, as the clip has it, and each option off its default
+// (its u32 in options).
+static void LastSections(const maniClip* c, uint8_t options[2][MANI_CLIP_OPTION_SIZE],
+                         const uint8_t** sections, uint64_t* sizes)
+{
+    sections[maniClipTagRootMotion - 1] = c->rootMotion != NULL ? c->rootMotion : &kEmpty;
+    sizes[maniClipTagRootMotion - 1] =
+        c->rootMotion != NULL ? maniRootMotionSize(c->sampleCount) : 0;
+    maniStoreU32(options[0], (uint32_t)c->loop);
+    maniStoreU32(options[1], (uint32_t)c->additive);
+    for (uint32_t k = 0; k < 2; ++k)
+    {
+        sections[maniClipTagLoop - 1 + k] = options[k];
+        sizes[maniClipTagLoop - 1 + k] = maniLoadU32(options[k]) != 0 ? MANI_CLIP_OPTION_SIZE : 0;
+    }
 }
 
 // The file from a planned clip, kept in the builder.
@@ -427,11 +441,8 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
         sections[10 + i] = out.sizes[i] > 0 ? out.data[i] : &kEmpty;
         sizes[10 + i] = out.sizes[i];
     }
-    // The root motion, as the clip has it.
-    sections[maniClipTagRootMotion - 1] =
-        p->clip->rootMotion != NULL ? p->clip->rootMotion : &kEmpty;
-    sizes[maniClipTagRootMotion - 1] =
-        p->clip->rootMotion != NULL ? maniRootMotionSize(p->clip->sampleCount) : 0;
+    uint8_t options[2][MANI_CLIP_OPTION_SIZE];
+    LastSections(p->clip, options, sections, sizes);
     // Empty sections are left out of the table.
     maniSectionSource table[MANI_CLIP_ALL_SECTIONS];
     uint32_t count = 0;

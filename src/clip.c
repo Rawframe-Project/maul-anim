@@ -106,41 +106,26 @@ static maniFileResult CheckHeader(const uint8_t* h, uint64_t at, maniClip* clip)
     {
         return Fail(at + 12);
     }
-    if (maniLoadU32(h + 24) > maniLoopRepeat)
-    {
-        return Fail(at + 24);
-    }
     // A compressed clip has its segments; full precision none.
-    uint32_t segments = maniLoadU32(h + 52);
-    uint32_t form = maniLoadU32(h + 56);
-    if (form > 1)
+    uint32_t segments = maniLoadU32(h + 48);
+    if (segments > expected)
     {
-        return Fail(at + 56);
-    }
-    if (form == 1 ? segments == 0 || segments > expected : segments != 0)
-    {
-        return Fail(at + 52);
-    }
-    if (maniLoadU32(h + 60) > maniAdditiveFirstFrame)
-    {
-        return Fail(at + 60);
+        return Fail(at + 48);
     }
     memset(clip, 0, sizeof *clip);
     clip->skeletonIdentity = maniLoadU64(h);
     clip->skeletonBoneCount = bones;
     clip->sampleCount = expected;
-    clip->trackCount = maniLoadU32(h + 28);
-    clip->floatsPerSample = maniLoadU32(h + 32);
-    clip->floatTrackCount = maniLoadU32(h + 36);
-    clip->discreteTrackCount = maniLoadU32(h + 40);
-    clip->eventCount = maniLoadU32(h + 44);
-    clip->markerCount = maniLoadU32(h + 48);
+    clip->trackCount = maniLoadU32(h + 24);
+    clip->floatsPerSample = maniLoadU32(h + 28);
+    clip->floatTrackCount = maniLoadU32(h + 32);
+    clip->discreteTrackCount = maniLoadU32(h + 36);
+    clip->eventCount = maniLoadU32(h + 40);
+    clip->markerCount = maniLoadU32(h + 44);
     clip->segmentCount = segments;
-    clip->compressed = form;
+    clip->compressed = segments != 0;
     clip->sampleRate = rate;
     clip->duration = duration;
-    clip->loop = maniLoadU32(h + 24);
-    clip->additive = maniLoadU32(h + 60);
     return (maniFileResult){mani_success, 0, 0};
 }
 
@@ -170,7 +155,7 @@ static maniFileResult CheckTracks(const uint8_t* t, uint64_t at, uint64_t header
     }
     if (floats != clip->floatsPerSample)
     {
-        return Fail(headerAt + 32);
+        return Fail(headerAt + 28);
     }
     return (maniFileResult){mani_success, 0, 0};
 }
@@ -224,7 +209,7 @@ typedef struct Sections
 
 static const uint8_t kEmpty = 0;
 
-// The table: tags 1 to 16 (the container keeps them increasing), none
+// The table: tags 1 to 18 (the container keeps them increasing), none
 // empty, since an empty section is left out.
 static maniFileResult LoadSections(const maniContainer* c, Sections* s)
 {
@@ -254,6 +239,30 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
     return (maniFileResult){mani_success, 0, 0};
 }
 
+// An option's section: absent at its default (0), else one u32 from 1 to
+// last; the value at *valueOut.
+static maniFileResult CheckOption(const Sections* s, uint32_t tag, uint32_t last,
+                                  uint32_t* valueOut)
+{
+    uint32_t i = tag - 1;
+    *valueOut = 0;
+    if (s->sizes[i] == 0)
+    {
+        return (maniFileResult){mani_success, 0, 0};
+    }
+    if (s->sizes[i] != MANI_CLIP_OPTION_SIZE)
+    {
+        return Fail(s->entry[i]);
+    }
+    uint32_t value = maniLoadU32(s->data[i]);
+    if (value == 0 || value > last)
+    {
+        return Fail(s->at[i]);
+    }
+    *valueOut = value;
+    return (maniFileResult){mani_success, 0, 0};
+}
+
 // The header and the tracks (sections 1 and 2), and the samples: section
 // 3 at full precision, none in a compressed clip, which alone has
 // sections 11 to 15.
@@ -264,10 +273,18 @@ static maniFileResult CheckFront(const Sections* s, maniClip* clip)
         return Fail(s->entry[0]);
     }
     maniFileResult r = CheckHeader(s->data[0], s->at[0], clip);
+    uint32_t loop = 0;
+    uint32_t additive = 0;
+    r = r.result == mani_success ? CheckOption(s, maniClipTagLoop, maniLoopRepeat, &loop) : r;
+    r = r.result == mani_success
+            ? CheckOption(s, maniClipTagAdditive, maniAdditiveFirstFrame, &additive)
+            : r;
     if (r.result != mani_success)
     {
         return r;
     }
+    clip->loop = loop;
+    clip->additive = additive;
     for (uint32_t i = MANI_CLIP_SECTIONS; !clip->compressed && i < MANI_CLIP_COMPRESSED_SECTIONS;
          ++i)
     {

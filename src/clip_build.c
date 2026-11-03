@@ -469,9 +469,11 @@ typedef struct Plan
 } Plan;
 
 // The sections past the samples: the named ones, the compressed ones
-// empty, the root motion.
+// empty, the root motion, and each option off its default (its u32 in
+// options).
 static void LaySections(const Plan* plan, const maniClipNamedLayout* named,
-                        const uint8_t** sections, uint64_t* sizes)
+                        const uint8_t options[2][MANI_CLIP_OPTION_SIZE], const uint8_t** sections,
+                        uint64_t* sizes)
 {
     static const uint8_t kNone = 0;
     for (uint32_t i = 0; i < 7; ++i)
@@ -489,6 +491,11 @@ static void LaySections(const Plan* plan, const maniClipNamedLayout* named,
         sections[maniClipTagRootMotion - 1] = plan->rootMotionBytes;
         sizes[maniClipTagRootMotion - 1] = maniRootMotionSize(plan->sampleCount);
     }
+    for (uint32_t k = 0; k < 2; ++k)
+    {
+        sections[maniClipTagLoop - 1 + k] = options[k];
+        sizes[maniClipTagLoop - 1 + k] = maniLoadU32(options[k]) != 0 ? MANI_CLIP_OPTION_SIZE : 0;
+    }
 }
 
 static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source, const Plan* plan,
@@ -500,14 +507,15 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
     maniStoreU32(header + 12, plan->sampleCount);
     memcpy(header + 16, &plan->rate, 4);
     memcpy(header + 20, &plan->duration, 4);
-    maniStoreU32(header + 24, source->loop);
-    maniStoreU32(header + 28, plan->tracks);
-    maniStoreU32(header + 32, plan->floatsPerSample);
+    maniStoreU32(header + 24, plan->tracks);
+    maniStoreU32(header + 28, plan->floatsPerSample);
     for (uint32_t l = 0; l < 4; ++l)
     {
-        maniStoreU32(header + 36 + 4 * l, named->counts[l]);
+        maniStoreU32(header + 32 + 4 * l, named->counts[l]);
     }
-    maniStoreU32(header + 60, source->additive);
+    uint8_t options[2][MANI_CLIP_OPTION_SIZE];
+    maniStoreU32(options[0], (uint32_t)source->loop);
+    maniStoreU32(options[1], (uint32_t)source->additive);
     size_t trackBytes = (size_t)plan->tracks * MANI_CLIP_TRACK_SIZE;
     size_t sampleFloats = 0;
     if (ckd_mul(&sampleFloats, (size_t)plan->sampleCount, (size_t)plan->floatsPerSample))
@@ -537,7 +545,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniClipSource* source,
         const uint8_t* sections[MANI_CLIP_ALL_SECTIONS] = {header, tracks, (const uint8_t*)samples};
         uint64_t sizes[MANI_CLIP_ALL_SECTIONS] = {sizeof header, trackBytes,
                                                   sampleFloats * sizeof(float)};
-        LaySections(plan, named, sections, sizes);
+        LaySections(plan, named, (const uint8_t (*)[MANI_CLIP_OPTION_SIZE])options, sections,
+                    sizes);
         // Empty sections are left out of the table.
         maniSectionSource table[MANI_CLIP_ALL_SECTIONS];
         uint32_t count = 0;

@@ -35,7 +35,7 @@
 // The clip scene: the sample clip with root motion, sampled at times
 // across its loop (local poses, float tracks, root motion), and its file;
 // every platform and backend must give this value.
-#define PINNED_SCENE_HASH 0xe8ae210836ba1cedull
+#define PINNED_SCENE_HASH 0x1f33672f165b91e6ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_file[65536];
@@ -209,8 +209,8 @@ static void TestHeader(void)
     CHECK(TestSectionAbsent(s_file, maniClipTagRootMotion) &&
               !maniClip_GetRootMotionSource(&clip, &none),
           "no root motion: its section absent, read as none");
-    // Tags 1 to 16 (file-formats.md).
-    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 16), "a later writer's tag refused");
+    // Tags 1 to 18 (file-formats.md).
+    CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 18), "a later writer's tag refused");
     CHECK(maniClip_GetDuration(&clip) == 1.0f, "duration from the last key");
     CHECK(maniClip_GetSampleRate(&clip) == 10.0f, "rate");
     CHECK(maniClip_GetSampleCount(&clip) == 11, "samples");
@@ -925,6 +925,21 @@ static void StoreF32(uint64_t at, float value)
     memcpy(s_file + at, &value, sizeof value);
 }
 
+// Where an option's section starts, from the table; 0 when absent.
+static uint64_t OptionAt(uint32_t tag)
+{
+    uint32_t count = maniLoadU32(s_file + 12);
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const uint8_t* entry = s_file + MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)i;
+        if (maniLoadU32(entry) == tag)
+        {
+            return maniLoadU64(entry + 8);
+        }
+    }
+    return 0;
+}
+
 // The payload hash and the identity made right after an edit that
 // opening accepts.
 static void Restamp(void)
@@ -994,33 +1009,29 @@ static void TestOpenRefusals(void)
     ExpectFormat(header + 20, "duration below 0");
     maniStoreU32(s_file + header + 12, 12);
     ExpectFormat(header + 12, "sample count not the duration's");
-    maniStoreU32(s_file + header + 24, 2);
-    ExpectFormat(header + 24, "loop policy");
-    maniStoreU32(s_file + header + 60, 3);
-    ExpectFormat(header + 60, "an additive basis past first frame");
+    // The sample repeats: its loop policy is a section of its own.
+    uint64_t loop = OptionAt(maniClipTagLoop);
+    CHECK(loop != 0 && maniLoadU32(s_file + loop) == maniLoopRepeat, "the loop policy's section");
+    maniStoreU32(s_file + loop, maniLoopClamp);
+    ExpectFormat(loop, "a loop policy at its default, written");
+    maniStoreU32(s_file + loop, 2);
+    ExpectFormat(loop, "a loop policy past repeat");
     // The words a negative kind would leave.
     for (int k = 0; k < NEGATIVE_KIND_COUNT; ++k)
     {
-        maniStoreU32(s_file + header + 24, (uint32_t)kNegativeKinds[k]);
-        ExpectFormat(header + 24, "a negative loop policy's word");
-        maniStoreU32(s_file + header + 60, (uint32_t)kNegativeKinds[k]);
-        ExpectFormat(header + 60, "a negative basis's word");
+        maniStoreU32(s_file + loop, (uint32_t)kNegativeKinds[k]);
+        ExpectFormat(loop, "a negative loop policy's word");
     }
-    s_file[header + 63] = 1;
-    ExpectFormat(header + 60, "the basis word's last byte");
-    s_file[header + 56] = 2;
-    ExpectFormat(header + 56, "form past compressed");
-    s_file[header + 56] = 1;
-    ExpectFormat(header + 52, "compressed without segments");
-    s_file[header + 52] = 1;
-    ExpectFormat(header + 52, "segments at full precision");
-    s_file[header + 52] = 1;
-    s_file[header + 56] = 1;
-    // A compressed header over full-precision samples: the samples
+    s_file[loop + 3] = 1;
+    ExpectFormat(loop, "the policy word's last byte");
+    maniStoreU32(s_file + header + 48, 12);
+    ExpectFormat(header + 48, "segments past the samples");
+    // Segments say compressed, over full-precision samples: the samples
     // section's size is wrong.
-    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 2 * 24 + 16, "compressed form with samples");
-    maniStoreU32(s_file + header + 32, 7);
-    ExpectFormat(header + 32, "floats per sample");
+    maniStoreU32(s_file + header + 48, 1);
+    ExpectFormat(MANI_CONTAINER_HEADER_SIZE + 2 * 24 + 16, "segments at full precision");
+    maniStoreU32(s_file + header + 28, 7);
+    ExpectFormat(header + 28, "floats per sample");
     // Tracks are bones 0, 1, 2: make the second bone 0.
     maniStoreU16(s_file + tracks + 4, 0);
     ExpectFormat(tracks + 4, "tracks not increasing");
@@ -1263,6 +1274,43 @@ static void TestAdditiveClip(void)
     CHECK(r.result == mani_errorInvalid && r.reason == maniBuildReasonBasis, "a basis z of 0");
     source.additive = maniAdditiveRest;
     CHECK(BuildFrom(&source).result == mani_success, "the rest's scale is 1");
+    // The basis is a section of its own, present off its default.
+    uint64_t basis = OptionAt(maniClipTagAdditive);
+    CHECK(basis != 0 && maniLoadU32(s_file + basis) == maniAdditiveRest, "the basis's section");
+    maniClip opened;
+    CHECK(maniOpenClip(s_file, s_size, &opened).result == mani_success &&
+              maniClip_GetAdditiveBasis(&opened) == maniAdditiveRest,
+          "the basis read back");
+    maniStoreU32(s_file + basis, maniAdditiveNone);
+    ExpectFormat(basis, "a basis at its default, written");
+    CHECK(BuildFrom(&source).result == mani_success, "built again");
+    basis = OptionAt(maniClipTagAdditive);
+    maniStoreU32(s_file + basis, maniAdditiveFirstFrame + 1);
+    ExpectFormat(basis, "a basis past first frame");
+}
+
+// A source at its defaults (clamped, not additive) writes neither
+// option, and the clip reads them as their defaults; each off its
+// default is written as its own section.
+static void TestOptionsAtDefaults(void)
+{
+    OpenSkeleton();
+    maniClipSource source = SampleSource();
+    source.loop = maniLoopClamp;
+    CHECK(BuildFrom(&source).result == mani_success, "a clamped clip builds");
+    CHECK(OptionAt(maniClipTagLoop) == 0 && OptionAt(maniClipTagAdditive) == 0,
+          "no option written at its default");
+    maniClip clip;
+    CHECK(maniOpenClip(s_file, s_size, &clip).result == mani_success &&
+              maniClip_GetLoopPolicy(&clip) == maniLoopClamp &&
+              maniClip_GetAdditiveBasis(&clip) == maniAdditiveNone,
+          "absent options read as their defaults");
+    source.loop = maniLoopRepeat;
+    CHECK(BuildFrom(&source).result == mani_success &&
+              maniOpenClip(s_file, s_size, &clip).result == mani_success &&
+              maniClip_GetLoopPolicy(&clip) == maniLoopRepeat &&
+              maniLoadU32(s_file + OptionAt(maniClipTagLoop)) == maniLoopRepeat,
+          "a repeating clip writes its policy");
 }
 
 // The same file whatever bytes pad the source, its tracks and events.
@@ -1330,6 +1378,7 @@ int main(int argc, char** argv)
     TestBuildRefusals();
     TestAdditiveClip();
     TestOpenRefusals();
+    TestOptionsAtDefaults();
     TestEveryByteFlip();
     TestPinnedScene();
     TestPaddingIgnored();

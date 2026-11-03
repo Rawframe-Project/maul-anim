@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PINNED_IMPORTED_HASH 0x4bef537a64175951ull
+#define PINNED_IMPORTED_HASH 0x8f48658229d50ae8ull
 
 #ifndef MANI_TEST_DATA
 #error "MANI_TEST_DATA names test/data"

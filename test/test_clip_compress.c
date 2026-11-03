@@ -33,7 +33,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PINNED_COMPRESSED_HASH 0x29637a0f5eb0c7fbull
+#define PINNED_COMPRESSED_HASH 0x440899b9cf7114a1ull
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
 static _Alignas(16) uint8_t s_fullFile[65536];
@@ -1531,22 +1531,22 @@ static void TestOpenRefusals(void)
     uint64_t table = SectionAt(maniClipTagSegments);
     uint64_t data = SectionAt(maniClipTagSegmentData);
     // The table: empty sections left out, so a compressed clip has no
-    // samples sections; tags past 16 and compressed sections in a
+    // samples sections; tags past 18 and compressed sections in a
     // full-precision clip refused.
     uint32_t count = maniLoadU32(s_file + 12);
     CHECK(EntryOf(maniClipTagSamples) == 0 && EntryOf(maniClipTagFloatSamples) == 0,
           "no empty sections");
-    // A tag past 16 is a later writer's.
+    // A tag past 18 is a later writer's.
     uint64_t last = MANI_CONTAINER_HEADER_SIZE + 24 * (uint64_t)(count - 1);
     uint32_t lastTag = maniLoadU32(s_file + last);
-    maniStoreU32(s_file + last, 17);
+    maniStoreU32(s_file + last, 19);
     Rehash();
     maniClip later;
     maniFileResult laterResult = Open(&later);
-    CHECK(laterResult.result == mani_errorVersion && laterResult.offset == last, "a tag past 16");
+    CHECK(laterResult.result == mani_errorVersion && laterResult.offset == last, "a tag past 18");
     maniStoreU32(s_file + last, lastTag);
-    maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 56, 0);
-    maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 52, 0);
+    // No segments: full precision.
+    maniStoreU32(s_file + SectionAt(maniClipTagHeader) + 48, 0);
     ExpectFormat(EntryOf(maniClipTagForms) + 16, "compressed sections at full precision");
     // Six tracks: a byte a bitset, the rotation's (animated: root, spine,
     // arm, leg), the translation's (constant: chest; animated: root,
