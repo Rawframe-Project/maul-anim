@@ -162,7 +162,7 @@ graph_mirror: graph_check
 graph_build_words: bytes
 graph_build_ik: bytes graph_build_words graph_file ik_chain
 graph_build: allocator builder bytes container fpenv graph_build_ik graph_build_words graph_check graph_file graph_inertia graph_inline graph_learned graph_machine_check graph_match graph_match_check graph_mirror graph_spring graph_turn invariant sort triangulate
-graph_json: allocator builder fpenv graph_json_body graph_json_ik graph_json_write invariant
+graph_json: allocator builder fpenv graph_json_body graph_json_ik graph_json_search graph_json_write invariant
 graph_json_ik: arena graph_json_read graph_json_write ik_chain json
 graph_json_body: arena graph_json_ik graph_json_read graph_json_write json
 graph_json_write: decimal_format
@@ -170,7 +170,7 @@ graph_json_read: arena container decimal json sort
 graph_json_graph: arena builder fpenv graph_json_body graph_json_ik graph_json_machine graph_json_read graph_json_search graph_json_space json
 graph_json_space: arena graph_json_read json
 graph_json_machine: arena graph_json_read json
-graph_json_search: arena graph_json_read json
+graph_json_search: arena graph_json_read graph_json_write invariant json
 map_json: allocator arena builder graph_json_ik graph_json_read graph_json_write json
 retarget_json: arena builder fpenv graph_json_ik graph_json_read graph_json_write json map_json
 mirror_json: arena builder fpenv graph_json_ik graph_json_read graph_json_write json map_json

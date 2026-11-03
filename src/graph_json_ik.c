@@ -159,6 +159,15 @@ void maniGraphJsonPutBone(maniGraphWriter* w, uint32_t bone)
     maniGraphJsonPutString(w, name, length);
 }
 
+void maniGraphJsonPutVectorOr(maniGraphWriter* w, const char* key, maniVec3 v)
+{
+    if (!maniGraphJsonIsDefault(v.x, 0.0f) || !maniGraphJsonIsDefault(v.y, 0.0f) ||
+        !maniGraphJsonIsDefault(v.z, 0.0f))
+    {
+        maniGraphJsonPutVector(w, key, v);
+    }
+}
+
 void maniGraphJsonPutVector(maniGraphWriter* w, const char* key, maniVec3 v)
 {
     const float f[3] = {v.x, v.y, v.z};
@@ -186,14 +195,13 @@ static void PutGoal(maniGraphWriter* w, const maniGraphSource* source, uint32_t 
     }
 }
 
+// The three scalars, each unless a literal with its default's bits.
 static void PutScalars(maniGraphWriter* w, const maniGraphSource* source, const char* const* keys,
-                       const maniGraphScalar* scalars)
+                       const maniGraphScalar* scalars, const float* fallbacks)
 {
     for (uint32_t k = 0; k < 3; ++k)
     {
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, keys[k]);
-        maniGraphJsonPutScalar(w, source, scalars[k]);
+        maniGraphJsonPutScalarOr(w, source, keys[k], scalars[k], fallbacks[k]);
     }
 }
 
@@ -204,15 +212,17 @@ static void PutTwoBone(maniGraphWriter* w, const maniGraphSource* source,
     static const char* const kKeys[3] = {"twist", "soften", "weight"};
     const uint32_t bones[3] = {s->start, s->middle, s->end};
     const maniGraphScalar scalars[3] = {s->twist, s->soften, s->weight};
+    // As the reader gives them when left out.
+    static const float kFallbacks[3] = {0.0f, 1.0f, 1.0f};
     for (uint32_t k = 0; k < 3; ++k)
     {
-        maniGraphJsonPutText(w, k > 0 ? ", " : "");
+        maniGraphJsonPutText(w, ", ");
         maniGraphJsonPutKey(w, kBones[k]);
         maniGraphJsonPutBone(w, bones[k]);
     }
     PutGoal(w, source, s->goal, s->pole);
-    maniGraphJsonPutVector(w, "hinge", s->hinge);
-    PutScalars(w, source, kKeys, scalars);
+    maniGraphJsonPutVectorOr(w, "hinge", s->hinge);
+    PutScalars(w, source, kKeys, scalars, kFallbacks);
 }
 
 static void PutAim(maniGraphWriter* w, const maniGraphSource* source,
@@ -220,6 +230,9 @@ static void PutAim(maniGraphWriter* w, const maniGraphSource* source,
 {
     static const char* const kKeys[3] = {"twist", "cone", "weight"};
     const maniGraphScalar scalars[3] = {s->twist, s->cone, s->weight};
+    // As the reader gives them when left out.
+    static const float kFallbacks[3] = {0.0f, 0.0f, 1.0f};
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "bones");
     for (uint32_t k = 0; k < s->count; ++k)
     {
@@ -240,9 +253,9 @@ static void PutAim(maniGraphWriter* w, const maniGraphSource* source,
     }
     PutGoal(w, source, s->goal, s->pole);
     maniGraphJsonPutVector(w, "forward", s->forward);
-    maniGraphJsonPutVector(w, "offset", s->offset);
-    maniGraphJsonPutVector(w, "up", s->up);
-    PutScalars(w, source, kKeys, scalars);
+    maniGraphJsonPutVectorOr(w, "offset", s->offset);
+    maniGraphJsonPutVectorOr(w, "up", s->up);
+    PutScalars(w, source, kKeys, scalars, kFallbacks);
 }
 
 void maniGraphJsonPutIk(maniGraphWriter* w, const maniGraphSource* source,
@@ -376,7 +389,12 @@ void maniGraphJsonPutLimit(maniGraphWriter* w, const maniJointLimit* l)
         maniGraphJsonPutText(w, ", ");
         maniGraphJsonPutKey(w, "cone");
         maniGraphJsonPutFloat(w, l->cone);
-        PutPair(w, "twist", l->twistLow, l->twistHigh);
+        // Any twist, the reader's when it is left out.
+        if (!maniGraphJsonIsDefault(l->twistLow, -PI_F) ||
+            !maniGraphJsonIsDefault(l->twistHigh, PI_F))
+        {
+            PutPair(w, "twist", l->twistLow, l->twistHigh);
+        }
     }
     else if (l->kind == maniJointLimitHinge)
     {
@@ -390,6 +408,7 @@ void maniGraphJsonPutChain(maniGraphWriter* w, const maniGraphSource* source,
                            const maniGraphNodeSource* n)
 {
     const maniGraphChainNodeSource* s = &n->chain;
+    maniGraphJsonPutText(w, ", ");
     maniGraphJsonPutKey(w, "root");
     maniGraphJsonPutBone(w, s->root);
     maniGraphJsonPutText(w, ", ");
@@ -401,9 +420,7 @@ void maniGraphJsonPutChain(maniGraphWriter* w, const maniGraphSource* source,
     maniGraphJsonPutUnsigned(w, s->iterations);
     if (n->kind == maniGraphNodeCcd)
     {
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, "step");
-        maniGraphJsonPutFloat(w, s->step);
+        maniGraphJsonPutNumberOr(w, "step", s->step, 0.0f);
     }
     if (s->rotation != MANI_NO_PARAMETER)
     {
@@ -411,17 +428,9 @@ void maniGraphJsonPutChain(maniGraphWriter* w, const maniGraphSource* source,
         maniGraphJsonPutKey(w, "rotation");
         maniGraphJsonPutParameterName(w, source, s->rotation);
     }
-    maniGraphJsonPutText(w, ", ");
-    maniGraphJsonPutKey(w, "tolerance");
-    maniGraphJsonPutFloat(w, s->tolerance);
-    static const char* const kKeys[2] = {"rotationWeight", "weight"};
-    const maniGraphScalar weights[2] = {s->rotationWeight, s->weight};
-    for (uint32_t k = 0; k < 2; ++k)
-    {
-        maniGraphJsonPutText(w, ", ");
-        maniGraphJsonPutKey(w, kKeys[k]);
-        maniGraphJsonPutScalar(w, source, weights[k]);
-    }
+    maniGraphJsonPutNumberOr(w, "tolerance", s->tolerance, 0.0f);
+    maniGraphJsonPutScalarOr(w, source, "rotationWeight", s->rotationWeight, 1.0f);
+    maniGraphJsonPutScalarOr(w, source, "weight", s->weight, 1.0f);
     if (s->limits == NULL)
     {
         return;

@@ -573,9 +573,8 @@ static void TestJson(void)
           "the form");
     nodes[0].oneShot = (maniGraphOneShotNodeSource){
         1, MANI_NO_PARAMETER, MANI_NO_PARAMETER, maniGraphFadeLinear, 0.0f, 0.0f, NULL};
-    CHECK(RoundTrip(&source) && strstr(s_text, "\"fire\": \"fire\", \"curve\": \"linear\", "
-                                               "\"fadeIn\": 0, \"fadeOut\": 0}") != NULL,
-          "triggers and mask left out");
+    CHECK(RoundTrip(&source) && strstr(s_text, "\"fire\": \"fire\"}") != NULL,
+          "triggers, mask, a linear curve and no fades left out");
 }
 
 #define HEAD                                                                                       \

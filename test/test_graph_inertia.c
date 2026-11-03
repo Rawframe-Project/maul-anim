@@ -602,9 +602,8 @@ static void TestJson(void)
     nodes[0].inertialize.halfLifeMax = 0.75f;
     CHECK(RoundTrip(&source) &&
               strstr(s_text, "\"trigger\": \"push\", \"method\": \"deadBlending\", \"duration\": "
-                             "{\"parameter\": \"d\"}, \"halfLifeScale\": 0.3, \"halfLifeMin\": "
-                             "0.1, \"halfLifeMax\": 0.75}") != NULL,
-          "dead blending");
+                             "{\"parameter\": \"d\"}, \"halfLifeMax\": 0.75}") != NULL,
+          "dead blending, Holden's half-lives left out");
 }
 
 #define HEAD                                                                                       \

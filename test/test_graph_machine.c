@@ -767,7 +767,7 @@ static void TestJson(void)
                          "\"compare\": \"==\", \"value\": true}, {\"parameter\": \"gait\", "
                          "\"compare\": \"<=\", \"value\": -3}]}, {\"from\": \"any\"") != NULL &&
               strstr(s_text, "\"conditions\": [{\"trigger\": \"jump\"}, {\"timeInState\": "
-                             "0.25}]}], \"finals\": []}") != NULL,
+                             "0.25}]}]}") != NULL,
           "the form");
     // Each value the writer names or indexes, one past what the build
     // takes.
@@ -787,6 +787,13 @@ static void TestJson(void)
     t[0].entry = maniGraphEntryKeep;
     t[0].fade = (maniGraphFade)(maniGraphFadeInertial + 1);
     CHECK(RefusedAlike(&source), "a fade past inertial");
+    // A machine and a transition at their defaults: only what they need.
+    maniGraphTransitionSource plain = Go(0, 1, 0, 0.0f, kJump, 1);
+    nodes[0].machine = (maniGraphMachineNodeSource){&plain, 1, 0, 0, 0, NULL};
+    CHECK(RoundTrip(&source) &&
+              strstr(s_text, "\"inputs\": [1, 2, 3], \"transitions\": [{\"from\": 0, \"to\": 1, "
+                             "\"conditions\": [{\"trigger\": \"jump\"}]}]},") != NULL,
+          "the defaults left out");
 }
 
 #define HEAD                                                                                       \

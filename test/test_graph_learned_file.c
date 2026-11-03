@@ -625,10 +625,9 @@ static void TestJson(void)
                               .models = kModelSlot};
     CHECK(RoundTrip(&source), "written and read to the same bytes");
     CHECK(strstr(s_text, "{\"kind\": \"learned\", \"model\": \"steps\", \"trigger\": "
-                         "\"search\", \"query\": [\"ahead\"], \"period\": 0.1, "
-                         "\"transitionCost\": 0.5, \"requiredTags\": 1, \"excludedTags\": 0, "
-                         "\"duration\": {\"parameter\": \"d\"}}") != NULL,
-          "the form");
+                         "\"search\", \"query\": [\"ahead\"], \"transitionCost\": 0.5, "
+                         "\"requiredTags\": 1, \"duration\": {\"parameter\": \"d\"}}") != NULL,
+          "the form, a period of 0.1 and no excluded tags left out");
     nodes[0].learned.trigger = MANI_NO_PARAMETER;
     nodes[0].learned.requiredTags = (maniGraphTags){2, 0};
     nodes[0].learned.excludedTags = (maniGraphTags){MANI_NO_PARAMETER, 4294967295u};
@@ -638,6 +637,18 @@ static void TestJson(void)
               strstr(s_text, "\"requiredTags\": {\"parameter\": \"tags\"}, \"excludedTags\": "
                              "4294967295, \"duration\": 0.125}") != NULL,
           "no trigger, tags from a parameter and literal");
+    // Every member at its default but the query and the required tags.
+    nodes[0].learned = (maniGraphLearnedNodeSource){.trigger = MANI_NO_PARAMETER,
+                                                    .query = nodes[0].learned.query,
+                                                    .queryCount = nodes[0].learned.queryCount,
+                                                    .period = 0.1f,
+                                                    .requiredTags = {MANI_NO_PARAMETER, 1},
+                                                    .excludedTags = {MANI_NO_PARAMETER, 0},
+                                                    .duration = {MANI_NO_PARAMETER, 0.0f}};
+    CHECK(RoundTrip(&source) &&
+              strstr(s_text, "{\"kind\": \"learned\", \"model\": \"steps\", \"query\": "
+                             "[\"ahead\"], \"requiredTags\": 1},") != NULL,
+          "the defaults left out");
     nodes[0].learned.model = 1;
     CHECK(RefusedAlike(&source), "a model slot past the graph's models");
 }

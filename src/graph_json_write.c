@@ -128,6 +128,41 @@ void maniGraphJsonPutScalar(maniGraphWriter* w, const maniGraphSource* source, m
     maniGraphJsonPutText(w, "}");
 }
 
+bool maniGraphJsonIsDefault(float value, float fallback)
+{
+    uint32_t a = 0;
+    uint32_t b = 0;
+    memcpy(&a, &value, sizeof a);
+    memcpy(&b, &fallback, sizeof b);
+    return a == b;
+}
+
+bool maniGraphJsonScalarIsDefault(maniGraphScalar s, float fallback)
+{
+    return s.parameter == MANI_NO_PARAMETER && maniGraphJsonIsDefault(s.value, fallback);
+}
+
+void maniGraphJsonPutNumberOr(maniGraphWriter* w, const char* key, float value, float fallback)
+{
+    if (!maniGraphJsonIsDefault(value, fallback))
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, key);
+        maniGraphJsonPutFloat(w, value);
+    }
+}
+
+void maniGraphJsonPutScalarOr(maniGraphWriter* w, const maniGraphSource* source, const char* key,
+                              maniGraphScalar s, float fallback)
+{
+    if (!maniGraphJsonScalarIsDefault(s, fallback))
+    {
+        maniGraphJsonPutText(w, ", ");
+        maniGraphJsonPutKey(w, key);
+        maniGraphJsonPutScalar(w, source, s);
+    }
+}
+
 void maniGraphJsonPutScalars(maniGraphWriter* w, const maniGraphSource* source,
                              const maniGraphScalar* scalars, uint32_t count)
 {
