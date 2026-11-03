@@ -47,14 +47,24 @@ static bool Aimed(maniVec3 forward, maniVec3 offset, maniVec3 t, maniVec3* aimed
     return true;
 }
 
+// The offset point from the aiming bone's origin in model space: carried
+// by the bone's whole model frame, scale and mirror included, as a point
+// of its local frame; by its rotation alone while the frame is unscaled.
+static MANI_NOINLINE maniVec3 Offset(const maniAimSolve* s, const maniIkFrame* aiming)
+{
+    return aiming->scaled ? maniAffineTransformVector(&aiming->affine, s->offset)
+                          : maniQuatRotate(maniIkRotation(aiming), s->offset);
+}
+
 // The model-space turn of the aiming bone, about its origin, that aims
 // it at the goal; the identity when the goal cannot be aimed at.
 static maniQuat Turn(const maniAimSolve* s, const maniIkFrame* aiming, maniVec3 goal, bool* aimed)
 {
+    maniVec3 offset = Offset(s, aiming);
     maniQuat q = maniIkRotation(aiming);
     maniVec3 t = maniVec3Sub(goal, maniIkOrigin(aiming));
     maniVec3 from;
-    *aimed = Aimed(maniQuatRotate(q, s->forward), maniQuatRotate(q, s->offset), t, &from);
+    *aimed = Aimed(maniQuatRotate(q, s->forward), offset, t, &from);
     if (!*aimed)
     {
         return maniQuatIdentity();
@@ -75,11 +85,12 @@ static maniVec3 Coned(const maniAimSolve* s, const maniIkFrame* aiming, bool* in
     {
         return s->goal;
     }
+    maniVec3 offset = Offset(s, aiming);
     maniQuat q = maniIkRotation(aiming);
     maniVec3 o = maniIkOrigin(aiming);
     maniVec3 t = maniVec3Sub(s->goal, o);
     maniVec3 from;
-    if (!Aimed(maniQuatRotate(q, s->forward), maniQuatRotate(q, s->offset), t, &from))
+    if (!Aimed(maniQuatRotate(q, s->forward), offset, t, &from))
     {
         return s->goal;
     }

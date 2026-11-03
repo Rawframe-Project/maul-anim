@@ -102,7 +102,8 @@ extern "C"
         // to the bone's own, so it never flips.
         maniVec3 pole;
         // In the aiming bone's local frame: the unit direction that aims,
-        // the point it aims from (relative to the bone's origin), and the
+        // the point it aims from (relative to the bone's origin, carried
+        // by the bone's whole model frame, its scale included), and the
         // axis kept toward the pole (zero for none).
         maniVec3 forward;
         maniVec3 offset;

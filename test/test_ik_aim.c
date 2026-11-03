@@ -10,7 +10,9 @@
 // cone stops the forward at its edge; a pole swept through the aim line
 // turns the head continuously; weight 0 changes nothing and a second aim
 // nothing more; a goal at the head turns nothing; the same turns at any
-// power-of-two scale, a short up and pole as unit ones; the refusals.
+// power-of-two scale, a short up and pole as unit ones; the eyes'
+// offset carried by the head's whole frame, scale and mirror included;
+// the refusals.
 
 #include "test_harness.h"
 
@@ -371,7 +373,8 @@ static void TestEdges(void)
 
 // An aim scaled by a power of two takes the same turns bit for bit:
 // the spine under a root scale from 2^-100 to 2^100 against 2^1, the
-// goal and the eyes' offset scaled with it, without and with a cone.
+// goal scaled with it and the eyes' offset carried by the head's frame,
+// without and with a cone.
 // A binary32 squared distance to the goal overflowed from 2^64, aiming
 // the head 2.5 radians off while reporting it reached, and read the goal
 // as at the head below about 2^-75. An up and a pole 2^-80 long turn the
@@ -394,7 +397,7 @@ static void TestFarScales(void)
             maniPose_SetLocal(s_pose, s_bone[kRoot], root);
             maniAimSolve s =
                 Head((maniVec3){0.7f * k, 1.9f * k, 0.9f * k}, (maniVec3){0.0f, 1.0f, 0.0f});
-            s.offset = (maniVec3){0.0f, 0.05f * k, 0.1f * k};
+            s.offset = (maniVec3){0.0f, 0.05f, 0.1f};
             s.cone = cone ? 0.3f : 0.0f;
             bool r = false;
             CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success, "aimed");
@@ -422,6 +425,83 @@ static void TestFarScales(void)
     maniQuat heads[2] = {maniPose_GetLocal(s_pose, s_bone[kHead]).rotation,
                          maniPose_GetLocal(s_other, s_bone[kHead]).rotation};
     CHECK(memcmp(&heads[0], &heads[1], sizeof heads[0]) == 0, "a short up and pole as unit ones");
+}
+
+// The eyes' offset is a point of the head's frame, carried by its whole
+// model frame: under a uniform root scale the turns are the unscaled
+// spine's bit for bit, and under a head scaled (1, 2, 0.5) or a root
+// mirrored through x, the line from the eyes' point in the model along
+// the forward passes through the goal.
+static void TestOffsetInFrame(void)
+{
+    const maniVec3 eyes = {0.03f, 0.05f, 0.1f};
+    const int exponents[5] = {1, -20, -2, 3, 20};
+    maniQuat first = {0};
+    bool same = true;
+    for (int e = 0; e < 5; ++e)
+    {
+        float k = ldexpf(1.0f, exponents[e]);
+        Posed(s_pose);
+        maniTransform root = maniPose_GetLocal(s_pose, s_bone[kRoot]);
+        root.scale = (maniVec3){k, k, k};
+        maniPose_SetLocal(s_pose, s_bone[kRoot], root);
+        maniAimSolve s =
+            Head((maniVec3){0.7f * k, 1.9f * k, 0.9f * k}, (maniVec3){0.0f, 1.0f, 0.0f});
+        s.offset = eyes;
+        bool r = false;
+        CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r, "aimed");
+        maniQuat q = maniPose_GetLocal(s_pose, s_bone[kHead]).rotation;
+        if (e == 0)
+        {
+            first = q;
+        }
+        same = same && memcmp(&first, &q, sizeof q) == 0;
+    }
+    CHECK(same, "the same turns under every uniform scale");
+    const maniVec3 scales[2][2] = {{{1.0f, 1.0f, 1.0f}, {1.0f, 2.0f, 0.5f}},
+                                   {{-1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
+    bool through = true;
+    for (int c = 0; c < 2; ++c)
+    {
+        Posed(s_pose);
+        maniTransform root = maniPose_GetLocal(s_pose, s_bone[kRoot]);
+        root.scale = scales[c][0];
+        maniPose_SetLocal(s_pose, s_bone[kRoot], root);
+        maniTransform head = maniPose_GetLocal(s_pose, s_bone[kHead]);
+        head.scale = scales[c][1];
+        maniPose_SetLocal(s_pose, s_bone[kHead], head);
+        maniVec3 goal = {0.7f, 1.9f, 0.9f};
+        maniAimSolve s = Head(goal, (maniVec3){0.0f, 1.0f, 0.0f});
+        s.offset = eyes;
+        bool r = false;
+        CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r, "aimed");
+        CHECK(maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success, "the model");
+        maniAffine m = maniPose_GetModel(s_pose, s_bone[kHead]);
+        // The eyes' point, the forward's direction and the goal's, in
+        // binary64.
+        double p[3];
+        double f[3];
+        double t[3];
+        const double g[3] = {(double)goal.x, (double)goal.y, (double)goal.z};
+        double cross = 0.0;
+        for (int i = 0; i < 3; ++i)
+        {
+            p[i] = (double)m.m[9 + i] + (double)m.m[i] * (double)eyes.x +
+                   (double)m.m[3 + i] * (double)eyes.y + (double)m.m[6 + i] * (double)eyes.z;
+            f[i] = (double)m.m[6 + i];
+            t[i] = g[i] - p[i];
+        }
+        for (int i = 0; i < 3; ++i)
+        {
+            double c3 = f[(i + 1) % 3] * t[(i + 2) % 3] - f[(i + 2) % 3] * t[(i + 1) % 3];
+            cross += c3 * c3;
+        }
+        double ft = f[0] * t[0] + f[1] * t[1] + f[2] * t[2];
+        through = through && ft > 0.0 &&
+                  sqrt(cross) <= 1e-5 * sqrt(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]) *
+                                     sqrt(t[0] * t[0] + t[1] * t[1] + t[2] * t[2]);
+    }
+    CHECK(through, "the eyes' line through the goal under a scaled head and a mirror");
 }
 
 static void TestRefusals(void)
@@ -468,6 +548,7 @@ int main(void)
     TestPoleSweep();
     TestEdges();
     TestFarScales();
+    TestOffsetInFrame();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }
