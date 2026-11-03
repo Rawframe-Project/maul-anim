@@ -95,8 +95,9 @@ static maniFileResult LoadSections(const maniContainer* c, Sections* s)
     return kOk;
 }
 
-// The header's counts within their limits, the format, the rate, the
-// axes on two different lines.
+// The header's counts within their limits, the rate, the axes on two
+// different lines; the weight format, 16-bit when its section is there
+// (CheckSizes checks it), else binary32.
 static maniFileResult CheckHeader(const Sections* s, maniLearnedModel* m)
 {
     if (s->sizes[0] != MANI_LEARNED_HEADER_SIZE)
@@ -131,19 +132,19 @@ static maniFileResult CheckHeader(const Sections* s, maniLearnedModel* m)
             return Fail(at + 16 + 4 * k);
         }
     }
-    float rate = LoadF32(h + 60);
-    const bool valid[4] = {maniLoadU32(h + 56) <= maniLearnedWeightsInt16,
-                           rate > 0.0f && rate <= MANI_MAX_LEARNED_RATE,
-                           maniLoadU32(h + 64) <= maniMatchAxisNegativeZ,
-                           maniLoadU32(h + 68) <= maniMatchAxisNegativeZ &&
-                               maniLoadU32(h + 68) % 3 != maniLoadU32(h + 64) % 3};
-    for (uint32_t k = 0; k < 4; ++k)
+    float rate = LoadF32(h + 56);
+    const bool valid[3] = {rate > 0.0f && rate <= MANI_MAX_LEARNED_RATE,
+                           maniLoadU32(h + 60) <= maniMatchAxisNegativeZ,
+                           maniLoadU32(h + 64) <= maniMatchAxisNegativeZ &&
+                               maniLoadU32(h + 64) % 3 != maniLoadU32(h + 60) % 3};
+    for (uint32_t k = 0; k < 3; ++k)
     {
         if (!valid[k])
         {
             return Fail(at + 56 + 4 * k);
         }
     }
+    uint32_t format = maniLearnedTagWeightFormat - 1;
     *m = (maniLearnedModel){.skeletonIdentity = maniLoadU64(h),
                             .databaseIdentity = maniLoadU64(h + 8),
                             .boneCount = counts[0],
@@ -156,10 +157,11 @@ static maniFileResult CheckHeader(const Sections* s, maniLearnedModel* m)
                             .eventCount = counts[7],
                             .projectorCount = counts[8],
                             .layerCount = counts[9],
-                            .weightFormat = maniLoadU32(h + 56),
+                            .weightFormat = s->sizes[format] != 0 ? maniLearnedWeightsInt16
+                                                                  : maniLearnedWeightsFloat32,
                             .stepRate = rate,
-                            .up = maniLoadU32(h + 64),
-                            .forward = maniLoadU32(h + 68)};
+                            .up = maniLoadU32(h + 60),
+                            .forward = maniLoadU32(h + 64)};
     m->outputCount = (uint32_t)maniLearnedOutputCount(m->boneCount, m->scaledBoneCount,
                                                       m->floatTrackCount, m->eventCount);
     return kOk;
@@ -174,19 +176,20 @@ static maniFileResult CheckSize(const Sections* s, uint32_t tag, uint64_t size)
 // The sections the header's counts size.
 static maniFileResult CheckSizes(const Sections* s, maniLearnedModel* m)
 {
-    const uint64_t sizes[7] = {
+    const uint64_t sizes[8] = {
         (uint64_t)m->channelCount * MANI_LEARNED_CHANNEL_SIZE,
         4 * (uint64_t)m->timeCount,
         8 * (uint64_t)m->featureCount,
         4 * (uint64_t)m->scaledBoneCount + 12 * (uint64_t)m->boneCount,
         (uint64_t)(MANI_LEARNED_PROJECTORS + m->projectorCount) * MANI_LEARNED_NETWORK_SIZE,
         (uint64_t)m->layerCount * MANI_LEARNED_LAYER_SIZE,
-        (uint64_t)(m->floatTrackCount + m->eventCount) * MANI_LEARNED_NAME_SIZE};
-    const uint32_t tags[7] = {maniLearnedTagChannels,      maniLearnedTagTimes,
+        (uint64_t)(m->floatTrackCount + m->eventCount) * MANI_LEARNED_NAME_SIZE,
+        m->weightFormat == maniLearnedWeightsInt16 ? 4u : 0u};
+    const uint32_t tags[8] = {maniLearnedTagChannels,      maniLearnedTagTimes,
                               maniLearnedTagNormalization, maniLearnedTagBones,
                               maniLearnedTagNetworks,      maniLearnedTagLayers,
-                              maniLearnedTagNames};
-    for (uint32_t k = 0; k < 7; ++k)
+                              maniLearnedTagNames,         maniLearnedTagWeightFormat};
+    for (uint32_t k = 0; k < 8; ++k)
     {
         maniFileResult r = CheckSize(s, tags[k], sizes[k]);
         if (r.result != mani_success)
@@ -205,7 +208,12 @@ static maniFileResult CheckSizes(const Sections* s, maniLearnedModel* m)
     m->names = s->data[maniLearnedTagNames - 1];
     m->nameBytes = s->data[maniLearnedTagNameBytes - 1];
     m->nameBytesSize = s->sizes[maniLearnedTagNameBytes - 1];
-    return kOk;
+    // The weight format's section, there for 16-bit weights alone.
+    const uint32_t format = maniLearnedTagWeightFormat - 1;
+    return m->weightFormat == maniLearnedWeightsInt16 &&
+                   maniLoadU32(s->data[format]) != maniLearnedWeightsInt16
+               ? Fail(s->at[format])
+               : kOk;
 }
 
 // One channel's words in order (kind, bone, axis, times, first time,
