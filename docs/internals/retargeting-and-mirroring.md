@@ -33,7 +33,7 @@ With P a bone's parent's reference model rotation, R its own and m its partner, 
 
 ## The JSON form
 
-Maps are authored by hand, so both have a text form (`maniWriteRetargetMapJson`, `maniBuildRetargetMapJson`, and the mirror pair) sharing the graph form's reader, writer and refusals ([`src/map_json.c`](../../src/map_json.c)). Bones are named, never indexed, so the text outlives a reimport that reorders bones. A reference pose lists only bones whose local differs from the rest, so a diff shows the bones that moved, and a missing reference and the rest given in full write the same text.
+Maps are authored by hand, so both have a text form (`maniWriteRetargetMapJson`, `maniBuildRetargetMapJson`, and the mirror pair) sharing the graph form's reader, writer and refusals ([`src/map_json.c`](../../src/map_json.c)). Bones are named, never indexed, so the text outlives a reimport that reorders bones. A reference pose lists only bones whose local differs from the rest, and of each only the parts that differ, so a diff shows what moved, and a missing reference and the rest given in full write the same text. Every other key at the reader's value for an absent key is left out too, as in the graph form; the writers put the comma before each top-level member, so a member left out leaves no separator behind.
 
 ## Traps
 

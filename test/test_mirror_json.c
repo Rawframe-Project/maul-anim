@@ -73,10 +73,8 @@ static const char kExpected[] =
     "  \"version\": 1,\n"
     "  \"axis\": \"z\",\n"
     "  \"reference\": [\n"
-    "    {\"bone\": \"head\", \"translation\": [0, 0.65, 0], \"rotation\": [0, 0, 0, 1], "
-    "\"scale\": [1, 1, 1]},\n"
-    "    {\"bone\": \"armR\", \"translation\": [-0.2, 0.5, 0], \"rotation\": [0, 0, 0, -1], "
-    "\"scale\": [1, 1, 1]}\n"
+    "    {\"bone\": \"head\", \"translation\": [0, 0.65, 0]},\n"
+    "    {\"bone\": \"armR\", \"rotation\": [0, 0, 0, -1]}\n"
     "  ],\n"
     "  \"pairs\": [\n"
     "    {\"first\": \"propR\", \"second\": \"propR\"}\n"
@@ -166,15 +164,10 @@ static void TestWrite(void)
 static const char kMinimal[] = "{\n"
                                "  \"format\": \"maul-anim mirror map\",\n"
                                "  \"version\": 1,\n"
-                               "  \"axis\": \"x\",\n"
-                               "  \"reference\": [],\n"
-                               "  \"pairs\": [],\n"
-                               "  \"rules\": [],\n"
-                               "  \"namePairs\": [],\n"
-                               "  \"names\": []\n"
+                               "  \"axis\": \"x\"\n"
                                "}\n";
 
-// Every list empty on one line, the rest given in full written as none;
+// Every list empty left out, the rest given in full written as none;
 // every list left out read as empty; a reference entry's members left
 // out its bone's rest.
 static void TestMinimal(void)
@@ -184,7 +177,7 @@ static void TestMinimal(void)
     size_t size = Write(&source, &r);
     CHECK(r.result == mani_success && size == sizeof kMinimal - 1 &&
               memcmp(s_text, kMinimal, size) == 0,
-          "empty lists on one line");
+          "empty lists left out");
     (void)Map();
     s_reference[kHead] = maniSkeleton_GetRest(&s_skeleton, kHead);
     s_reference[kArmR] = maniSkeleton_GetRest(&s_skeleton, kArmR);

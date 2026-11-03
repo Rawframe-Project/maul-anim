@@ -47,22 +47,24 @@ bool maniMapJsonWord(maniGraphReader* r, uint32_t value, const char* const* word
 // The header's lines, after the opening brace.
 void maniMapJsonPutHeader(maniGraphWriter* w, const char* format);
 
-// The line "key": [...] of w's skeleton's bones whose local in given is
-// not the rest bit for bit (none when given is NULL), one a line.
+// ",", a new line and "key": [...] of w's skeleton's bones whose local
+// in given is not the rest bit for bit, one a line, each part of a local
+// that is not the rest's; nothing when there are none (or given is
+// NULL), as the reader takes the rest when left out.
 void maniMapJsonPutReference(maniGraphWriter* w, const char* key, const maniTransform* given);
 
 // ", "key": [count numbers]".
 void maniMapJsonPutFloats(maniGraphWriter* w, const char* key, const float* values, uint32_t count);
 
-// A list's opening: a new line, "key": [.
+// A list's opening, for a list with items: the comma after the member
+// before, a new line, "key": [.
 void maniMapJsonPutOpen(maniGraphWriter* w, const char* key);
 
 // Before item i of a list: the comma after the one before, a new line.
 void maniMapJsonPutItem(maniGraphWriter* w, uint32_t i);
 
-// A list's closing, on a line of its own when it has items, and the
-// comma after it unless last.
-void maniMapJsonPutClose(maniGraphWriter* w, uint32_t count, bool last);
+// A list's closing, on a line of its own.
+void maniMapJsonPutClose(maniGraphWriter* w);
 
 // Draws a map's text from its source.
 typedef void (*maniMapJsonDraw)(maniGraphWriter* w, const void* source);

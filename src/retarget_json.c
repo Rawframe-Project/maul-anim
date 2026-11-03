@@ -250,14 +250,27 @@ static void PutBone(Writer* w, const maniSkeleton* skeleton, const char* key, ui
     maniGraphJsonPutBone(w, bone);
 }
 
+// The translation unless its own, and the scale when it carries: the
+// reader's when they are left out.
+static void PutCarry(Writer* w, maniRetargetTranslation translation, bool scale)
+{
+    if (translation != maniRetargetTranslationOwn)
+    {
+        PutWord(w, "translation", kTranslations[translation]);
+    }
+    if (scale)
+    {
+        PutBool(w, "scale", true);
+    }
+}
+
 static void PutPair(Writer* w, const maniRetargetMapSource* s, const maniRetargetPairSource* p)
 {
     maniGraphJsonPutText(w, "{");
     PutBone(w, s->target, "target", p->target, true);
     PutBone(w, s->source, "source", p->source, false);
     PutFloat(w, "rotationWeight", p->rotationWeight);
-    PutWord(w, "translation", kTranslations[p->translation]);
-    PutBool(w, "scale", p->scale);
+    PutCarry(w, p->translation, p->scale);
     maniGraphJsonPutText(w, "}");
 }
 
@@ -270,35 +283,33 @@ static void PutChain(Writer* w, const maniRetargetMapSource* s, const maniRetarg
     PutBone(w, s->target, "targetEnd", c->targetEnd, false);
     PutWord(w, "rotation", kRotations[c->rotation]);
     PutFloat(w, "rotationWeight", c->rotationWeight);
-    PutWord(w, "translation", kTranslations[c->translation]);
-    PutBool(w, "scale", c->scale);
+    PutCarry(w, c->translation, c->scale);
     maniGraphJsonPutText(w, "}");
 }
 
+// The pelvis, when the map has one; its blends when not 0.
 static void PutPelvis(Writer* w, const maniRetargetMapSource* s)
 {
     const maniRetargetPelvisSource* p = s->pelvis;
-    maniGraphJsonLine(w, 1);
-    maniGraphJsonPutKey(w, "pelvis");
     if (p == NULL)
     {
-        maniGraphJsonPutText(w, "null,");
         return;
     }
+    maniGraphJsonPutText(w, ",");
+    maniGraphJsonLine(w, 1);
+    maniGraphJsonPutKey(w, "pelvis");
     const float up[3] = {p->up.x, p->up.y, p->up.z};
-    const float absolute[3] = {p->absolute.x, p->absolute.y, p->absolute.z};
-    const float toSource[3] = {p->toSource.x, p->toSource.y, p->toSource.z};
     maniGraphJsonPutText(w, "{");
     PutBone(w, s->source, "source", p->source, true);
     PutBone(w, s->target, "target", p->target, false);
     maniMapJsonPutFloats(w, "up", up, 3);
     PutFloat(w, "horizontal", p->horizontal);
     PutFloat(w, "vertical", p->vertical);
-    maniMapJsonPutFloats(w, "absolute", absolute, 3);
-    maniMapJsonPutFloats(w, "toSource", toSource, 3);
+    maniGraphJsonPutVectorOr(w, "absolute", p->absolute);
+    maniGraphJsonPutVectorOr(w, "toSource", p->toSource);
     PutFloat(w, "translationWeight", p->translationWeight);
     PutFloat(w, "rotationWeight", p->rotationWeight);
-    maniGraphJsonPutText(w, "},");
+    maniGraphJsonPutText(w, "}");
 }
 
 static void Draw(Writer* w, const void* source)
@@ -310,24 +321,34 @@ static void Draw(Writer* w, const void* source)
     maniMapJsonPutReference(w, "sourceReference", s->sourceReference);
     w->skeleton = s->target;
     maniMapJsonPutReference(w, "targetReference", s->targetReference);
-    maniMapJsonPutOpen(w, "pairs");
-    for (uint32_t i = 0; i < s->pairCount; ++i)
+    if (s->pairCount > 0)
     {
-        maniMapJsonPutItem(w, i);
-        PutPair(w, s, &s->pairs[i]);
+        maniMapJsonPutOpen(w, "pairs");
+        for (uint32_t i = 0; i < s->pairCount; ++i)
+        {
+            maniMapJsonPutItem(w, i);
+            PutPair(w, s, &s->pairs[i]);
+        }
+        maniMapJsonPutClose(w);
     }
-    maniMapJsonPutClose(w, s->pairCount, false);
-    maniMapJsonPutOpen(w, "chains");
-    for (uint32_t i = 0; i < s->chainCount; ++i)
+    if (s->chainCount > 0)
     {
-        maniMapJsonPutItem(w, i);
-        PutChain(w, s, &s->chains[i]);
+        maniMapJsonPutOpen(w, "chains");
+        for (uint32_t i = 0; i < s->chainCount; ++i)
+        {
+            maniMapJsonPutItem(w, i);
+            PutChain(w, s, &s->chains[i]);
+        }
+        maniMapJsonPutClose(w);
     }
-    maniMapJsonPutClose(w, s->chainCount, false);
     PutPelvis(w, s);
-    maniGraphJsonLine(w, 1);
-    maniGraphJsonPutKey(w, "matchNames");
-    maniGraphJsonPutBool(w, s->matchNames);
+    if (s->matchNames)
+    {
+        maniGraphJsonPutText(w, ",");
+        maniGraphJsonLine(w, 1);
+        maniGraphJsonPutKey(w, "matchNames");
+        maniGraphJsonPutBool(w, true);
+    }
     maniGraphJsonPutText(w, "\n}\n");
 }
 

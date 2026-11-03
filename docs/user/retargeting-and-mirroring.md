@@ -44,6 +44,14 @@ Rules run one way, so both directions are given. Names of float tracks, events a
 
 Both maps have a JSON form (`maniWriteRetargetMapJson`, `maniBuildRetargetMapJson`, `maniWriteMirrorMapJson`, `maniBuildMirrorMapJson`) that names bones rather than numbering them, so a map lives in version control and survives a reimport that reorders bones.
 
+A key may be left out where it reads as the value below, and the writers leave out every key at that value.
+
+| Form | Key left out reads as |
+|---|---|
+| Both | a reference (`sourceReference`, `targetReference`, `reference`): the rest pose; in a reference entry, `translation`, `rotation`, `scale`: the bone's rest |
+| Retargeting map | `pairs`, `chains`: none; `pelvis`: none; `matchNames`: false; in a pair or chain, `translation`: `"own"` and `scale`: false; in the pelvis, `absolute` and `toSource`: [0, 0, 0] |
+| Mirror map | `pairs`, `rules`, `namePairs`, `names`: none |
+
 ## Not obvious
 
 - A bone that breaks the rig's left-right symmetry (a prop under one hand) is mirrored as well as it can be and flagged; `maniMirrorMap_GetBoneFlags` and `maniMirrorMap_GetUnmatchedBone` find such bones.
