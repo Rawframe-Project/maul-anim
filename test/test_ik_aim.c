@@ -11,8 +11,8 @@
 // turns the head continuously; weight 0 changes nothing and a second aim
 // nothing more; a goal at the head turns nothing; the same turns at any
 // power-of-two scale, a short up and pole as unit ones; the eyes'
-// offset carried by the head's whole frame, scale and mirror included;
-// the refusals.
+// offset, forward and up carried by the head's whole frame, scale and
+// mirror included; the refusals.
 
 #include "test_harness.h"
 
@@ -504,6 +504,92 @@ static void TestOffsetInFrame(void)
     CHECK(through, "the eyes' line through the goal under a scaled head and a mirror");
 }
 
+// The cosine between a column of the head's model matrix and a model
+// direction, in binary64, each made perpendicular to unit line u when u
+// is not NULL.
+static double Along(const maniAffine* m, int column, const double* d, const double* u)
+{
+    double c[3];
+    double e[3];
+    for (int i = 0; i < 3; ++i)
+    {
+        c[i] = (double)m->m[3 * column + i];
+        e[i] = d[i];
+    }
+    if (u != NULL)
+    {
+        double cu = c[0] * u[0] + c[1] * u[1] + c[2] * u[2];
+        double eu = e[0] * u[0] + e[1] * u[1] + e[2] * u[2];
+        for (int i = 0; i < 3; ++i)
+        {
+            c[i] -= cu * u[i];
+            e[i] -= eu * u[i];
+        }
+    }
+    double ce = c[0] * e[0] + c[1] * e[1] + c[2] * e[2];
+    return ce / (sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]) *
+                 sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]));
+}
+
+// The forward and up are carried by the head's whole model frame: under
+// a root mirrored through x a forward of +x, and under a head scaled
+// (1, 2, 0.5) a forward off its axes, end with the head's real forward
+// (its model matrix times the forward) on the goal; under the mirror an
+// up of +x ends with the head's real +x toward the pole.
+static void TestDirectionsInFrame(void)
+{
+    const maniVec3 goal = {0.7f, 1.9f, 0.9f};
+    const maniVec3 pole = {0.3f, 1.0f, 0.0f};
+    const struct
+    {
+        maniVec3 root;
+        maniVec3 head;
+        maniVec3 forward;
+        maniVec3 up;
+    } cases[3] = {
+        {{-1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        {{1.0f, 1.0f, 1.0f}, {1.0f, 2.0f, 0.5f}, {0.6f, 0.0f, 0.8f}, {0.0f, 1.0f, 0.0f}},
+        {{-1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+    };
+    bool forward = true;
+    bool up = true;
+    for (int c = 0; c < 3; ++c)
+    {
+        Posed(s_pose);
+        maniTransform root = maniPose_GetLocal(s_pose, s_bone[kRoot]);
+        root.scale = cases[c].root;
+        maniPose_SetLocal(s_pose, s_bone[kRoot], root);
+        maniTransform head = maniPose_GetLocal(s_pose, s_bone[kHead]);
+        head.scale = cases[c].head;
+        maniPose_SetLocal(s_pose, s_bone[kHead], head);
+        maniAimSolve s = Head(goal, pole);
+        s.forward = cases[c].forward;
+        s.up = cases[c].up;
+        bool r = false;
+        CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success && r, "aimed");
+        CHECK(maniPose_ComputeModel(s_pose, &s_skeleton) == mani_success, "the model");
+        maniAffine m = maniPose_GetModel(s_pose, s_bone[kHead]);
+        // The real forward: the matrix's columns weighted by the forward.
+        maniAffine f = m;
+        for (int i = 0; i < 3; ++i)
+        {
+            f.m[i] = m.m[i] * s.forward.x + m.m[3 + i] * s.forward.y + m.m[6 + i] * s.forward.z;
+        }
+        double t[3] = {(double)goal.x - (double)m.m[9], (double)goal.y - (double)m.m[10],
+                       (double)goal.z - (double)m.m[11]};
+        forward = forward && Along(&f, 0, t, NULL) > 1.0 - 1e-9;
+        if (c == 2)
+        {
+            double l = sqrt(t[0] * t[0] + t[1] * t[1] + t[2] * t[2]);
+            double u[3] = {t[0] / l, t[1] / l, t[2] / l};
+            double p[3] = {(double)pole.x, (double)pole.y, (double)pole.z};
+            up = Along(&m, 0, p, u) > 1.0 - 1e-6;
+        }
+    }
+    CHECK(forward, "the real forward on the goal under a mirror and a non-uniform scale");
+    CHECK(up, "the real up toward the pole under a mirror");
+}
+
 static void TestRefusals(void)
 {
     Posed(s_pose);
@@ -549,6 +635,7 @@ int main(void)
     TestEdges();
     TestFarScales();
     TestOffsetInFrame();
+    TestDirectionsInFrame();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }
