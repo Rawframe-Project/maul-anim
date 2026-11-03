@@ -122,6 +122,8 @@ typedef struct Refusal
     uint32_t other;
     const char* marker;
     uint32_t occurrence;
+    // Refused as a later form's, mani_errorVersion; else mani_errorInvalid.
+    bool later;
 } Refusal;
 
 // The byte offset of a marker's occurrence, inside a string's quotes.
@@ -145,7 +147,8 @@ static void CheckRefusals(ReadText read, const Refusal* cases, size_t count)
     {
         const Refusal* c = &cases[i];
         maniBuildResult r = read(c->text);
-        bool ok = r.result == mani_errorInvalid && r.reason == c->reason;
+        bool ok =
+            r.result == (c->later ? mani_errorVersion : mani_errorInvalid) && r.reason == c->reason;
         ok = ok && (c->marker != NULL ? r.other == c->other &&
                                             r.item == OffsetOf(c->text, c->marker, c->occurrence)
                                       : r.item == c->other);

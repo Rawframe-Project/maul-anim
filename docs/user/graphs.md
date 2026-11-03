@@ -22,7 +22,7 @@ maniGraph graph;
 maniFileResult graphOpened = maniOpenGraph(graphFile, graphSize, &graph);
 ```
 
-The JSON form names everything (parameters, clip slots, bones), so the text survives a reimport that reorders bones, and each list item is one line, so a change reviews as a one-line diff. `maniWriteGraphJson` writes a source as text. A text that is not JSON, or not the graph form, is refused with the byte offset and what was wrong.
+The JSON form names everything (parameters, clip slots, bones), so the text survives a reimport that reorders bones, and each list item is one line, so a change reviews as a one-line diff. `maniWriteGraphJson` writes a source as text. A text that is not JSON, or not the graph form, is refused with the byte offset and what was wrong. A key the reader does not know, or a version other than 1, is a later form's and is refused with `mani_errorVersion`; the same holds for both map forms.
 
 ## Playing a graph
 

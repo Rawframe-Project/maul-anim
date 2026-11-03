@@ -808,7 +808,9 @@ extern "C"
     typedef int32_t maniGraphForm;
     enum
     {
-        // A member the object does not take.
+        // A member the object does not take: with mani_errorVersion a key
+        // the object does not know (a later form's), with
+        // mani_errorInvalid one it knows but does not take as written.
         maniGraphFormMember = 1,
         // A member given twice, or a bone a map's reference lists twice.
         maniGraphFormRepeat = 2,
@@ -821,7 +823,9 @@ extern "C"
         // map's skeleton has.
         maniGraphFormName = 5,
         // A format not the form's ("maul-anim graph", "maul-anim retarget
-        // map" or "maul-anim mirror map") or a version not 1.
+        // map" or "maul-anim mirror map") or a version not an integer,
+        // with mani_errorInvalid; an integer version not 1, with
+        // mani_errorVersion.
         maniGraphFormVersion = 6,
         // A clip slot the host's clips do not name, a database slot the
         // host's databases do not, a model slot the host's models do not,
@@ -887,7 +891,9 @@ extern "C"
     ///                   mirror map.
     /// @return As maniBuildGraph, items by place in the text's lists; or
     /// `mani_errorInvalid` with maniBuildReasonJson or
-    /// maniBuildReasonForm (other a maniGraphForm), item the byte offset.
+    /// maniBuildReasonForm (other a maniGraphForm), item the byte offset;
+    /// `mani_errorVersion` with maniBuildReasonForm for a key or a
+    /// version only another version of the form has.
     /// @par Thread safety
     /// Safe from any thread; the builder is used by one thread at a time.
     MANI_NODISCARD MANI_API maniBuildResult maniBuildGraphJson(maniBuilder* builder,

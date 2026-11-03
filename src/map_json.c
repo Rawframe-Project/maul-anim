@@ -48,15 +48,13 @@ void maniMapJsonClose(maniBuilder* builder, maniJson* json, maniGraphReader* r)
 
 bool maniMapJsonHeader(maniGraphReader* r, const uint32_t* f, const char* format)
 {
-    int64_t version = 0;
     bool named = r->json->values[f[0]].kind == maniJsonString &&
                  maniJsonStringEquals(r->json, f[0], format, strlen(format));
     if (!named)
     {
         return maniGraphJsonFault(r, f[0], maniGraphFormVersion);
     }
-    return maniJsonInteger(r->json, f[1], 1, 1, &version) ||
-           maniGraphJsonFault(r, f[1], maniGraphFormVersion);
+    return maniGraphJsonVersion(r, f[1]);
 }
 
 bool maniMapJsonCount(maniGraphReader* r, uint32_t value, uint32_t* countOut)

@@ -836,15 +836,13 @@ static bool Nodes(Reader* r, uint32_t value, maniGraphSource* out, const Scope* 
 
 static bool Header(Reader* r, const uint32_t* f)
 {
-    int64_t version = 0;
     bool format = r->json->values[f[0]].kind == maniJsonString &&
                   maniJsonStringEquals(r->json, f[0], "maul-anim graph", 15);
     if (!format)
     {
         return maniGraphJsonFault(r, f[0], maniGraphFormVersion);
     }
-    return (maniJsonInteger(r->json, f[1], 1, 1, &version)) ||
-           maniGraphJsonFault(r, f[1], maniGraphFormVersion);
+    return maniGraphJsonVersion(r, f[1]);
 }
 
 static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out, Scope* scope)
