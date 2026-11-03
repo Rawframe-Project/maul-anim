@@ -85,6 +85,21 @@ void maniIkCorrect(maniPose* pose, uint32_t bone, maniQuat correction);
 
 bool maniIkFiniteVec(maniVec3 v);
 
+// Whether v is not zero: its length, which binary64 keeps for every
+// finite vector, above 0. A binary32 dot(v, v) reads a vector shorter
+// than about 2^-75 as zero.
+bool maniIkNonzero(maniVec3 v);
+
+// Scales v[0], v[1] and v[2] by one power of two, 2^-e, chosen from the
+// first two: when their largest component is past 2^24 or below 2^-24,
+// it lands in [0.5, 1) (a subnormal one moves by 2^126 only); any other
+// leaves all three as they are, with their bits. A tiny pair is scaled
+// up only as far as keeps v[2] finite. The scale is two factors, each
+// within binary32's range, so each value that ends normal is scaled
+// exactly. For a solve whose turns depend on shapes alone, whose
+// products of lengths would leave binary32's range far from unit size.
+void maniIkRescale(maniVec3 v[3]);
+
 // A pose of the skeleton that is not a difference.
 bool maniIkPoseUsable(const maniPose* pose, const maniSkeleton* skeleton);
 

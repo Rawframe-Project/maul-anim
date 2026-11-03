@@ -9,7 +9,8 @@
 // shares it ends aimed with every bone turned, shares of 1, 0, 0 too; a
 // cone stops the forward at its edge; a pole swept through the aim line
 // turns the head continuously; weight 0 changes nothing and a second aim
-// nothing more; a goal at the head turns nothing; the refusals.
+// nothing more; a goal at the head turns nothing; the same turns at any
+// power-of-two scale, a short up and pole as unit ones; the refusals.
 
 #include "test_harness.h"
 
@@ -368,6 +369,61 @@ static void TestEdges(void)
           "a goal nearer than the eyes' line not reached");
 }
 
+// An aim scaled by a power of two takes the same turns bit for bit:
+// the spine under a root scale from 2^-100 to 2^100 against 2^1, the
+// goal and the eyes' offset scaled with it, without and with a cone.
+// A binary32 squared distance to the goal overflowed from 2^64, aiming
+// the head 2.5 radians off while reporting it reached, and read the goal
+// as at the head below about 2^-75. An up and a pole 2^-80 long turn the
+// head as unit ones.
+static void TestFarScales(void)
+{
+    const int exponents[7] = {1, -100, -80, -60, 60, 80, 100};
+    bool same = true;
+    bool reached = true;
+    for (int cone = 0; cone < 2; ++cone)
+    {
+        maniQuat first = {0};
+        bool firstReached = false;
+        for (int e = 0; e < 7; ++e)
+        {
+            float k = ldexpf(1.0f, exponents[e]);
+            Posed(s_pose);
+            maniTransform root = maniPose_GetLocal(s_pose, s_bone[kRoot]);
+            root.scale = (maniVec3){k, k, k};
+            maniPose_SetLocal(s_pose, s_bone[kRoot], root);
+            maniAimSolve s =
+                Head((maniVec3){0.7f * k, 1.9f * k, 0.9f * k}, (maniVec3){0.0f, 1.0f, 0.0f});
+            s.offset = (maniVec3){0.0f, 0.05f * k, 0.1f * k};
+            s.cone = cone ? 0.3f : 0.0f;
+            bool r = false;
+            CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &s, &r) == mani_success, "aimed");
+            maniQuat q = maniPose_GetLocal(s_pose, s_bone[kHead]).rotation;
+            if (e == 0)
+            {
+                first = q;
+                firstReached = r;
+            }
+            reached = reached && r == firstReached && (cone == 1 || r);
+            same = same && memcmp(&first, &q, sizeof q) == 0;
+        }
+    }
+    CHECK(reached, "reached at every scale without the cone, as at 2^1 with it");
+    CHECK(same, "the same turns at every scale");
+    Posed(s_pose);
+    Posed(s_other);
+    maniAimSolve unit = Head((maniVec3){0.7f, 1.9f, 0.9f}, (maniVec3){0.3f, 1.0f, 0.0f});
+    maniAimSolve shorter = unit;
+    shorter.up = (maniVec3){0.0f, 0x1p-80f, 0.0f};
+    shorter.pole = (maniVec3){0.3f * 0x1p-80f, 0x1p-80f, 0.0f};
+    CHECK(maniPose_SolveAim(s_pose, &s_skeleton, &unit, NULL) == mani_success &&
+              maniPose_SolveAim(s_other, &s_skeleton, &shorter, NULL) == mani_success,
+          "with either up and pole");
+    maniQuat heads[2] = {maniPose_GetLocal(s_pose, s_bone[kHead]).rotation,
+                         maniPose_GetLocal(s_other, s_bone[kHead]).rotation};
+    CHECK(memcmp(&heads[0], &heads[1], sizeof heads[0]) == 0, "a short up and pole as unit ones");
+}
+
 static void TestRefusals(void)
 {
     Posed(s_pose);
@@ -411,6 +467,7 @@ int main(void)
     TestCone();
     TestPoleSweep();
     TestEdges();
+    TestFarScales();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }

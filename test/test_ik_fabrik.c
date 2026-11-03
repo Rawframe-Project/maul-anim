@@ -6,11 +6,13 @@
 // after 1, 2 and 8 iterations those of a FABRIK in double precision
 // written here from Aristidou and Lasenby's pseudocode; a goal out of
 // reach straightening the chain; a pole turning the bend toward itself
-// either way, the pole's turn coming before the first pass; a bone of
+// either way, the pole's turn coming before the first pass, a pole
+// 2^-80 long as a unit one; a bone of
 // length 0 left as it was; cone limits never exceeded; hinges that make
 // the goal unreachable running the iterations out with tolerance 0, the
 // result's bits pinned; a solve on its own reached result unchanged; the
-// end taking the wanted rotation; weight 0; the refusals.
+// end taking the wanted rotation; weight 0; the same turns at any
+// power-of-two scale; the refusals.
 
 #include "test_harness.h"
 
@@ -268,6 +270,30 @@ static void TestPole(void)
     }
 }
 
+// A pole 2^-80 long turns the bend as the unit pole, bit for bit: only
+// a zero pole is none.
+static void TestShortPole(void)
+{
+    maniVec3 goal = {0.6f, 0.6f, 0.0f};
+    Bent(s_pose);
+    Bent(s_other);
+    maniChainSolve unit = Solve(goal);
+    unit.pole = (maniVec3){0.0f, 0.0f, 1.0f};
+    maniChainSolve shorter = unit;
+    shorter.pole = (maniVec3){0.0f, 0.0f, 0x1p-80f};
+    CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &unit, NULL) == mani_success &&
+              maniPose_SolveFabrik(s_other, &s_skeleton, &shorter, NULL) == mani_success,
+          "with either pole");
+    bool same = true;
+    for (uint32_t b = 0; b < BONES; ++b)
+    {
+        maniQuat q[2] = {maniPose_GetLocal(s_pose, b).rotation,
+                         maniPose_GetLocal(s_other, b).rotation};
+        same = same && memcmp(&q[0], &q[1], sizeof q[0]) == 0;
+    }
+    CHECK(same, "a short pole as the unit pole");
+}
+
 // A pole solve of one iteration is the pole's turn, a solve whose
 // tolerance takes the start, then a pass without a pole: the joints the
 // same but for rounding.
@@ -427,6 +453,45 @@ static void TestEndAndWeight(void)
     CHECK(same, "weight 0 leaves the pose");
 }
 
+// A chain scaled by a power of two takes the same turns bit for bit:
+// the tail under a root scale from 2^-100 to 2^100 against 2^1, eight
+// iterations without a tolerance, and reaches the goal as at 2^1. A
+// binary32 squared length read every direction below about 2^-75 as
+// zero.
+static void TestFarScales(void)
+{
+    const int exponents[7] = {1, -100, -80, -60, 60, 80, 100};
+    maniQuat first[BONES];
+    bool firstReached = false;
+    bool same = true;
+    for (int e = 0; e < 7; ++e)
+    {
+        float k = ldexpf(1.0f, exponents[e]);
+        Bent(s_pose);
+        maniTransform root = maniPose_GetLocal(s_pose, 0);
+        root.scale = (maniVec3){k, k, k};
+        maniPose_SetLocal(s_pose, 0, root);
+        maniChainSolve solve = Solve((maniVec3){0.4f * k, 0.6f * k, 0.3f * k});
+        solve.iterations = 8;
+        solve.tolerance = 0.0f;
+        bool r = false;
+        CHECK(maniPose_SolveFabrik(s_pose, &s_skeleton, &solve, &r) == mani_success, "solved");
+        maniQuat turns[BONES];
+        for (uint32_t b = 0; b < BONES; ++b)
+        {
+            turns[b] = maniPose_GetLocal(s_pose, b).rotation;
+        }
+        if (e == 0)
+        {
+            memcpy(first, turns, sizeof turns);
+            firstReached = r;
+        }
+        same = same && r == firstReached && memcmp(first, turns, sizeof turns) == 0;
+    }
+    CHECK(firstReached, "reached at 2^1");
+    CHECK(same, "the same turns and reach at every scale");
+}
+
 static void TestRefusals(void)
 {
     Bent(s_pose);
@@ -458,12 +523,14 @@ int main(void)
     TestReference();
     TestOutOfReach();
     TestPole();
+    TestShortPole();
     TestPoleFirst();
     TestShortBone();
     TestLimits();
     TestHingedOut();
     TestIdempotent();
     TestEndAndWeight();
+    TestFarScales();
     TestRefusals();
     return s_failures == 0 ? 0 : 1;
 }
