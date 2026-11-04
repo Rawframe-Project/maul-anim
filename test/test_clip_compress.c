@@ -390,8 +390,9 @@ static void TestKindsTiedToTracks(void)
     BuildFull(0.0f);
     maniCompressOptions options = maniDefaultCompressOptions();
     CHECK(Compress(&options, NULL) == mani_success, "compresses");
-    uint8_t* bytes = (uint8_t*)malloc(s_size);
-    CHECK(bytes != NULL && (uintptr_t)bytes % 16 == 0, "an aligned block of the file's length");
+    uint8_t* block = NULL;
+    uint8_t* bytes = TestExactCopy(s_size, &block);
+    CHECK(bytes != NULL, "a block of the file's length");
     memcpy(bytes, s_file, s_size);
     maniClip clip;
     CHECK(maniOpenClip(bytes, s_size, &clip).result == mani_success, "opens the copy");
@@ -410,7 +411,7 @@ static void TestKindsTiedToTracks(void)
               maniClip_Sample(&moved, &s_skeleton, 0.0f, pose) == mani_errorInvalid,
           "channels without tracks refused");
     CHECK(maniClip_Sample(&clip, &s_skeleton, 0.0f, pose) == mani_success, "the view as opened");
-    free(bytes);
+    free(block);
 }
 
 static void TestSegments(void)
