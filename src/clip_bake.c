@@ -341,10 +341,8 @@ static void LayCopied(Bake* b)
     size_t at = 0;
     for (uint32_t i = 0; i < clip->discreteTrackCount; ++i)
     {
-        const uint8_t* e = maniClipSection(clip, maniClipTagDiscreteTracks) +
-                           (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE;
-        uint32_t first = maniLoadU32(e + 16);
-        uint32_t count = maniLoadU32(e + 20);
+        uint64_t first = 0;
+        uint32_t count = maniClipTrackKeys(clip, i, &first);
         for (uint32_t j = 0; j < count; ++j)
         {
             const uint8_t* key = maniClipSection(clip, maniClipTagDiscreteKeys) +
@@ -420,8 +418,8 @@ static size_t DiscreteKeys(const maniClip* clip)
     size_t keys = 0;
     for (uint32_t i = 0; i < clip->discreteTrackCount; ++i)
     {
-        keys += maniLoadU32(maniClipSection(clip, maniClipTagDiscreteTracks) +
-                            (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 20);
+        uint64_t first = 0;
+        keys += maniClipTrackKeys(clip, i, &first);
     }
     return keys;
 }

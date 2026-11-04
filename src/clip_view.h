@@ -101,6 +101,21 @@ static inline uint32_t maniClipTrackBone(const maniClip* clip, uint32_t t)
     return bone < clip->skeletonBoneCount ? bone : 0;
 }
 
+// A discrete track's keys: the count, the first at *firstOut, within the
+// keys section; none for a range in bytes changed since the open that
+// falls outside it.
+static inline uint32_t maniClipTrackKeys(const maniClip* clip, uint32_t track, uint64_t* firstOut)
+{
+    const uint8_t* e = maniClipSection(clip, maniClipTagDiscreteTracks) +
+                       (size_t)track * MANI_CLIP_NAMED_TRACK_SIZE;
+    uint64_t first = maniLoadU32(e + 16);
+    uint32_t count = maniLoadU32(e + 20);
+    bool fits = maniViewFits(first * MANI_CLIP_KEY_SIZE, (uint64_t)count * MANI_CLIP_KEY_SIZE,
+                             maniClipSectionSize(clip, maniClipTagDiscreteKeys));
+    *firstOut = fits ? first : 0;
+    return fits ? count : 0;
+}
+
 // A full-precision track's channels, after the floats `used` of the
 // tracks before it: none when bytes changed since the open would take
 // more floats than a sample holds, so a read stays in its sample.

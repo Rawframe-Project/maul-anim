@@ -389,12 +389,18 @@ MANI_NOINLINE bool maniClipValid(const maniClip* clip)
     // The least bytes each section holds for the counts; a full-precision
     // clip's samples, a compressed clip's forms to segments.
     bool packed = clip->compressed != 0;
+    // A track holds a kind's channel in at most one form, so each kind's
+    // channels are at most the tracks: a walk of the forms then gives a
+    // track the tracks and forms sections hold.
     uint64_t animated = 0;
     uint64_t constant = 0;
+    bool kinds = true;
     for (uint32_t kind = 0; kind < maniClipKinds; ++kind)
     {
         animated += clip->animatedKinds[kind];
         constant += clip->constantKinds[kind];
+        kinds = kinds &&
+                (uint64_t)clip->animatedKinds[kind] + clip->constantKinds[kind] <= clip->trackCount;
     }
     const uint64_t need[MANI_CLIP_VIEW_SECTIONS - 1] = {
         Extent(clip->trackCount, MANI_CLIP_TRACK_SIZE),
@@ -413,8 +419,9 @@ MANI_NOINLINE bool maniClipValid(const maniClip* clip)
         packed ? maniCompressedSegmentHead(clip) + 8 : 0,
     };
     uint64_t root = maniClipSectionSize(clip, maniClipTagRootMotion);
-    bool fits = packed == (clip->segmentCount != 0) && clip->segmentCount <= clip->sampleCount &&
-                animated == clip->animatedChannels && constant == clip->constantChannels &&
+    bool fits = kinds && packed == (clip->segmentCount != 0) &&
+                clip->segmentCount <= clip->sampleCount && animated == clip->animatedChannels &&
+                constant == clip->constantChannels &&
                 (root == 0 || root >= maniRootMotionSize(clip->sampleCount));
     for (uint32_t i = 0; i < MANI_CLIP_VIEW_SECTIONS; ++i)
     {

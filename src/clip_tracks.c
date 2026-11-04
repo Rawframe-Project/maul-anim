@@ -329,15 +329,11 @@ static MANI_NOINLINE int32_t ClipDiscreteValueWork(const maniClip* clip, uint32_
     {
         return 0;
     }
-    const uint8_t* entry = maniClipSection(clip, maniClipTagDiscreteTracks) +
-                           (size_t)track * MANI_CLIP_NAMED_TRACK_SIZE;
-    uint64_t first = maniLoadU32(entry + 16);
-    uint32_t count = maniLoadU32(entry + 20);
     // The track's keys, at least one, within the keys: the bytes may have
     // changed since the open.
-    if (count == 0 ||
-        !maniViewFits(first * MANI_CLIP_KEY_SIZE, (uint64_t)count * MANI_CLIP_KEY_SIZE,
-                      maniClipSectionSize(clip, maniClipTagDiscreteKeys)))
+    uint64_t first = 0;
+    uint32_t count = maniClipTrackKeys(clip, track, &first);
+    if (count == 0)
     {
         return 0;
     }

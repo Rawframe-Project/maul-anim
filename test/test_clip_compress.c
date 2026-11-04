@@ -379,6 +379,40 @@ static void TestChangedBytes(void)
     free(block);
 }
 
+// Each kind's channels are tied to the tracks: an opened view's track
+// count set to 0, its tracks moved to the file's end with size 0 (and its
+// forms, without float tracks), passes every section's extent, and is
+// refused for its channels. Without the tie a forms walk would give track
+// 0 and read its bone past the file. The file is a heap copy of exactly
+// its length.
+static void TestKindsTiedToTracks(void)
+{
+    BuildFull(0.0f);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    CHECK(Compress(&options, NULL) == mani_success, "compresses");
+    uint8_t* bytes = (uint8_t*)malloc(s_size);
+    CHECK(bytes != NULL && (uintptr_t)bytes % 16 == 0, "an aligned block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    maniClip clip;
+    CHECK(maniOpenClip(bytes, s_size, &clip).result == mani_success, "opens the copy");
+    maniClip moved = clip;
+    moved.trackCount = 0;
+    moved.offsets[maniClipTagTracks - maniClipTagTracks] = clip.size;
+    moved.sizes[maniClipTagTracks - maniClipTagTracks] = 0;
+    if (clip.floatTrackCount == 0)
+    {
+        moved.offsets[maniClipTagForms - maniClipTagTracks] = clip.size;
+        moved.sizes[maniClipTagForms - maniClipTagTracks] = 0;
+    }
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &pose) == mani_success, "pose");
+    CHECK(maniClip_GetSampleCount(&moved) == 0 &&
+              maniClip_Sample(&moved, &s_skeleton, 0.0f, pose) == mani_errorInvalid,
+          "channels without tracks refused");
+    CHECK(maniClip_Sample(&clip, &s_skeleton, 0.0f, pose) == mani_success, "the view as opened");
+    free(bytes);
+}
+
 static void TestSegments(void)
 {
     BuildFull(0.0f);
@@ -1921,6 +1955,7 @@ int main(int argc, char** argv)
     }
     TestSegments();
     TestChangedBytes();
+    TestKindsTiedToTracks();
     TestOneSegment();
     TestOneSample();
     TestFoldWithinPrecision();

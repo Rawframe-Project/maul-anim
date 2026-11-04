@@ -335,13 +335,6 @@ static const uint8_t kEmpty = 0;
 
 static void NamedSections(const maniClip* c, const uint8_t* data[7], uint64_t sizes[7])
 {
-    uint64_t keys = 0;
-    if (c->discreteTrackCount > 0)
-    {
-        const uint8_t* last = maniClipSection(c, maniClipTagDiscreteTracks) +
-                              (size_t)(c->discreteTrackCount - 1) * MANI_CLIP_NAMED_TRACK_SIZE;
-        keys = (uint64_t)maniLoadU32(last + 16) + maniLoadU32(last + 20);
-    }
     const uint8_t* d[7] = {
         maniClipSection(c, maniClipTagFloatTracks),    &kEmpty,
         maniClipSection(c, maniClipTagDiscreteTracks), maniClipSection(c, maniClipTagDiscreteKeys),
@@ -350,7 +343,7 @@ static void NamedSections(const maniClip* c, const uint8_t* data[7], uint64_t si
     uint64_t s[7] = {(uint64_t)c->floatTrackCount * MANI_CLIP_NAMED_TRACK_SIZE,
                      0,
                      (uint64_t)c->discreteTrackCount * MANI_CLIP_NAMED_TRACK_SIZE,
-                     keys * MANI_CLIP_KEY_SIZE,
+                     maniClipSectionSize(c, maniClipTagDiscreteKeys),
                      (uint64_t)c->eventCount * MANI_CLIP_EVENT_SIZE,
                      (uint64_t)c->markerCount * MANI_CLIP_EVENT_SIZE,
                      maniClipSectionSize(c, maniClipTagNames)};
