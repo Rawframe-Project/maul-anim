@@ -9,6 +9,7 @@
 
 #include "body_ik.h"
 
+#include "fpenv.h"
 #include "ik_frame.h"
 #include "ik_limit.h"
 #include "vecmath.h"
@@ -317,6 +318,50 @@ static void ReadNode(maniBodyPart* part, const maniPose* pose, const maniSkeleto
     node->reserved = 0;
 }
 
+// v times 2^n, as two factors each within binary32's range: exact for
+// each value that ends normal.
+static MANI_NOINLINE maniVec3 Shifted(maniVec3 v, int n)
+{
+    return maniVec3Scale(maniVec3Scale(v, maniIkPower(n / 2)), maniIkPower(n - n / 2));
+}
+
+// The part's shift (see maniBodyPart) from its offsets, kept so that no
+// origin or goal position overflows; the origins and offsets scaled by
+// it. The solvers' turns depend on the part's shape alone.
+static MANI_NOINLINE void Rescale(maniBodyPart* part, const maniBodySolve* solve)
+{
+    float largest = 0.0f;
+    for (uint32_t k = 0; k < part->count; ++k)
+    {
+        float l = maniIkLargest(part->nodes[k].offset);
+        largest = l > largest ? l : largest;
+    }
+    part->shift = 0;
+    if (!(largest > 0x1p24f || (largest > 0.0f && largest < 0x1p-24f)))
+    {
+        return;
+    }
+    float far = 0.0f;
+    for (uint32_t k = 0; k < part->count; ++k)
+    {
+        float l = maniIkLargest(part->nodes[k].origin);
+        far = l > far ? l : far;
+    }
+    for (uint32_t e = 0; e < solve->effectorCount; ++e)
+    {
+        float l = maniIkLargest(solve->effectors[e].position);
+        far = l > far ? l : far;
+    }
+    int e = maniIkExponent(largest);
+    int g = maniIkExponent(far);
+    part->shift = e < 0 && e < g - 127 ? g - 127 : e;
+    for (uint32_t k = 0; k < part->count; ++k)
+    {
+        part->nodes[k].origin = Shifted(part->nodes[k].origin, -part->shift);
+        part->nodes[k].offset = Shifted(part->nodes[k].offset, -part->shift);
+    }
+}
+
 void maniBodyBegin(maniBodyPart* part, const maniPose* pose, const maniSkeleton* skeleton,
                    const maniBodySolve* solve, void* scratch, uint32_t count)
 {
@@ -337,6 +382,9 @@ void maniBodyBegin(maniBodyPart* part, const maniPose* pose, const maniSkeleton*
     {
         ReadNode(part, pose, skeleton, solve, list, k);
     }
+    Rescale(part, solve);
+    part->tolerance = solve->tolerance * maniIkPower(-part->shift / 2) *
+                      maniIkPower(-part->shift + part->shift / 2);
     float sum = 0.0f;
     uint32_t lengths = 0;
     for (uint32_t k = count; k-- > 1;)
@@ -349,7 +397,7 @@ void maniBodyBegin(maniBodyPart* part, const maniPose* pose, const maniSkeleton*
         lengths += l > 0.0f;
     }
     part->mean = lengths > 0 ? sum / (float)lengths : 1.0f;
-    part->reserved = 0.0f;
+    part->reserved = 0;
     for (uint32_t e = 0; e < solve->effectorCount; ++e)
     {
         const maniBodyEffector* effector = &solve->effectors[e];
@@ -357,7 +405,7 @@ void maniBodyBegin(maniBodyPart* part, const maniPose* pose, const maniSkeleton*
         goal->node = Find(list, count, effector->bone);
         const maniBodyNode* node = &part->nodes[goal->node];
         maniVec3 from = node->origin;
-        maniVec3 to = effector->position;
+        maniVec3 to = Shifted(effector->position, -part->shift);
         float w = effector->positionWeight;
         goal->position = maniVec3Add(from, maniVec3Scale(maniVec3Sub(to, from), w));
         goal->rotation =
@@ -564,7 +612,7 @@ static maniVec3 InParentVector(const maniBodyPart* part, uint32_t k, maniVec3 d)
 
 bool maniBodyFinish(maniBodyPart* part, maniPose* pose, const maniBodySolve* solve)
 {
-    bool reached = maniBodyMiss(part) <= solve->tolerance && solve->weight >= 1.0f;
+    bool reached = maniBodyMiss(part) <= part->tolerance && solve->weight >= 1.0f;
     for (uint32_t k = 0; k < part->count; ++k)
     {
         maniBodyNode* node = &part->nodes[k];
@@ -580,13 +628,14 @@ bool maniBodyFinish(maniBodyPart* part, maniPose* pose, const maniBodySolve* sol
             maniIkCorrect(pose, node->bone, correction);
         }
         // Where the parent's turn alone puts the node; the top's input.
-        maniVec3 placed = k == 0 ? maniIkOrigin(&node->frame)
+        maniVec3 placed = k == 0 ? Shifted(maniIkOrigin(&node->frame), -part->shift)
                                  : maniVec3Add(part->nodes[node->parent].origin,
                                                maniQuatRotate(parentTurn, node->offset));
         maniVec3 moved = maniVec3Sub(node->origin, placed);
         if ((k == 0 || solve->stretch) && maniVec3Dot(moved, moved) > 0.0f)
         {
             maniTransform t = maniPose_GetLocal(pose, node->bone);
+            moved = Shifted(moved, part->shift);
             maniVec3 d = maniVec3Scale(InParentVector(part, k, moved), solve->weight);
             t.translation = maniVec3Add(t.translation, d);
             maniPose_SetLocal(pose, node->bone, t);

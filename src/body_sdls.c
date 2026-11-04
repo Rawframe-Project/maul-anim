@@ -315,7 +315,7 @@ static MANI_NOINLINE maniResult SolveBodySdlsWork(maniPose* pose, const maniSkel
     // Half the mean bone length: the most a miss counts.
     float most = 0.5f * part.mean;
     maniBodyPrepare(&part, solve);
-    for (uint32_t i = 0; i < solve->iterations && maniBodyMiss(&part) > solve->tolerance; ++i)
+    for (uint32_t i = 0; i < solve->iterations && maniBodyMiss(&part) > part.tolerance; ++i)
     {
         for (size_t k = 0; k < (size_t)s.n * s.m; ++k)
         {

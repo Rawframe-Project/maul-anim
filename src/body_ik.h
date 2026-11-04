@@ -81,7 +81,15 @@ typedef struct maniBodyPart
     uint32_t effectors;
     // The mean of the part's nonzero offsets (1 for none).
     float mean;
-    float reserved;
+    // The solve's tolerance, in the part's lengths.
+    float tolerance;
+    // The part's lengths (origins, offsets, goal positions, tolerance)
+    // are the pose's times 2^-shift: a part whose offsets' largest
+    // component is past 2^24 or below 2^-24 is scaled to put it in
+    // [0.5, 1), so the solvers' products of lengths stay in binary32's
+    // range; any other has shift 0 and keeps its bits.
+    int32_t shift;
+    uint32_t reserved;
 } maniBodyPart;
 
 // The part's size in nodes for a solve valid on the skeleton, 0 for one

@@ -15,7 +15,8 @@
 // a position weight of 0.5 stopping halfway; a weaker effector stopping
 // further against stiff bones; a stiff spine turning less; a solve short
 // of convergence pinned with and without stretch, the same on reused
-// scratch; an effector on the held top; goals at the hips and nearly
+// scratch; the same turns at any power-of-two scale; an effector on the
+// held top; goals at the hips and nearly
 // every bone locked without a NaN; the scratch size and its refusals;
 // the description's refusals.
 
@@ -608,6 +609,14 @@ static void TestPartPastBound(void)
     CHECK(maniSkeleton_GetBodyIkScratchSize(&skeleton, &s) > 0, "the part just within the bound");
 }
 
+// The figure scaled by a power of two takes the same turns bit for bit,
+// from 2^-100 to 2^100: products of lengths (the Jacobian's norms, the
+// inertias from squared offsets) would leave binary32's range there.
+static void TestFarScales(void)
+{
+    CHECK(SameAtScales(Solved), "the same turns at every scale");
+}
+
 int main(void)
 {
     Setup();
@@ -625,6 +634,7 @@ int main(void)
     TestHalfMove();
     TestStrength();
     TestPinned();
+    TestFarScales();
     TestEdges();
     TestRefusals();
     TestPartPastBound();

@@ -9,7 +9,8 @@
 // hand taking a wanted rotation; a free top bringing an out-of-reach
 // hand closer; stretch refused; goals at the top and nearly every bone
 // locked without a NaN; a free top taking its wanted rotation; two
-// solves' bits pinned, one from the straight rest with a free top. Then the arm alone, a
+// solves' bits pinned, one from the straight rest with a free top; the
+// same turns at any power-of-two scale. Then the arm alone, a
 // chain of three turning bones: one iteration's joints within 1e-5 of a
 // binary64 SDLS written here from the paper; on two bones bent about z
 // by hinges, two effectors pulling apart end where a brute-force search
@@ -536,6 +537,14 @@ static void TestLeastSquares(void)
     }
 }
 
+// The figure scaled by a power of two takes the same turns bit for bit,
+// from 2^-100 to 2^100: products of lengths (the Jacobian's norms, the
+// inertias from squared offsets) would leave binary32's range there.
+static void TestFarScales(void)
+{
+    CHECK(SameAtScales(Sdls), "the same turns at every scale");
+}
+
 int main(void)
 {
     Setup();
@@ -545,6 +554,7 @@ int main(void)
     TestTopAndEdges();
     TestTopRotation();
     TestPinned();
+    TestFarScales();
     TestReference();
     TestLeastSquares();
     return s_failures == 0 ? 0 : 1;
