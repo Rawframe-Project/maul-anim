@@ -31,14 +31,6 @@ maniVec3 maniSpringFileVec(const uint8_t* p);
 // transform t.
 maniSpringShape maniSpringShapeOf(const uint8_t* collider, maniTransform t);
 
-// A file's binary32 and three of them at p.
-float maniSpringFileFloat(const uint8_t* p);
-maniVec3 maniSpringFileVec(const uint8_t* p);
-
-// A collider record's shape in model space under its bone's model
-// transform t.
-maniSpringShape maniSpringShapeOf(const uint8_t* collider, maniTransform t);
-
 // The largest of a scale's magnitudes.
 float maniSpringLargestScale(maniVec3 s);
 

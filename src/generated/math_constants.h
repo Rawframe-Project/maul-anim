@@ -14,7 +14,7 @@
 // ln 2 to 40 bits: k times it is exact for |k| < 2^13.
 #define MANI_LN2_HI 0x1.62e42fefa4000p-1
 // ln 2 minus MANI_LN2_HI.
-#define MANI_LN2_LO -0x1.8432a1b0e2634p-43
+#define MANI_LN2_LO (-0x1.8432a1b0e2634p-43)
 // 1 / ln 2.
 #define MANI_INV_LN2 0x1.71547652b82fep+0
 // ln 2, the nearest double.

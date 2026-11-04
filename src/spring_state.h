@@ -103,12 +103,12 @@ uint64_t maniSpringBlockWords(const maniSpringSet* set);
 // A state's block, just after the state.
 static inline uint32_t* maniSpringBlock(maniSpringState* state)
 {
-    return (uint32_t*)(void*)(state + 1);
+    return (uint32_t*)(state + 1);
 }
 
 static inline const uint32_t* maniSpringConstBlock(const maniSpringState* state)
 {
-    return (const uint32_t*)(const void*)(state + 1);
+    return (const uint32_t*)(state + 1);
 }
 
 static inline uint64_t maniSpringJointAt(uint32_t joint)
