@@ -18,6 +18,7 @@
 #include "match_file.h"
 #include "match_sample.h"
 #include "match_tree.h"
+#include "skeleton_view.h"
 #include "text.h"
 
 #include "maul-anim/build.h"
@@ -708,7 +709,7 @@ static MANI_NOINLINE maniBuildResult BuildMotionDatabaseWork(maniBuilder* builde
     {
         lists = source->clips[i] != NULL;
     }
-    if (!lists || source->skeleton == NULL)
+    if (!lists || !maniSkeletonValid(source->skeleton))
     {
         maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);

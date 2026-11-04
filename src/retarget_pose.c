@@ -12,6 +12,7 @@
 #include "fpenv.h"
 #include "pose_memory.h"
 #include "retarget_file.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -288,9 +289,9 @@ static bool Usable(const maniRetargetMap* map, const maniSkeleton* source,
                    const maniPose* sourcePose, const maniSkeleton* target,
                    const maniPose* targetPose, const void* scratch, size_t scratchSize)
 {
-    return map != NULL && source != NULL && target != NULL && sourcePose != NULL &&
-           targetPose != NULL && scratch != NULL && (uintptr_t)scratch % 16 == 0 &&
-           scratchSize >= maniRetargetMap_GetScratchSize(map) &&
+    return map != NULL && maniSkeletonValid(source) && maniSkeletonValid(target) &&
+           sourcePose != NULL && targetPose != NULL && scratch != NULL &&
+           (uintptr_t)scratch % 16 == 0 && scratchSize >= maniRetargetMap_GetScratchSize(map) &&
            maniSkeleton_GetIdentity(source) == map->sourceIdentity &&
            maniSkeleton_GetIdentity(target) == map->targetIdentity &&
            maniSkeleton_GetBoneCount(source) == map->sourceBoneCount &&

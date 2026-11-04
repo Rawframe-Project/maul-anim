@@ -19,6 +19,7 @@
 #include "container.h"
 #include "fpenv.h"
 #include "invariant.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
@@ -670,7 +671,7 @@ static MANI_NOINLINE maniResult CompressClipWork(maniBuilder* builder, const man
     {
         return mani_errorInvalid;
     }
-    if (clip == NULL || skeleton == NULL || options == NULL)
+    if (clip == NULL || !maniSkeletonValid(skeleton) || options == NULL)
     {
         maniBuilderMisuse(builder);
         return mani_errorInvalid;

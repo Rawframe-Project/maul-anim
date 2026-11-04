@@ -15,6 +15,7 @@
 #include "container.h"
 #include "fpenv.h"
 #include "mirror_file.h"
+#include "skeleton_view.h"
 #include "sort.h"
 #include "text.h"
 #include "vecmath.h"
@@ -548,7 +549,7 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w, const uint32_t
 
 static bool Usable(const maniMirrorMapSource* s)
 {
-    return s != NULL && s->skeleton != NULL && (s->pairs != NULL || s->pairCount == 0) &&
+    return s != NULL && maniSkeletonValid(s->skeleton) && (s->pairs != NULL || s->pairCount == 0) &&
            (s->rules != NULL || s->ruleCount == 0) &&
            (s->namePairs != NULL || s->namePairCount == 0) &&
            (s->names != NULL || s->nameCount == 0);

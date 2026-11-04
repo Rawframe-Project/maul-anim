@@ -15,6 +15,7 @@
 #include "fpenv.h"
 #include "learned_file.h"
 #include "match_file.h"
+#include "skeleton_view.h"
 #include "text.h"
 
 #include "maul-anim/build.h"
@@ -507,7 +508,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniLearnedModelSource*
 // The lists the counts name are given.
 static bool Given(const maniLearnedModelSource* s)
 {
-    return s->skeleton != NULL && s->database != NULL && s->decompressor != NULL &&
+    return maniSkeletonValid(s->skeleton) && s->database != NULL && s->decompressor != NULL &&
            s->stepper != NULL && (s->projectors != NULL || s->projectorCount == 0) &&
            (s->scaledBones != NULL || s->scaledBoneCount == 0) &&
            (s->floatTracks != NULL || s->floatTrackCount == 0) &&

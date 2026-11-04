@@ -20,6 +20,7 @@
 #include "graph_json_search.h"
 #include "graph_json_space.h"
 #include "json.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/blend.h"
@@ -878,7 +879,7 @@ static MANI_NOINLINE maniBuildResult BuildGraphJsonWork(maniBuilder* builder, co
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
     }
     const maniGraphNamedAssets* a = assets;
-    if ((text == NULL && length > 0) || a == NULL || a->skeleton == NULL ||
+    if ((text == NULL && length > 0) || a == NULL || !maniSkeletonValid(a->skeleton) ||
         (a->clips == NULL && a->clipCount > 0) || (a->databases == NULL && a->databaseCount > 0) ||
         (a->models == NULL && a->modelCount > 0) ||
         (a->springSets == NULL && a->springSetCount > 0))

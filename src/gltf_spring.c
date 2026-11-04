@@ -15,6 +15,7 @@
 #include "gltf_property.h"
 #include "host_code.h"
 #include "json.h"
+#include "skeleton_view.h"
 #include "spring_frame.h"
 #include "vecmath.h"
 
@@ -837,7 +838,7 @@ static MANI_NOINLINE maniImportResult GltfReadSpringsWork(maniGltf* gltf,
     {
         memset(setOut, 0, sizeof *setOut);
     }
-    if (gltf == NULL || skeleton == NULL || options == NULL || setOut == NULL ||
+    if (gltf == NULL || !maniSkeletonValid(skeleton) || options == NULL || setOut == NULL ||
         !maniGltfOptionsValid(options))
     {
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};

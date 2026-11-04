@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "fpenv.h"
 #include "pose_memory.h"
+#include "skeleton_view.h"
 #include "spring_file.h"
 #include "state_prefix.h"
 #include "vecmath.h"
@@ -52,7 +53,7 @@ static MANI_NOINLINE maniResult InitSpringStateWork(const maniSpringSet* set,
                                                     const maniSkeleton* skeleton, void* memory,
                                                     size_t size, maniSpringState** stateOut)
 {
-    if (set == NULL || skeleton == NULL || memory == NULL || stateOut == NULL ||
+    if (set == NULL || !maniSkeletonValid(skeleton) || memory == NULL || stateOut == NULL ||
         (uintptr_t)memory % MANI_SPRING_STATE_ALIGNMENT != 0 ||
         maniSkeleton_GetIdentity(skeleton) != set->skeletonIdentity ||
         maniSkeleton_GetBoneCount(skeleton) != set->boneCount)

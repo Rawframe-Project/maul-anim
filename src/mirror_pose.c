@@ -13,6 +13,7 @@
 #include "fpenv.h"
 #include "mirror_file.h"
 #include "pose_memory.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -119,7 +120,7 @@ static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
                                                const maniSkeleton* skeleton, const maniPose* in,
                                                maniPose* out)
 {
-    if (map == NULL || skeleton == NULL ||
+    if (map == NULL || !maniSkeletonValid(skeleton) ||
         maniSkeleton_GetIdentity(skeleton) != map->skeletonIdentity ||
         maniSkeleton_GetBoneCount(skeleton) != map->boneCount || !maniPoseMatches(in, skeleton) ||
         !maniPoseMatches(out, skeleton) || maniPose_IsDifference(in))

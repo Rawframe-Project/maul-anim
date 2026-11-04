@@ -27,18 +27,20 @@ extern "C"
     // A skeleton over a file's bytes, which the caller keeps alive and
     // unchanged while the view is used. Its fields are the library's;
     // read a skeleton through the functions below. A view is immutable:
-    // safe to read from any number of threads, and copyable.
+    // safe to read from any number of threads, and copyable. Every call
+    // checks the view it is given, so a view whose fields were changed or
+    // mixed from two views reads only within the file it names, and is
+    // refused when its counts do not fit that file; the bytes are read
+    // only within the extents recorded at open, whatever they become.
     typedef struct maniSkeleton
     {
-        const uint8_t* parents;
-        const uint8_t* subtreeEnds;
-        const uint8_t* rests;
-        const uint8_t* nameHashes;
-        const uint8_t* nameOrder;
-        const uint8_t* nameSpans;
-        const uint8_t* nameBytes;
+        const uint8_t* base;
+        uint64_t size;
+        uint64_t sections[7];
+        uint64_t nameSize;
         uint64_t identity;
         uint32_t boneCount;
+        uint32_t cookie;
     } maniSkeleton;
 
     /// Opens a skeleton file in place: checks the container and every
@@ -62,7 +64,8 @@ extern "C"
     /// Returns the number of bones, 1 to MANI_MAX_BONES.
     ///
     /// @param skeleton  An opened skeleton.
-    /// @return The bone count.
+    /// @return The bone count; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniSkeleton_GetBoneCount(const maniSkeleton* skeleton);
@@ -71,7 +74,8 @@ extern "C"
     /// parents, rests and names, which files built against it record.
     ///
     /// @param skeleton  An opened skeleton.
-    /// @return The identity.
+    /// @return The identity; 0 for a view no open wrote or whose counts do
+    /// not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniSkeleton_GetIdentity(const maniSkeleton* skeleton);
@@ -80,8 +84,9 @@ extern "C"
     ///
     /// @param skeleton  An opened skeleton.
     /// @param bone      The bone.
-    /// @return The parent, or MANI_NO_BONE for a root or a bone past the
-    /// count.
+    /// @return The parent, or MANI_NO_BONE for a root, a bone past the
+    /// count, a view no open wrote or whose counts do not fit its file, or
+    /// a parent in the bytes that is not a lower index.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniSkeleton_GetParent(const maniSkeleton* skeleton, uint32_t bone);
@@ -91,8 +96,9 @@ extern "C"
     ///
     /// @param skeleton  An opened skeleton.
     /// @param bone      The bone.
-    /// @return The end, or bone itself for a bone past the count (an empty
-    /// range).
+    /// @return The end, or bone itself (an empty range) for a bone past
+    /// the count, a view no open wrote or whose counts do not fit its
+    /// file, or an end in the bytes past the count.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniSkeleton_GetSubtreeEnd(const maniSkeleton* skeleton, uint32_t bone);
@@ -102,7 +108,8 @@ extern "C"
     /// @param skeleton  An opened skeleton.
     /// @param bone      The bone.
     /// @return The rest, or the identity transform for a bone past the
-    /// count.
+    /// count or a view no open wrote or whose counts do not fit its
+    /// file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API maniTransform maniSkeleton_GetRest(const maniSkeleton* skeleton, uint32_t bone);
@@ -111,10 +118,11 @@ extern "C"
     ///
     /// @param skeleton  An opened skeleton.
     /// @param bone      The bone.
-    /// @param lengthOut Receives the name's length in bytes, 0 for a bone
-    ///                  past the count. May be NULL.
+    /// @param lengthOut Receives the name's length in bytes, 0 when NULL
+    ///                  is returned. May be NULL.
     /// @return The name's bytes, inside the file, or NULL for a bone past
-    /// the count.
+    /// the count, a view no open wrote or whose counts do not fit its
+    /// file, or a name span in the bytes past the names.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniSkeleton_GetBoneName(const maniSkeleton* skeleton, uint32_t bone,
@@ -126,7 +134,8 @@ extern "C"
     /// @param name      The name's UTF-8 bytes; may be NULL when length is
     ///                  0.
     /// @param length    The name's length in bytes.
-    /// @return The bone, or MANI_NO_BONE when no bone has that name.
+    /// @return The bone, or MANI_NO_BONE when no bone has that name or for
+    /// a view no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniSkeleton_FindBone(const maniSkeleton* skeleton, const char* name,

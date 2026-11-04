@@ -11,6 +11,7 @@
 #include "clip_view.h"
 #include "fpenv.h"
 #include "mirror_file.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -99,7 +100,7 @@ static maniRootMotionSource Declared(Bake* b, maniRootMotionSource s)
 
 static bool Usable(const maniMirrorClipSource* s)
 {
-    return s != NULL && s->map != NULL && s->skeleton != NULL && s->clip != NULL;
+    return s != NULL && s->map != NULL && maniSkeletonValid(s->skeleton) && s->clip != NULL;
 }
 
 // The skeleton the map's, the clip the skeleton's.

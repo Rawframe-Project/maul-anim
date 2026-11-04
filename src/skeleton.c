@@ -16,7 +16,9 @@
 #include "fpenv.h"
 #include "invariant.h"
 #include "skeleton_file.h"
+#include "skeleton_view.h"
 #include "text.h"
+#include "view.h"
 
 #include "maul-anim/base.h"
 
@@ -271,15 +273,16 @@ static MANI_COLD MANI_NOINLINE maniFileResult OpenSkeletonWork(const void* bytes
         return Fail(40);
     }
     memset(skeletonOut, 0, sizeof *skeletonOut);
-    skeletonOut->parents = s[0].data;
-    skeletonOut->subtreeEnds = s[1].data;
-    skeletonOut->rests = s[2].data;
-    skeletonOut->nameHashes = s[3].data;
-    skeletonOut->nameOrder = s[4].data;
-    skeletonOut->nameSpans = s[5].data;
-    skeletonOut->nameBytes = s[6].data;
+    skeletonOut->base = c.bytes;
+    skeletonOut->size = c.size;
+    for (uint32_t i = 0; i < MANI_SKELETON_SECTIONS; ++i)
+    {
+        skeletonOut->sections[i] = s[i].offset;
+    }
+    skeletonOut->nameSize = s[6].size;
     skeletonOut->identity = c.identity;
     skeletonOut->boneCount = n;
+    skeletonOut->cookie = MANI_VIEW_COOKIE(maniKindSkeleton);
     return Success();
 }
 
@@ -291,74 +294,143 @@ maniFileResult maniOpenSkeleton(const void* bytes, size_t size, maniSkeleton* sk
     return result;
 }
 
-uint32_t maniSkeleton_GetBoneCount(const maniSkeleton* skeleton)
+MANI_NOINLINE bool maniSkeletonValid(const maniSkeleton* s)
 {
-    return skeleton->boneCount;
+    // Each fixed section's bytes a bone; the names' are their own size.
+    static const uint8_t kStrides[MANI_SKELETON_SECTIONS - 1] = {2, 2, MANI_SKELETON_REST_SIZE,
+                                                                 8, 2, MANI_SKELETON_SPAN_SIZE};
+    if (s == NULL || s->cookie != MANI_VIEW_COOKIE(maniKindSkeleton) || s->base == NULL ||
+        s->boneCount - 1u >= MANI_MAX_BONES)
+    {
+        return false;
+    }
+    bool fits = maniViewFits(s->sections[MANI_SKELETON_SECTIONS - 1], s->nameSize, s->size);
+    for (uint32_t i = 0; i < MANI_SKELETON_SECTIONS - 1; ++i)
+    {
+        fits = fits && maniViewFits(s->sections[i], (uint64_t)kStrides[i] * s->boneCount, s->size);
+    }
+    return fits;
 }
 
-uint64_t maniSkeleton_GetIdentity(const maniSkeleton* skeleton)
+uint32_t maniSkeletonParentOf(const maniSkeleton* s, uint32_t bone)
 {
-    return skeleton->identity;
-}
-
-uint32_t maniSkeleton_GetParent(const maniSkeleton* skeleton, uint32_t bone)
-{
-    if (bone >= skeleton->boneCount)
+    if (bone >= s->boneCount)
     {
         return MANI_NO_BONE;
     }
-    return maniLoadU16(skeleton->parents + 2 * (size_t)bone);
+    uint32_t parent = maniLoadU16(maniSkeletonSection(s, maniSkeletonParents) + 2 * (size_t)bone);
+    return parent < bone ? parent : MANI_NO_BONE;
 }
 
-uint32_t maniSkeleton_GetSubtreeEnd(const maniSkeleton* skeleton, uint32_t bone)
-{
-    if (bone >= skeleton->boneCount)
-    {
-        return bone;
-    }
-    return maniLoadU16(skeleton->subtreeEnds + 2 * (size_t)bone);
-}
-
-maniTransform maniSkeleton_GetRest(const maniSkeleton* skeleton, uint32_t bone)
+maniTransform maniSkeletonRestOf(const maniSkeleton* s, uint32_t bone)
 {
     maniTransform rest = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
-    if (bone < skeleton->boneCount)
+    if (bone < s->boneCount)
     {
-        memcpy(&rest, skeleton->rests + MANI_SKELETON_REST_SIZE * (size_t)bone, sizeof rest);
+        memcpy(&rest,
+               maniSkeletonSection(s, maniSkeletonRests) + MANI_SKELETON_REST_SIZE * (size_t)bone,
+               sizeof rest);
     }
     return rest;
 }
 
-const char* maniSkeleton_GetBoneName(const maniSkeleton* skeleton, uint32_t bone, size_t* lengthOut)
+uint32_t maniSkeleton_GetBoneCount(const maniSkeleton* skeleton)
 {
-    if (bone >= skeleton->boneCount)
+    return maniSkeletonValid(skeleton) ? skeleton->boneCount : 0;
+}
+
+uint64_t maniSkeleton_GetIdentity(const maniSkeleton* skeleton)
+{
+    return maniSkeletonValid(skeleton) ? skeleton->identity : 0;
+}
+
+// A u16 bone index from a section, MANI_NO_BONE when it is not below the
+// view's count: the bytes may have changed since the open.
+static uint32_t BoneAt(const maniSkeleton* s, uint32_t section, uint32_t i)
+{
+    uint32_t bone = maniLoadU16(maniSkeletonSection(s, section) + 2 * (size_t)i);
+    return bone < s->boneCount ? bone : MANI_NO_BONE;
+}
+
+uint32_t maniSkeleton_GetParent(const maniSkeleton* skeleton, uint32_t bone)
+{
+    return maniSkeletonValid(skeleton) ? maniSkeletonParentOf(skeleton, bone) : MANI_NO_BONE;
+}
+
+uint32_t maniSkeleton_GetSubtreeEnd(const maniSkeleton* skeleton, uint32_t bone)
+{
+    if (!maniSkeletonValid(skeleton) || bone >= skeleton->boneCount)
     {
-        if (lengthOut != NULL)
-        {
-            *lengthOut = 0;
-        }
+        return bone;
+    }
+    uint32_t end =
+        maniLoadU16(maniSkeletonSection(skeleton, maniSkeletonSubtreeEnds) + 2 * (size_t)bone);
+    return end > bone && end <= skeleton->boneCount ? end : bone;
+}
+
+maniTransform maniSkeleton_GetRest(const maniSkeleton* skeleton, uint32_t bone)
+{
+    if (!maniSkeletonValid(skeleton))
+    {
+        return (maniTransform){{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
+    }
+    return maniSkeletonRestOf(skeleton, bone);
+}
+
+// A bone's name in a checked view, NULL past the count or when its span
+// leaves the names' bytes.
+static const char* Name(const maniSkeleton* s, uint32_t bone, size_t* lengthOut)
+{
+    *lengthOut = 0;
+    if (bone >= s->boneCount)
+    {
         return NULL;
     }
-    const uint8_t* span = skeleton->nameSpans + MANI_SKELETON_SPAN_SIZE * (size_t)bone;
+    const uint8_t* span =
+        maniSkeletonSection(s, maniSkeletonNameSpans) + MANI_SKELETON_SPAN_SIZE * (size_t)bone;
+    uint32_t offset = maniLoadU32(span);
+    uint32_t length = maniLoadU32(span + 4);
+    if (!maniViewFits(offset, length, s->nameSize))
+    {
+        return NULL;
+    }
+    *lengthOut = length;
+    return (const char*)(maniSkeletonSection(s, maniSkeletonNameBytes) + offset);
+}
+
+const char* maniSkeleton_GetBoneName(const maniSkeleton* skeleton, uint32_t bone, size_t* lengthOut)
+{
+    size_t length = 0;
+    const char* name = maniSkeletonValid(skeleton) ? Name(skeleton, bone, &length) : NULL;
     if (lengthOut != NULL)
     {
-        *lengthOut = maniLoadU32(span + 4);
+        *lengthOut = length;
     }
-    return (const char*)(skeleton->nameBytes + maniLoadU32(span));
+    return name;
 }
 
 uint32_t maniSkeleton_FindBone(const maniSkeleton* skeleton, const char* name, size_t length)
 {
+    if (!maniSkeletonValid(skeleton))
+    {
+        return MANI_NO_BONE;
+    }
+    const maniSkeleton* s = skeleton;
     // An empty name hashes to MANI_HASH_INIT and matches no bone, whose
     // names are never empty, so it needs no case of its own.
     uint64_t hash = maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length);
     uint32_t low = 0;
-    uint32_t high = skeleton->boneCount;
+    uint32_t high = s->boneCount;
     while (low < high)
     {
         uint32_t middle = low + (high - low) / 2;
-        uint32_t bone = maniLoadU16(skeleton->nameOrder + 2 * (size_t)middle);
-        uint64_t found = maniLoadU64(skeleton->nameHashes + 8 * (size_t)bone);
+        uint32_t bone = BoneAt(s, maniSkeletonNameOrder, middle);
+        if (bone == MANI_NO_BONE)
+        {
+            return MANI_NO_BONE;
+        }
+        uint64_t found =
+            maniLoadU64(maniSkeletonSection(s, maniSkeletonNameHashes) + 8 * (size_t)bone);
         if (found < hash)
         {
             low = middle + 1;
@@ -370,8 +442,9 @@ uint32_t maniSkeleton_FindBone(const maniSkeleton* skeleton, const char* name, s
         else
         {
             size_t foundLength = 0;
-            const char* foundName = maniSkeleton_GetBoneName(skeleton, bone, &foundLength);
-            bool same = foundLength == length && memcmp(foundName, name, length) == 0;
+            const char* foundName = Name(s, bone, &foundLength);
+            bool same = foundName != NULL && foundLength == length &&
+                        (length == 0 || memcmp(foundName, name, length) == 0);
             return same ? bone : MANI_NO_BONE;
         }
     }

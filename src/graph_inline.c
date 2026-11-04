@@ -10,6 +10,7 @@
 #include "allocator.h"
 #include "graph_check.h"
 #include "invariant.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/bodyik.h"
@@ -643,7 +644,7 @@ static bool SubgraphValid(const Scope* s, const maniGraphNodeSource* node,
                           const maniSkeleton* skeleton)
 {
     const maniGraphSource* sub = node->subgraph.graph;
-    if (node->inputCount != 0 || sub->skeleton == NULL ||
+    if (node->inputCount != 0 || !maniSkeletonValid(sub->skeleton) ||
         maniSkeleton_GetIdentity(sub->skeleton) != maniSkeleton_GetIdentity(skeleton) ||
         sub->output >= sub->nodeCount ||
         (sub->parameterCount > 0 && (node->subgraph.parameters == NULL || sub->parameters == NULL)))

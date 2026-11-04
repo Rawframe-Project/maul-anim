@@ -22,6 +22,7 @@
 #include "fbx_value.h"
 #include "fbx_world.h"
 #include "fpenv.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -479,8 +480,8 @@ static MANI_NOINLINE maniImportResult FbxBuildSkinWork(maniBuilder* builder, con
     {
         return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
-    bool usable = maniFbxUsable(builder, fbx, options,
-                                fbx != NULL && skin < fbx->skinCount && skeleton != NULL);
+    bool usable = maniFbxUsable(
+        builder, fbx, options, fbx != NULL && skin < fbx->skinCount && maniSkeletonValid(skeleton));
     // fbx is not NULL when usable; said again for the analyzer.
     if (!usable || fbx == NULL)
     {

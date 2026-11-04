@@ -11,6 +11,7 @@
 
 #include "decompose.h"
 #include "pose_memory.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -35,8 +36,7 @@ bool maniIkFiniteVec(maniVec3 v)
 
 bool maniIkPoseUsable(const maniPose* pose, const maniSkeleton* skeleton)
 {
-    return maniPoseOfSkeleton(pose, skeleton->identity, skeleton->boneCount) &&
-           !maniPose_IsDifference(pose);
+    return maniPoseMatches(pose, skeleton) && !maniPose_IsDifference(pose);
 }
 
 maniIkFrame maniIkLocal(const maniPose* pose, uint32_t bone)
@@ -79,8 +79,8 @@ maniIkFrame maniIkBelow(const maniPose* pose, const maniSkeleton* skeleton, uint
         return kIdentity;
     }
     maniIkFrame m = maniIkLocal(pose, bone);
-    for (uint32_t b = maniSkeleton_GetParent(skeleton, bone); b != top;
-         b = maniSkeleton_GetParent(skeleton, b))
+    for (uint32_t b = maniSkeletonParentOf(skeleton, bone); b != top;
+         b = maniSkeletonParentOf(skeleton, b))
     {
         maniIkFrame local = maniIkLocal(pose, b);
         m = maniIkMul(&local, &m);
@@ -90,8 +90,8 @@ maniIkFrame maniIkBelow(const maniPose* pose, const maniSkeleton* skeleton, uint
 
 bool maniIkAbove(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone)
 {
-    for (uint32_t b = maniSkeleton_GetParent(skeleton, bone); b != MANI_NO_BONE;
-         b = maniSkeleton_GetParent(skeleton, b))
+    for (uint32_t b = maniSkeletonParentOf(skeleton, bone); b != MANI_NO_BONE;
+         b = maniSkeletonParentOf(skeleton, b))
     {
         if (b == ancestor)
         {
@@ -229,7 +229,7 @@ void maniIkCorrect(maniPose* pose, uint32_t bone, maniQuat correction)
 
 maniIkFrame maniIkParentModel(const maniPose* pose, const maniSkeleton* skeleton, uint32_t bone)
 {
-    uint32_t parent = maniSkeleton_GetParent(skeleton, bone);
+    uint32_t parent = maniSkeletonParentOf(skeleton, bone);
     return parent != MANI_NO_BONE ? maniIkBelow(pose, skeleton, MANI_NO_BONE, parent) : kIdentity;
 }
 
