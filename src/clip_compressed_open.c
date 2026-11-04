@@ -69,8 +69,11 @@ static maniFileResult CheckKind(const uint8_t* forms, uint64_t at, const maniCli
     {
         bool c = Bit(constant, t);
         bool a = Bit(animated, t);
-        bool present = t < clip->trackCount &&
-                       ((clip->tracks[(size_t)t * MANI_CLIP_TRACK_SIZE + 2] >> channel) & 1u) != 0;
+        bool present =
+            t < clip->trackCount &&
+            ((maniClipSection(clip, maniClipTagTracks)[(size_t)t * MANI_CLIP_TRACK_SIZE + 2] >>
+              channel) &
+             1u) != 0;
         if (c && !present)
         {
             return Fail(at + 2 * kind * bytes + t / 8);
@@ -243,7 +246,7 @@ static maniFileResult CheckSegments(const uint8_t* table, uint64_t at, const uin
 // The offset of the first that is not, or 0.
 static uint64_t RawNotFinite(const maniClip* clip, const uint8_t* e)
 {
-    const uint8_t* base = clip->segmentData + maniLoadU32(e + 8);
+    const uint8_t* base = maniClipSection(clip, maniClipTagSegmentData) + maniLoadU32(e + 8);
     const uint8_t* stream = base + maniCompressedSegmentHead(clip);
     uint64_t sampleBits = (uint64_t)maniLoadU32(e + 12) + maniLoadU32(e + 16);
     uint64_t n = (uint64_t)clip->animatedChannels + clip->animatedFloats;
@@ -262,7 +265,8 @@ static uint64_t RawNotFinite(const maniClip* clip, const uint8_t* e)
                 memcpy(&v, &q, sizeof v);
                 if (!Finite(v))
                 {
-                    return (uint64_t)(stream - clip->segmentData) + at / 8;
+                    return (uint64_t)(stream - maniClipSection(clip, maniClipTagSegmentData)) +
+                           at / 8;
                 }
             }
         }
@@ -276,7 +280,7 @@ static uint64_t RawNotFinite(const maniClip* clip, const uint8_t* e)
 // extent that does not, or 0.
 static uint64_t RangeTooWide(const maniClip* clip, const uint8_t* e)
 {
-    const uint8_t* rates = clip->segmentData + maniLoadU32(e + 8);
+    const uint8_t* rates = maniClipSection(clip, maniClipTagSegmentData) + maniLoadU32(e + 8);
     uint64_t n = (uint64_t)clip->animatedChannels + clip->animatedFloats;
     const uint8_t* range = rates + n;
     for (uint64_t j = 0; clip->segmentCount > 1 && j < n; ++j)
@@ -286,7 +290,8 @@ static uint64_t RangeTooWide(const maniClip* clip, const uint8_t* e)
         {
             if (range[k] + range[width + k] > 255)
             {
-                return (uint64_t)(range + width + k - clip->segmentData);
+                return (uint64_t)(range + width + k -
+                                  maniClipSection(clip, maniClipTagSegmentData));
             }
         }
         range += 2 * (size_t)width;
@@ -336,16 +341,11 @@ MANI_COLD maniFileResult maniCheckClipCompressed(const uint8_t* const* data, con
         clip->animatedKinds[kind] = counts.animated[kind];
         clip->constantKinds[kind] = counts.constant[kind];
     }
-    clip->forms = data[10];
     r = CheckConstants(data[11], at[11], &counts);
     r = r.result == mani_success ? CheckRanges(data[12], at[12], &counts) : r;
     r = r.result == mani_success
             ? CheckSegments(data[13], at[13], data[14], sizes[14], entry[14], clip)
             : r;
-    clip->constants = data[11];
-    clip->ranges = data[12];
-    clip->segments = data[13];
-    clip->segmentData = data[14];
     for (uint32_t s = 0; r.result == mani_success && s < clip->segmentCount; ++s)
     {
         const uint8_t* e = data[13] + (size_t)s * MANI_CLIP_SEGMENT_SIZE;

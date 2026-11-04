@@ -55,14 +55,12 @@ static void Gather(maniCompressPlan* p)
     }
     for (uint32_t i = 0; i < c->trackCount; ++i)
     {
-        const uint8_t* entry = c->tracks + (size_t)i * MANI_CLIP_TRACK_SIZE;
-        uint32_t bone = maniLoadU16(entry);
-        // Opening the clip checked each track's bone against the skeleton.
-        MANI_ASSERT(bone < c->skeletonBoneCount);
+        uint32_t bone = maniClipTrackBone(c, i);
+        uint32_t mask = maniClipTrackMask(c, i, offset);
         p->boneSubs[bone] = p->subCount;
         for (uint32_t ch = 0; ch < 3; ++ch)
         {
-            if (((entry[2] >> ch) & 1u) == 0)
+            if (((mask >> ch) & 1u) == 0)
             {
                 continue;
             }
@@ -337,22 +335,18 @@ static const uint8_t kEmpty = 0;
 
 static void NamedSections(const maniClip* c, const uint8_t* data[7], uint64_t sizes[7])
 {
-    uint64_t keys = 0;
-    if (c->discreteTrackCount > 0)
-    {
-        const uint8_t* last =
-            c->discreteTracks + (size_t)(c->discreteTrackCount - 1) * MANI_CLIP_NAMED_TRACK_SIZE;
-        keys = (uint64_t)maniLoadU32(last + 16) + maniLoadU32(last + 20);
-    }
-    const uint8_t* d[7] = {c->floatTracks, &kEmpty,    c->discreteTracks, c->discreteKeys,
-                           c->events,      c->markers, c->names};
+    const uint8_t* d[7] = {
+        maniClipSection(c, maniClipTagFloatTracks),    &kEmpty,
+        maniClipSection(c, maniClipTagDiscreteTracks), maniClipSection(c, maniClipTagDiscreteKeys),
+        maniClipSection(c, maniClipTagEvents),         maniClipSection(c, maniClipTagMarkers),
+        maniClipSection(c, maniClipTagNames)};
     uint64_t s[7] = {(uint64_t)c->floatTrackCount * MANI_CLIP_NAMED_TRACK_SIZE,
                      0,
                      (uint64_t)c->discreteTrackCount * MANI_CLIP_NAMED_TRACK_SIZE,
-                     keys * MANI_CLIP_KEY_SIZE,
+                     maniClipSectionSize(c, maniClipTagDiscreteKeys),
                      (uint64_t)c->eventCount * MANI_CLIP_EVENT_SIZE,
                      (uint64_t)c->markerCount * MANI_CLIP_EVENT_SIZE,
-                     c->namesSize};
+                     maniClipSectionSize(c, maniClipTagNames)};
     for (uint32_t i = 0; i < 7; ++i)
     {
         data[i] = s[i] > 0 && d[i] != NULL ? d[i] : &kEmpty;
@@ -386,9 +380,11 @@ static void Header(const maniClip* c, uint32_t segments, uint8_t h[MANI_CLIP_HEA
 static void LastSections(const maniClip* c, uint8_t options[2][MANI_CLIP_OPTION_SIZE],
                          const uint8_t** sections, uint64_t* sizes)
 {
-    sections[maniClipTagRootMotion - 1] = c->rootMotion != NULL ? c->rootMotion : &kEmpty;
+    sections[maniClipTagRootMotion - 1] = maniClipSectionSize(c, maniClipTagRootMotion) != 0
+                                              ? maniClipSection(c, maniClipTagRootMotion)
+                                              : &kEmpty;
     sizes[maniClipTagRootMotion - 1] =
-        c->rootMotion != NULL ? maniRootMotionSize(c->sampleCount) : 0;
+        maniClipSectionSize(c, maniClipTagRootMotion) != 0 ? maniRootMotionSize(c->sampleCount) : 0;
     maniStoreU32(options[0], (uint32_t)c->loop);
     maniStoreU32(options[1], (uint32_t)c->additive);
     for (uint32_t k = 0; k < 2; ++k)
@@ -433,7 +429,8 @@ static maniResult Emit(maniBuilder* builder, const maniCompressPlan* p)
     WriteSegments(p, &out);
     uint8_t header[MANI_CLIP_HEADER_SIZE] = {0};
     Header(p->clip, p->segmentCount, header);
-    const uint8_t* sections[MANI_CLIP_ALL_SECTIONS] = {header, p->clip->tracks, &kEmpty};
+    const uint8_t* sections[MANI_CLIP_ALL_SECTIONS] = {
+        header, maniClipSection(p->clip, maniClipTagTracks), &kEmpty};
     uint64_t sizes[MANI_CLIP_ALL_SECTIONS] = {
         MANI_CLIP_HEADER_SIZE, (uint64_t)p->clip->trackCount * MANI_CLIP_TRACK_SIZE, 0};
     NamedSections(p->clip, sections + 3, sizes + 3);
@@ -671,7 +668,7 @@ static MANI_NOINLINE maniResult CompressClipWork(maniBuilder* builder, const man
     {
         return mani_errorInvalid;
     }
-    if (clip == NULL || !maniSkeletonValid(skeleton) || options == NULL)
+    if (!maniClipValid(clip) || !maniSkeletonValid(skeleton) || options == NULL)
     {
         maniBuilderMisuse(builder);
         return mani_errorInvalid;

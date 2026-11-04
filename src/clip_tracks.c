@@ -221,24 +221,21 @@ maniFileResult maniCheckClipNamed(const uint8_t* const* data, const uint64_t* si
     {
         r = CheckTimed(data[8], at[8], clip->markerCount, clip, data[9], sizes[9], true);
     }
-    clip->floatTracks = data[3];
-    clip->floatSamples = data[4];
-    clip->discreteTracks = data[5];
-    clip->discreteKeys = data[6];
-    clip->events = data[7];
-    clip->markers = data[8];
-    clip->names = data[9];
-    clip->namesSize = sizes[9];
     return r;
 }
 
+// A name by its span in the names, NULL with length 0 for a span past
+// them (the bytes changed since the open).
 static const char* Name(const maniClip* clip, const uint8_t* entry, size_t* lengthOut)
 {
+    uint64_t start = maniLoadU32(entry);
+    uint64_t length = maniLoadU32(entry + 4);
+    bool fits = maniViewFits(start, length, maniClipSectionSize(clip, maniClipTagNames));
     if (lengthOut != NULL)
     {
-        *lengthOut = maniLoadU32(entry + 4);
+        *lengthOut = fits ? (size_t)length : 0;
     }
-    return (const char*)(clip->names + maniLoadU32(entry));
+    return fits ? (const char*)(maniClipSection(clip, maniClipTagNames) + start) : NULL;
 }
 
 static const char* TrackName(const maniClip* clip, const uint8_t* tracks, uint32_t count,
@@ -270,7 +267,8 @@ static uint32_t FindTrack(const maniClip* clip, const uint8_t* tracks, uint32_t 
         {
             size_t foundLength = 0;
             const char* foundName = Name(clip, entry, &foundLength);
-            bool same = foundLength == length && memcmp(foundName, name, length) == 0;
+            bool same = foundName != NULL && foundLength == length &&
+                        (length == 0 || memcmp(foundName, name, length) == 0);
             return same ? middle : MANI_NO_TRACK;
         }
         if (found < hash)
@@ -287,43 +285,60 @@ static uint32_t FindTrack(const maniClip* clip, const uint8_t* tracks, uint32_t 
 
 uint32_t maniClip_GetFloatTrackCount(const maniClip* clip)
 {
-    return clip->floatTrackCount;
+    return maniClipValid(clip) ? clip->floatTrackCount : 0;
 }
 
+// A view that fails its check has no tracks: every name is NULL and every
+// lookup finds none.
 const char* maniClip_GetFloatTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
 {
-    return TrackName(clip, clip->floatTracks, clip->floatTrackCount, track, lengthOut);
+    bool valid = maniClipValid(clip);
+    return TrackName(clip, valid ? maniClipSection(clip, maniClipTagFloatTracks) : NULL,
+                     valid ? clip->floatTrackCount : 0, track, lengthOut);
 }
 
 uint32_t maniClip_FindFloatTrack(const maniClip* clip, const char* name, size_t length)
 {
-    return FindTrack(clip, clip->floatTracks, clip->floatTrackCount, name, length);
+    return maniClipValid(clip) ? FindTrack(clip, maniClipSection(clip, maniClipTagFloatTracks),
+                                           clip->floatTrackCount, name, length)
+                               : MANI_NO_TRACK;
 }
 
 uint32_t maniClip_GetDiscreteTrackCount(const maniClip* clip)
 {
-    return clip->discreteTrackCount;
+    return maniClipValid(clip) ? clip->discreteTrackCount : 0;
 }
 
 const char* maniClip_GetDiscreteTrackName(const maniClip* clip, uint32_t track, size_t* lengthOut)
 {
-    return TrackName(clip, clip->discreteTracks, clip->discreteTrackCount, track, lengthOut);
+    bool valid = maniClipValid(clip);
+    return TrackName(clip, valid ? maniClipSection(clip, maniClipTagDiscreteTracks) : NULL,
+                     valid ? clip->discreteTrackCount : 0, track, lengthOut);
 }
 
 uint32_t maniClip_FindDiscreteTrack(const maniClip* clip, const char* name, size_t length)
 {
-    return FindTrack(clip, clip->discreteTracks, clip->discreteTrackCount, name, length);
+    return maniClipValid(clip) ? FindTrack(clip, maniClipSection(clip, maniClipTagDiscreteTracks),
+                                           clip->discreteTrackCount, name, length)
+                               : MANI_NO_TRACK;
 }
 
 static MANI_NOINLINE int32_t ClipDiscreteValueWork(const maniClip* clip, uint32_t track, float time)
 {
-    if (track >= clip->discreteTrackCount)
+    if (!maniClipValid(clip) || track >= clip->discreteTrackCount)
     {
         return 0;
     }
-    const uint8_t* entry = clip->discreteTracks + (size_t)track * MANI_CLIP_NAMED_TRACK_SIZE;
-    const uint8_t* keys = clip->discreteKeys + (size_t)maniLoadU32(entry + 16) * MANI_CLIP_KEY_SIZE;
-    uint32_t count = maniLoadU32(entry + 20);
+    // The track's keys, at least one, within the keys: the bytes may have
+    // changed since the open.
+    uint64_t first = 0;
+    uint32_t count = maniClipTrackKeys(clip, track, &first);
+    if (count == 0)
+    {
+        return 0;
+    }
+    const uint8_t* keys =
+        maniClipSection(clip, maniClipTagDiscreteKeys) + (size_t)first * MANI_CLIP_KEY_SIZE;
     // The number of keys at or before the time; the value is the last of
     // them, or the first key when there is none, NaN included (no
     // comparison with NaN holds), which is the value at 0.
@@ -370,22 +385,26 @@ static maniClipEvent Timed(const maniClip* clip, const uint8_t* entries, uint32_
 
 uint32_t maniClip_GetEventCount(const maniClip* clip)
 {
-    return clip->eventCount;
+    return maniClipValid(clip) ? clip->eventCount : 0;
 }
 
 maniClipEvent maniClip_GetEvent(const maniClip* clip, uint32_t index)
 {
-    return Timed(clip, clip->events, clip->eventCount, index);
+    bool valid = maniClipValid(clip);
+    return Timed(clip, valid ? maniClipSection(clip, maniClipTagEvents) : NULL,
+                 valid ? clip->eventCount : 0, index);
 }
 
 uint32_t maniClip_GetMarkerCount(const maniClip* clip)
 {
-    return clip->markerCount;
+    return maniClipValid(clip) ? clip->markerCount : 0;
 }
 
 maniClipEvent maniClip_GetMarker(const maniClip* clip, uint32_t index)
 {
-    return Timed(clip, clip->markers, clip->markerCount, index);
+    bool valid = maniClipValid(clip);
+    return Timed(clip, valid ? maniClipSection(clip, maniClipTagMarkers) : NULL,
+                 valid ? clip->markerCount : 0, index);
 }
 
 // The number of events with time below t (or at most t when inclusive).
@@ -396,7 +415,8 @@ static uint32_t CountBefore(const maniClip* clip, float t, bool inclusive)
     while (low < high)
     {
         uint32_t middle = low + (high - low) / 2;
-        float time = LoadF32(clip->events + (size_t)middle * MANI_CLIP_EVENT_SIZE);
+        float time = LoadF32(maniClipSection(clip, maniClipTagEvents) +
+                             (size_t)middle * MANI_CLIP_EVENT_SIZE);
         if (time < t || (inclusive && time == t))
         {
             low = middle + 1;
@@ -414,18 +434,20 @@ MANI_NOINLINE void maniClipEventRangeEntered(const maniClip* clip, float from, f
 {
     uint32_t first = 0;
     uint32_t end = 0;
-    if (from < to)
+    bool valid = maniClipValid(clip);
+    if (valid && from < to)
     {
         first = CountBefore(clip, from, false);
         end = CountBefore(clip, to, false);
     }
-    else if (to < from)
+    else if (valid && to < from)
     {
         first = CountBefore(clip, to, true);
         end = CountBefore(clip, from, true);
     }
+    // Times in bytes changed since the open may be out of order.
     *firstOut = first;
-    *countOut = end - first;
+    *countOut = end > first ? end - first : 0;
 }
 
 void maniClip_GetEventRange(const maniClip* clip, float from, float to, uint32_t* firstOut,

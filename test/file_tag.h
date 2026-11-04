@@ -90,6 +90,23 @@ static inline uint8_t* TestAlignedCopy(size_t size, uint8_t** blockOut)
     return block != NULL ? block + (16 - (uintptr_t)block % 16) % 16 : NULL;
 }
 
+// A block of exactly size bytes at a 16-byte aligned address where malloc
+// gives one, as it does on the desktop targets, so AddressSanitizer sees
+// a read past the end; where malloc aligns to less (Emscripten's 8), a
+// block aligned by hand as TestAlignedCopy does. *blockOut is what to
+// free.
+static inline uint8_t* TestExactCopy(size_t size, uint8_t** blockOut)
+{
+    uint8_t* block = (uint8_t*)malloc(size);
+    if (block != NULL && (uintptr_t)block % 16 == 0)
+    {
+        *blockOut = block;
+        return block;
+    }
+    free(block);
+    return TestAlignedCopy(size, blockOut);
+}
+
 static inline void TestStoreWord(uint8_t* p, uint64_t v, int bytes)
 {
     for (int i = 0; i < bytes; ++i)

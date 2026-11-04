@@ -71,7 +71,7 @@ static size_t HeldFloats(const maniClip* clip, size_t floats, bool grouped)
 
 size_t maniClip_GetCursorSize(const maniClip* clip)
 {
-    if (clip == NULL)
+    if (!maniClipValid(clip))
     {
         return 0;
     }
@@ -248,7 +248,7 @@ static MANI_NOINLINE maniResult SampleClipFloatsCursorWork(maniClipCursor* curso
                                                            float* values, uint32_t capacity,
                                                            uint32_t* countOut)
 {
-    if (!Valid(cursor) || clip == NULL || (values == NULL && capacity > 0))
+    if (!Valid(cursor) || !maniClipValid(clip) || (values == NULL && capacity > 0))
     {
         return mani_errorInvalid;
     }
@@ -279,7 +279,7 @@ maniResult maniClipCursor_SampleFloats(maniClipCursor* cursor, const maniClip* c
 size_t maniClip_GetCursorCompactSize(const maniClip* clip)
 {
 #if defined(MANI_CLIP_LANES)
-    if (clip == NULL)
+    if (!maniClipValid(clip))
     {
         return 0;
     }

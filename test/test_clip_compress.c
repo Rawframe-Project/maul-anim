@@ -18,6 +18,7 @@
 #include "clip_file.h"
 #include "clip_view.h"
 #include "container.h"
+#include "file_tag.h"
 #include "pose_memory.h"
 #include "source_padding.h"
 #include "test_harness.h"
@@ -247,6 +248,12 @@ static void Compare(const maniClip* packed, float* boneOut, float* floatOut)
     }
 }
 
+// A section of an opened clip's file by its tag, through the view.
+static const uint8_t* Section(const maniClip* clip, uint32_t tag)
+{
+    return clip->base + clip->offsets[tag - maniClipTagTracks];
+}
+
 // A bone track's channel (0 translation, 1 rotation, 2 scale) form, from
 // its kind's bitsets and the track's mask.
 static uint32_t FormOf(const maniClip* clip, uint32_t track, uint32_t channel)
@@ -254,7 +261,7 @@ static uint32_t FormOf(const maniClip* clip, uint32_t track, uint32_t channel)
     uint32_t kind = channel == 1 ? maniClipKindRotation
                                  : (channel == 0 ? maniClipKindTranslation : maniClipKindScale);
     uint64_t bytes = maniClipBitsetBytes(clip->trackCount);
-    const uint8_t* constant = clip->forms + 2 * kind * bytes;
+    const uint8_t* constant = Section(clip, maniClipTagForms) + 2 * kind * bytes;
     if (((constant[track / 8] >> (track % 8)) & 1u) != 0)
     {
         return maniClipFormConstant;
@@ -263,7 +270,7 @@ static uint32_t FormOf(const maniClip* clip, uint32_t track, uint32_t channel)
     {
         return maniClipFormAnimated;
     }
-    bool present = ((clip->tracks[4 * (size_t)track + 2] >> channel) & 1u) != 0;
+    bool present = ((Section(clip, maniClipTagTracks)[4 * (size_t)track + 2] >> channel) & 1u) != 0;
     return present ? maniClipFormDefault : maniClipFormAbsent;
 }
 
@@ -271,7 +278,7 @@ static uint32_t FormOf(const maniClip* clip, uint32_t track, uint32_t channel)
 static uint32_t DroppedOf(const maniClip* clip, uint32_t track)
 {
     const uint8_t* dropped =
-        clip->forms + 2 * maniClipKinds * maniClipBitsetBytes(clip->trackCount);
+        Section(clip, maniClipTagForms) + 2 * maniClipKinds * maniClipBitsetBytes(clip->trackCount);
     return 3u - ((dropped[track / 4] >> (2 * (track % 4))) & 3u);
 }
 
@@ -289,13 +296,122 @@ static void CountRates(const maniClip* clip, uint32_t* zeros, uint32_t* raws)
     uint32_t n = clip->animatedChannels + clip->animatedFloats;
     for (uint32_t s = 0; s < clip->segmentCount; ++s)
     {
-        const uint8_t* rates = clip->segmentData + maniLoadU32(clip->segments + 20 * (size_t)s + 8);
+        const uint8_t* rates = Section(clip, maniClipTagSegmentData) +
+                               maniLoadU32(Section(clip, maniClipTagSegments) + 20 * (size_t)s + 8);
         for (uint32_t j = 0; j < n; ++j)
         {
             *zeros += rates[j] == 0 ? 1 : 0;
             *raws += rates[j] == 24 ? 1 : 0;
         }
     }
+}
+
+// A sample reads bytes changed after the open only within the file, and
+// ends: every bit of the forms cleared, so the bitset walks run out
+// before the view's counts; every bit set; a rate the codec does not
+// have; a segment's data offset past the data; a segment's first sample
+// past the sample; a track's bone past the skeleton. Each samples to some
+// pose with success, by the clip, by a cursor and for the floats, and the
+// clip as opened samples again once the bytes are back. The file is a
+// heap copy of exactly its length, so AddressSanitizer sees a read past
+// it.
+static void TestChangedBytes(void)
+{
+    BuildFull(0.0f);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    CHECK(Compress(&options, NULL) == mani_success, "compresses");
+    uint8_t* block = NULL;
+    uint8_t* bytes = TestAlignedCopy(s_size, &block);
+    memcpy(bytes, s_file, s_size);
+    maniClip clip;
+    CHECK(maniOpenClip(bytes, s_size, &clip).result == mani_success && clip.segmentCount == 4,
+          "opens the copy");
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &pose) == mani_success, "pose");
+    static _Alignas(64) uint8_t cursorMemory[16384];
+    maniClipCursor* cursor = NULL;
+    CHECK(maniClip_GetCursorSize(&clip) <= sizeof cursorMemory &&
+              maniInitClipCursor(cursorMemory, sizeof cursorMemory, &cursor) == mani_success,
+          "cursor");
+    uint8_t* forms = bytes + clip.offsets[maniClipTagForms - maniClipTagTracks];
+    uint64_t bitset = maniClipBitsetBytes(clip.trackCount);
+    // The first segment's rates, and the last segment's data offset.
+    uint8_t* segments = bytes + clip.offsets[maniClipTagSegments - maniClipTagTracks];
+    uint8_t* rates = bytes + clip.offsets[maniClipTagSegmentData - maniClipTagTracks];
+    uint8_t* last = segments + 3 * 20;
+    uint8_t* tracks = bytes + clip.offsets[0];
+    uint64_t formsSize = clip.sizes[maniClipTagForms - maniClipTagTracks];
+    struct
+    {
+        uint8_t* at;
+        uint64_t size;
+        uint8_t value;
+        const char* what;
+    } changes[6] = {{forms, formsSize, 0x00, "every forms bit cleared"},
+                    {forms, 2 * maniClipKinds * bitset, 0xFF, "every bitset bit set"},
+                    {rates, 1, 200, "a rate the codec does not have"},
+                    {last + 11, 1, 0x7F, "a segment's data offset past the data"},
+                    {last + 3, 1, 0x7F, "a segment's first sample past the sample"},
+                    {tracks + 1, 1, 0xFF, "a track's bone past the skeleton"}};
+    static uint8_t kept[4096];
+    float values[8];
+    uint32_t count = 0;
+    float duration = maniClip_GetDuration(&clip);
+    for (uint32_t i = 0; i < 6; ++i)
+    {
+        CHECK(changes[i].size <= sizeof kept, "room to keep the bytes");
+        memcpy(kept, changes[i].at, changes[i].size);
+        memset(changes[i].at, changes[i].value, changes[i].size);
+        CHECK(memcmp(kept, changes[i].at, changes[i].size) != 0, changes[i].what);
+        // The first sample, in the first segment, and the end, in the last.
+        for (uint32_t end = 0; end < 2; ++end)
+        {
+            float time = end != 0 ? duration : 0.0f;
+            CHECK(maniClip_Sample(&clip, &s_skeleton, time, pose) == mani_success &&
+                      maniClipCursor_Sample(cursor, &clip, &s_skeleton, time, pose) ==
+                          mani_success &&
+                      maniClip_SampleFloats(&clip, time, values, 8, &count) == mani_success,
+                  changes[i].what);
+        }
+        memcpy(changes[i].at, kept, changes[i].size);
+        CHECK(maniClip_Sample(&clip, &s_skeleton, 0.0f, pose) == mani_success, "samples again");
+    }
+    free(block);
+}
+
+// Each kind's channels are tied to the tracks: an opened view's track
+// count set to 0, its tracks moved to the file's end with size 0 (and its
+// forms, without float tracks), passes every section's extent, and is
+// refused for its channels. Without the tie a forms walk would give track
+// 0 and read its bone past the file. The file is a heap copy of exactly
+// its length.
+static void TestKindsTiedToTracks(void)
+{
+    BuildFull(0.0f);
+    maniCompressOptions options = maniDefaultCompressOptions();
+    CHECK(Compress(&options, NULL) == mani_success, "compresses");
+    uint8_t* block = NULL;
+    uint8_t* bytes = TestExactCopy(s_size, &block);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    maniClip clip;
+    CHECK(maniOpenClip(bytes, s_size, &clip).result == mani_success, "opens the copy");
+    maniClip moved = clip;
+    moved.trackCount = 0;
+    moved.offsets[maniClipTagTracks - maniClipTagTracks] = clip.size;
+    moved.sizes[maniClipTagTracks - maniClipTagTracks] = 0;
+    if (clip.floatTrackCount == 0)
+    {
+        moved.offsets[maniClipTagForms - maniClipTagTracks] = clip.size;
+        moved.sizes[maniClipTagForms - maniClipTagTracks] = 0;
+    }
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &pose) == mani_success, "pose");
+    CHECK(maniClip_GetSampleCount(&moved) == 0 &&
+              maniClip_Sample(&moved, &s_skeleton, 0.0f, pose) == mani_errorInvalid,
+          "channels without tracks refused");
+    CHECK(maniClip_Sample(&clip, &s_skeleton, 0.0f, pose) == mani_success, "the view as opened");
+    free(block);
 }
 
 static void TestSegments(void)
@@ -321,7 +437,8 @@ static void TestSegments(void)
     CHECK(FormOf(&clip, 1, 0) == maniClipFormAbsent, "the spine's translation absent");
     CHECK(DroppedOf(&clip, 0) == 3, "the root's rotation leaves w out");
     CHECK(DroppedOf(&clip, 5) == 0, "the leg's leaves x out");
-    CHECK(clip.forms[FloatFormAt(6, maniClip_FindFloatTrack(&clip, "half", 4))] ==
+    CHECK(Section(&clip,
+                  maniClipTagForms)[FloatFormAt(6, maniClip_FindFloatTrack(&clip, "half", 4))] ==
               maniClipFormConstant,
           "half constant");
     CHECK(clip.animatedKinds[maniClipKindRotation] == 4 &&
@@ -669,8 +786,8 @@ static void TestCursor(void)
     CursorWalk(&copy, cursor);
     CursorWalk(&packed, cursor);
     // One view, one address: another clip of the same shape (another
-    // precision) rebinds by identity; the same identity grown in shape
-    // rebinds and is refused for room.
+    // precision) rebinds by identity; a count edited past what the file
+    // holds is refused as a view no open wrote.
     static uint8_t other[65536];
     size_t otherSize = s_size;
     memcpy(other, s_file, s_size);
@@ -698,8 +815,8 @@ static void TestCursor(void)
     view.animatedFloats += 1000;
     maniPose* grownPose = NULL;
     CHECK(maniInitPose(&s_skeleton, s_poseA, sizeof s_poseA, &grownPose) == mani_success, "pose");
-    CHECK(maniClipCursor_Sample(cursor, &view, &s_skeleton, 0.5f, grownPose) == mani_errorCapacity,
-          "a shape grown at the same identity and address");
+    CHECK(maniClipCursor_Sample(cursor, &view, &s_skeleton, 0.5f, grownPose) == mani_errorInvalid,
+          "a count grown past the file at the same identity and address");
     CHECK(Compress(&options, NULL) == mani_success, "compresses again");
     CHECK(Open(&packed).result == mani_success, "opens again");
     // Too small for the compressed clip: refused, nothing written.
@@ -1838,6 +1955,8 @@ int main(int argc, char** argv)
         s_precisionRounds = 24;
     }
     TestSegments();
+    TestChangedBytes();
+    TestKindsTiedToTracks();
     TestOneSegment();
     TestOneSample();
     TestFoldWithinPrecision();

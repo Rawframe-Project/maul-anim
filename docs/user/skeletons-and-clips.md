@@ -116,5 +116,6 @@ Importers take the root motion source per clip in `maniImportClipOptions`.
 
 - The file bytes must outlive every view opened over them and stay where they were opened.
 - A skeleton view is checked by every call that takes it. One never opened is refused as a NULL one is, with `mani_errorInvalid` or the getter's documented none; one whose counts or sections were changed or taken from another view reads only within the bytes it names, or is refused the same way. The bytes and size it names are those the open was given; a view changed to name others is outside the contract. A parent or name in bytes changed after the open is bounded too, and refuses a pose with `mani_errorFormat`.
+- A clip view is checked the same way by every call that takes it. A clip's bytes changed after the open sample to some pose, read only within the file; a name, a discrete track's keys or an event read from them outside their sections gives the getter's documented none.
 - Opening checks everything, so it is the slow call; open once at load, never per frame.
 - A loop whose last sample does not match its first pops at the seam; the clip's loop policy and the root motion source's loop option decide how the seam is closed.

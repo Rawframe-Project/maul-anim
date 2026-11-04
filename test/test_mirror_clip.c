@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum
@@ -501,6 +502,31 @@ static void TestRootMotion(void)
     CHECK(MovesMirrored(&clip, &baked, kArmL), "the arm's moves reflected in the model");
 }
 
+// A clip's bytes changed after the open: its discrete track's first key
+// moved far past the keys. Baking reads only within the file, in a heap
+// copy of the clip, and ends with a result: the track's keys read as none,
+// which the build refuses.
+static void TestChangedKeys(void)
+{
+    maniClip opened;
+    Clip(maniAdditiveNone, MANI_NO_BONE, &opened);
+    size_t size = (size_t)opened.size;
+    uint8_t* block = (uint8_t*)malloc(size + 16);
+    CHECK(block != NULL, "memory");
+    uint8_t* bytes = block + (16 - (uintptr_t)block % 16) % 16;
+    memcpy(bytes, opened.base, size);
+    maniClip clip;
+    CHECK(maniOpenClip(bytes, size, &clip).result == mani_success, "opens the copy");
+    // Section 6, the discrete tracks: the first track's first key.
+    uint8_t* first = bytes + clip.offsets[6 - 2] + 16;
+    first[0] = 0xF0;
+    first[3] = 0x0F;
+    maniMirrorClipSource s = Source(&clip);
+    maniClip baked;
+    CHECK(Bake(&s, 1, &baked).result != mani_success, "keys past the keys bake to a refusal");
+    free(block);
+}
+
 static void TestRefusals(void)
 {
     maniClip clip;
@@ -552,5 +578,6 @@ int main(void)
     TestAdditive();
     TestRootMotion();
     TestRefusals();
+    TestChangedKeys();
     return s_failures == 0 ? 0 : 1;
 }

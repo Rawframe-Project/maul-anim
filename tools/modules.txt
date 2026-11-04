@@ -143,7 +143,7 @@ graph_evaluation: bytes graph_file graph_instance graph_subset invariant
 graph_evaluate_ik: bytes graph_body graph_chain graph_evaluation graph_file graph_instance ik_chain pose_memory vecmath
 graph_evaluate: blend_groups bytes clip_view fpenv graph_evaluate_ik graph_evaluation graph_file graph_inertia graph_inertia_apply graph_instance graph_learned graph_machine graph_match graph_shot graph_space graph_spring graph_subset graph_turn invariant learned_eval pose_memory vecmath
 clip: bytes clip_codec clip_file clip_view container fpenv invariant pose_memory root_motion vecmath
-clip_view: bytes clip_file pose_memory skeleton_view
+clip_view: bytes clip_file pose_memory skeleton_view view
 clip_codec: bytes
 clip_lanes: blend_lanes pose_memory simd
 clip_compressed: blend_lanes bytes clip_codec clip_file clip_lanes clip_view fpenv invariant pose_memory simd
@@ -177,10 +177,10 @@ map_json: allocator arena builder graph_json_ik graph_json_read graph_json_write
 retarget_json: arena builder fpenv graph_json_ik graph_json_read graph_json_write json map_json skeleton_view
 mirror_json: arena builder fpenv graph_json_ik graph_json_read graph_json_write json map_json skeleton_view
 clip_build_named: allocator builder bytes clip_build clip_file container sort text
-clip_measure: allocator builder clip_build fpenv scalar skeleton_view
+clip_measure: allocator builder clip_build clip_view fpenv scalar skeleton_view
 clip_shell: additive
 clip_compress: allocator builder bytes clip_codec clip_file clip_plan clip_search clip_shell clip_view container fpenv invariant skeleton_view
-clip_plan: allocator bytes clip_codec clip_file vecmath
+clip_plan: allocator bytes clip_codec clip_file clip_view vecmath
 clip_search: allocator bytes clip_codec clip_file clip_plan clip_shell clip_view pose_memory
 decimal: bytes
 decimal_format: decimal

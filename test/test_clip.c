@@ -725,6 +725,130 @@ static void TestNamedItemsAlone(void)
     maniDestroyBuilder(builder);
 }
 
+// A heap copy of the clip just built, of exactly its length, opened.
+static uint8_t* OpenBuiltCopy(maniClip* out, uint8_t** blockOut)
+{
+    uint8_t* copy = TestAlignedCopy(s_size, blockOut);
+    memcpy(copy, s_file, s_size);
+    CHECK(maniOpenClip(copy, s_size, out).result == mani_success, "opens the copy");
+    return copy;
+}
+
+static uint8_t* SectionOf(const maniClip* clip, uint8_t* bytes, uint32_t tag)
+{
+    return bytes + clip->offsets[tag - maniClipTagTracks];
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, every sample refused.
+static bool Refused(const maniClip* c)
+{
+    float values[4];
+    uint32_t count = 7;
+    size_t length = 7;
+    uint32_t first = 7;
+    maniRootMove move;
+    maniClipEvent event = maniClip_GetEvent(c, 0);
+    maniClip_GetEventRange(c, 0.0f, 1.0f, &first, &count);
+    bool none = maniClip_GetSampleCount(c) == 0 && maniClip_GetDuration(c) == 0.0f &&
+                maniClip_GetSampleRate(c) == 0.0f && !maniClip_IsCompressed(c) &&
+                maniClip_GetIdentity(c) == 0 && maniClip_GetSkeletonIdentity(c) == 0 &&
+                maniClip_GetLoopPolicy(c) == maniLoopClamp &&
+                maniClip_GetAdditiveBasis(c) == maniAdditiveNone &&
+                maniClip_GetFloatTrackCount(c) == 0 &&
+                maniClip_GetFloatTrackName(c, 0, &length) == NULL && length == 0 &&
+                maniClip_FindFloatTrack(c, "ramp", 4) == MANI_NO_TRACK &&
+                maniClip_GetDiscreteTrackCount(c) == 0 &&
+                maniClip_FindDiscreteTrack(c, "foot", 4) == MANI_NO_TRACK &&
+                maniClip_GetDiscreteValue(c, 0, 0.0f) == 0 && maniClip_GetEventCount(c) == 0 &&
+                maniClip_GetMarkerCount(c) == 0 && event.name == NULL && first == 0 && count == 0 &&
+                maniClip_GetCursorSize(c) == 0 &&
+                maniClip_GetRootMotion(c, 0.0f, 0.1f, &move) == mani_errorInvalid;
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
+          "pose");
+    uint32_t bone = 1;
+    return none && maniClip_Sample(c, &s_skeleton, 0.3f, pose) == mani_errorInvalid &&
+           maniClip_SampleBones(c, &s_skeleton, 0.3f, &bone, 1, pose) == mani_errorInvalid &&
+           maniClip_SampleFloats(c, 0.3f, values, 4, &count) == mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: a count edited past the file, one
+// view's counts and sections over another's bytes, a zeroed view and
+// another kind's cookie are each refused, and what a call reads from
+// bytes changed after the open is bounded where it is used.
+static void TestViewChecked(void)
+{
+    uint8_t* blocks[2] = {NULL, NULL};
+    BuildSample();
+    maniClip big;
+    uint8_t* bigBytes = OpenBuiltCopy(&big, &blocks[0]);
+    // One translation track and nothing after it: the samples end the
+    // file.
+    maniClipSource source = SampleSource();
+    source.boneTracks = s_tracks + 2;
+    source.boneTrackCount = 1;
+    source.loop = maniLoopClamp;
+    source.floatTrackCount = 0;
+    source.discreteTrackCount = 0;
+    source.eventCount = 0;
+    source.markerCount = 0;
+    CHECK(BuildFrom(&source).result == mani_success, "a small clip builds");
+    maniClip small;
+    uint8_t* smallBytes = OpenBuiltCopy(&small, &blocks[1]);
+    CHECK(small.offsets[maniClipTagSamples - maniClipTagTracks] +
+                  small.sizes[maniClipTagSamples - maniClipTagTracks] ==
+              s_size,
+          "the samples end the small file");
+    maniClip edited = big;
+    edited.sampleCount = 60000;
+    CHECK(Refused(&edited), "a count edited past the file");
+    // The rate and duration locate a sample: a negative rate or a duration
+    // not finite would give a sample index past the count.
+    maniClip rate = big;
+    rate.sampleRate = -10.0f;
+    maniClip endless = big;
+    endless.duration = NAN;
+    CHECK(Refused(&rate) && Refused(&endless), "a rate or duration the open refuses");
+    maniClip mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(Refused(&mixed), "counts and sections over another view's bytes");
+    maniClip zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniClip other = big;
+    other.cookie ^= 1u;
+    CHECK(Refused(&zeroed) && Refused(&other) && Refused(NULL), "zeroed, another cookie, NULL");
+    CHECK(!Refused(&big) && maniClip_GetDiscreteValue(&big, 0, 0.0f) == 1, "the view as opened");
+    // Bytes changed after the open: a float track's name span past the
+    // names, a discrete track's keys past the keys, an event's name span.
+    maniStoreU32(SectionOf(&big, bigBytes, maniClipTagFloatTracks), 0xFFFFFF00u);
+    maniStoreU32(SectionOf(&big, bigBytes, maniClipTagDiscreteTracks) + 16, 0xFFFFFFF0u);
+    maniStoreU32(SectionOf(&big, bigBytes, maniClipTagEvents) + 8, 0xFFFFFF00u);
+    size_t length = 7;
+    CHECK(maniClip_GetFloatTrackName(&big, 0, &length) == NULL && length == 0 &&
+              maniClip_GetDiscreteValue(&big, 0, 0.0f) == 0 &&
+              maniClip_GetEvent(&big, 0).name == NULL,
+          "spans and key ranges in changed bytes bounded");
+    // A track's mask grown to all three channels, more floats than a
+    // sample holds, and a bone past the skeleton: the last sample, at the
+    // small file's end, samples to some pose, read only within the file.
+    SectionOf(&small, smallBytes, maniClipTagTracks)[2] = 7;
+    maniStoreU16(SectionOf(&big, bigBytes, maniClipTagTracks) + 4, 0xFFFE);
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
+          "pose");
+    uint32_t bone = 1;
+    float duration = maniClip_GetDuration(&small);
+    CHECK(maniClip_Sample(&small, &s_skeleton, duration, pose) == mani_success &&
+              maniClip_SampleBones(&small, &s_skeleton, duration, &bone, 1, pose) == mani_success &&
+              maniClip_Sample(&big, &s_skeleton, 0.3f, pose) == mani_success,
+          "changed masks and bones sample within the file");
+    free(blocks[0]);
+    free(blocks[1]);
+}
+
 static void TestWrongSkeleton(void)
 {
     BuildSample();
@@ -1382,5 +1506,6 @@ int main(int argc, char** argv)
     TestEveryByteFlip();
     TestPinnedScene();
     TestPaddingIgnored();
+    TestViewChecked();
     return s_failures == 0 ? 0 : 1;
 }

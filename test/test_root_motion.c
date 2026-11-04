@@ -135,10 +135,16 @@ static float LoadF32(const uint8_t* p)
     return v;
 }
 
+// A section of an opened clip's file by its tag, through the view.
+static const uint8_t* Section(const maniClip* clip, uint32_t tag)
+{
+    return clip->base + clip->offsets[tag - maniClipTagTracks];
+}
+
 // Sample k's motion from the section: translation, then rotation.
 static void MotionAt(const maniClip* clip, uint32_t k, float out[7])
 {
-    const uint8_t* p = clip->rootMotion + MANI_ROOT_MOTION_HEADER_SIZE +
+    const uint8_t* p = Section(clip, maniClipTagRootMotion) + MANI_ROOT_MOTION_HEADER_SIZE +
                        MANI_ROOT_MOTION_PERIOD_SIZE + 28 * (size_t)k;
     for (int i = 0; i < 7; ++i)
     {
@@ -249,7 +255,7 @@ static void TestWalk(void)
     CHECK(shaped && last[0] == 2.0f && last[2] == 4.0f && fabsf(last[4] - 0.70710677f) < 1e-6f,
           "x and z, the twist about y: a quarter turn");
     // The period: from the first sample to the last, in the first's frame.
-    const uint8_t* p = with.rootMotion + MANI_ROOT_MOTION_HEADER_SIZE;
+    const uint8_t* p = Section(&with, maniClipTagRootMotion) + MANI_ROOT_MOTION_HEADER_SIZE;
     CHECK(LoadF32(p) == 2.0f && LoadF32(p + 8) == 4.0f &&
               fabsf(LoadF32(p + 16) - 0.70710677f) < 1e-6f,
           "the whole period's move");
@@ -310,7 +316,7 @@ static void TestLoop(void)
     CHECK(fabsf(a[0]) < 1e-6f && fabsf(a[2]) < 1e-6f,
           "the walk's steady drift spread out: none left halfway");
     CHECK(Recomposed(&with, &without) < 2e-6f, "still the source, recomposed");
-    const uint8_t* p = with.rootMotion + MANI_ROOT_MOTION_HEADER_SIZE;
+    const uint8_t* p = Section(&with, maniClipTagRootMotion) + MANI_ROOT_MOTION_HEADER_SIZE;
     CHECK(fabsf(LoadF32(p)) < 1e-6f && fabsf(LoadF32(p + 24) - 1.0f) < 1e-6f,
           "a period of no move");
 }
@@ -379,8 +385,9 @@ static void TestCompressed(void)
               maniOpenClip(s_crafted, size, &compressed).result == mani_success,
           "compresses");
     maniDestroyBuilder(builder);
-    CHECK(compressed.rootMotion != NULL &&
-              memcmp(compressed.rootMotion, clip.rootMotion, maniRootMotionSize(5)) == 0,
+    CHECK(compressed.sizes[maniClipTagRootMotion - maniClipTagTracks] == maniRootMotionSize(5) &&
+              memcmp(Section(&compressed, maniClipTagRootMotion),
+                     Section(&clip, maniClipTagRootMotion), maniRootMotionSize(5)) == 0,
           "the compressor carries the root motion unchanged");
     maniRootMove moves[4] = {Move(&compressed, 0.3f, 2.9f), Move(&clip, 0.3f, 2.9f),
                              Move(&compressed, 0.9f, -1.6f), Move(&clip, 0.9f, -1.6f)};

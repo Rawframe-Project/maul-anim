@@ -179,7 +179,72 @@ static void ExerciseRootMotion(const maniClip* clip)
     }
 }
 
-static void Exercise(const uint8_t* bytes, size_t size)
+// The bytes of an opened clip changed, as a host's memory may change
+// after the open: every call reads only within the file and ends, whatever
+// it gives. Up to 16 bytes inside the file, picked from its own bytes, are
+// changed and then put back.
+static void SampleChanged(const maniClip* clip, uint8_t* bytes, uint64_t size)
+{
+    uint64_t state = size * 0x9E3779B97F4A7C15u;
+    for (uint64_t i = 0; i < size && i < 64; ++i)
+    {
+        state = (state ^ bytes[i]) * 0x100000001B3u;
+    }
+    uint64_t at[16];
+    uint8_t kept[16];
+    for (int i = 0; i < 16; ++i)
+    {
+        state ^= state >> 29;
+        state *= 0xBF58476D1CE4E5B9u;
+        at[i] = state % size;
+        kept[i] = bytes[at[i]];
+        bytes[at[i]] ^= (uint8_t)(state >> 56) | 1u;
+    }
+    for (int i = 0; i < s_skeletonCount; ++i)
+    {
+        maniPose* pose = NULL;
+        maniClipCursor* cursor = NULL;
+        if (maniInitPose(&s_skeletons[i], s_poseMemory, sizeof s_poseMemory, &pose) !=
+                mani_success ||
+            maniInitClipCursor(s_cursorMemory, sizeof s_cursorMemory, &cursor) != mani_success)
+        {
+            continue;
+        }
+        float d = maniClip_GetDuration(clip);
+        const float times[3] = {0.0f, d * 0.37f, d};
+        uint32_t bones[1] = {0};
+        maniRootMove move;
+        for (int t = 0; t < 3; ++t)
+        {
+            (void)maniClip_Sample(clip, &s_skeletons[i], times[t], pose);
+            (void)maniClipCursor_Sample(cursor, clip, &s_skeletons[i], times[t], pose);
+            (void)maniClip_SampleBones(clip, &s_skeletons[i], times[t], bones, 1, pose);
+            (void)maniClip_SampleFloats(clip, times[t], s_values, 64, NULL);
+            (void)maniClipCursor_SampleFloats(cursor, clip, times[t], s_values, 64, NULL);
+            (void)maniClip_GetRootMotion(clip, times[t], 0.1f, &move);
+        }
+    }
+    for (uint32_t i = 0; i < maniClip_GetFloatTrackCount(clip); ++i)
+    {
+        size_t length = 0;
+        const char* name = maniClip_GetFloatTrackName(clip, i, &length);
+        (void)maniClip_FindFloatTrack(clip, name, length);
+    }
+    for (uint32_t i = 0; i < maniClip_GetDiscreteTrackCount(clip); ++i)
+    {
+        (void)maniClip_GetDiscreteValue(clip, i, maniClip_GetDuration(clip) * 0.5f);
+    }
+    for (uint32_t i = 0; i < maniClip_GetEventCount(clip); ++i)
+    {
+        (void)maniClip_GetEvent(clip, i);
+    }
+    for (int i = 15; i >= 0; --i)
+    {
+        bytes[at[i]] = kept[i];
+    }
+}
+
+static void Exercise(uint8_t* bytes, size_t size)
 {
     maniClip clip;
     if (maniOpenClip(bytes, size, &clip).result == 0)
@@ -225,6 +290,7 @@ static void Exercise(const uint8_t* bytes, size_t size)
             abort();
         }
         Sample(&clip);
+        SampleChanged(&clip, bytes, clip.size);
     }
 }
 
