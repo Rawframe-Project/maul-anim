@@ -11,6 +11,7 @@
 
 #include "maul-anim/morph.h"
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -29,7 +30,44 @@ static float s_tangents[kVertices * 4];
 static float s_texcoords[kVertices * 2];
 static float s_colors[kVertices * 4];
 
-static void Exercise(const uint8_t* bytes, size_t size)
+// Up to 16 bytes inside an opened file changed, picked from its own
+// bytes, as a host's memory may change after the open: every call after
+// reads only within the file and ends, whatever it gives. Restore puts
+// them back.
+typedef struct Changed
+{
+    uint64_t at[16];
+    uint8_t kept[16];
+} Changed;
+
+static Changed Change(uint8_t* bytes, uint64_t size)
+{
+    Changed c;
+    uint64_t state = size * 0x9E3779B97F4A7C15u;
+    for (uint64_t i = 0; i < size && i < 64; ++i)
+    {
+        state = (state ^ bytes[i]) * 0x100000001B3u;
+    }
+    for (int i = 0; i < 16; ++i)
+    {
+        state ^= state >> 29;
+        state *= 0xBF58476D1CE4E5B9u;
+        c.at[i] = state % size;
+        c.kept[i] = bytes[c.at[i]];
+        bytes[c.at[i]] ^= (uint8_t)(state >> 56) | 1u;
+    }
+    return c;
+}
+
+static void Restore(uint8_t* bytes, const Changed* c)
+{
+    for (int i = 15; i >= 0; --i)
+    {
+        bytes[c->at[i]] = c->kept[i];
+    }
+}
+
+static void Exercise(uint8_t* bytes, size_t size)
 {
     maniMorphTargets m;
     if (maniOpenMorphTargets(bytes, size, &m).result != 0)
@@ -97,6 +135,29 @@ static void Exercise(const uint8_t* bytes, size_t size)
                                         {s_colors, s_colors, 16, 16, maniMorphColor, 0, 4}};
     maniMorphJob job = {&m, targetWeights, 0, count, 5, streams};
     (void)maniApplyMorphTargets(&job);
+    // Again over bytes changed after the open: names, weights and the job.
+    Changed c = Change(bytes, size);
+    for (uint32_t i = 0; i < channels; ++i)
+    {
+        size_t length = 0;
+        const char* name = maniMorphTargets_GetChannelName(&m, i, &length);
+        (void)maniMorphTargets_FindChannel(&m, name, length);
+    }
+    for (uint32_t t = 0; t < targets; ++t)
+    {
+        size_t length = 0;
+        const char* name = maniMorphTargets_GetTargetName(&m, t, &length);
+        (void)maniMorphTargets_FindTarget(&m, name, length);
+    }
+    (void)maniMorphTargets_ComputeTargetWeights(&m, channelWeights, targetWeights, targets, NULL);
+    for (uint32_t t = 0; t < targets; ++t)
+    {
+        targetWeights[t] = targetWeights[t] == targetWeights[t] && fabsf(targetWeights[t]) < 1e30f
+                               ? targetWeights[t]
+                               : 0.0f;
+    }
+    (void)maniApplyMorphTargets(&job);
+    Restore(bytes, &c);
     free(channelWeights);
     free(targetWeights);
 }

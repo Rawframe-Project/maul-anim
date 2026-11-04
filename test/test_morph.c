@@ -8,7 +8,8 @@
 // ufbx does, against a piecewise linear reference; the job against a
 // binary64 reference, ranges, in place and sparse against dense giving
 // the same bits; every refusal of the builder, the opener and the job;
-// the bytes pinned. Run as test_morph --seed <file> it writes the sample
+// bytes changed after the open read and written only within bounds; the
+// bytes pinned. Run as test_morph --seed <file> it writes the sample
 // file for the fuzz corpus.
 
 // MSVC's CRT deprecates fopen; the seed writer uses it.
@@ -28,6 +29,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum
@@ -945,6 +947,140 @@ static void TestJobRefusals(void)
     CHECK(maniApplyMorphTargets(&job) == mani_success, "an empty range at the end");
 }
 
+// The sample opened in a heap block of exactly its length, for its bytes
+// to be changed after the open; *blockOut is what to free.
+static bool OpenCopy(maniMorphTargets* m, uint8_t** blockOut)
+{
+    BuildSample();
+    uint8_t* bytes = TestExactCopy(s_size, blockOut);
+    if (bytes == NULL)
+    {
+        return false;
+    }
+    memcpy(bytes, s_file, s_size);
+    return maniOpenMorphTargets(bytes, s_size, m).result == mani_success;
+}
+
+// The position stream of every vertex, morphed by weights into an
+// exact-length heap block: whether the job succeeds and, when kept is
+// asked for, adds nothing to the positions.
+static bool PositionsKept(const maniMorphTargets* m, const float weights[5], bool kept)
+{
+    Vertex* out = (Vertex*)malloc(sizeof(Vertex) * kVertices);
+    if (out == NULL)
+    {
+        return false;
+    }
+    maniMorphStream position = Stream(s_in->position, out->position, maniMorphPosition, 0, 3);
+    maniMorphJob job = {m, weights, 0, kVertices, 1, &position};
+    bool same = maniApplyMorphTargets(&job) == mani_success;
+    for (uint32_t v = 0; same && kept && v < kVertices; ++v)
+    {
+        same = memcmp(out[v].position, s_in[v].position, sizeof out[v].position) == 0;
+    }
+    free(out);
+    return same;
+}
+
+// Bytes changed after the open: every call succeeds and reads and writes
+// only within the file, the weights and the range it was given. A
+// channel's targets outside the targets are none and get no weights; a
+// target whose deltas or indices leave their sections, or a dense one not
+// covering the vertices, adds nothing; a sparse vertex outside the range
+// is held in it; full weights equal or 0 give some weights; a name whose
+// span leaves the names is none.
+static void TestChangedBytes(void)
+{
+    RandomVertices();
+    const float smile[5] = {1, 0, 0, 0, 0};
+    const float blink[5] = {0, 1, 0, 0, 0};
+    float* weights = (float*)malloc(5 * sizeof(float));
+    CHECK(weights != NULL, "weights");
+    uint8_t* block = NULL;
+    maniMorphTargets m;
+    for (int change = 0; weights != NULL && change < 10; ++change)
+    {
+        CHECK(OpenCopy(&m, &block), "opens");
+        uint8_t* channels = (uint8_t*)m.channels;
+        uint8_t* targets = (uint8_t*)m.targets;
+        uint8_t* indices = (uint8_t*)m.indices;
+        float channelWeights[3] = {1.0f, 1.5f, 1.0f};
+        uint32_t first = 7;
+        switch (change)
+        {
+        case 0:
+            // Smile's first target past the targets.
+            maniStoreU32(channels, 256);
+            CHECK(maniMorphTargets_GetChannelTargets(&m, 0, &first) == 0 && first == 0,
+                  "a channel's targets past the targets: none");
+            break;
+        case 1:
+            // Blink's count past the targets.
+            maniStoreU32(channels + MANI_MORPH_CHANNEL_SIZE + 4, UINT32_MAX);
+            CHECK(maniMorphTargets_GetChannelTargets(&m, 1, &first) == 0 && first == 0,
+                  "a channel's count past the targets: none");
+            break;
+        case 2:
+            // Blink's middle full weight equal to its last.
+            maniStoreU32(targets + 2 * MANI_MORPH_TARGET_SIZE, Bits(1.0f));
+            break;
+        case 3:
+            // Blink's first full weight -0, under a weight below 0.
+            maniStoreU32(targets + MANI_MORPH_TARGET_SIZE, Bits(-0.0f));
+            channelWeights[1] = -0.5f;
+            break;
+        case 4:
+            // Smile's first vertex far past the vertices, and its last
+            // before its first.
+            maniStoreU32(indices, 65536);
+            maniStoreU32(indices + 8, 0);
+            CHECK(PositionsKept(&m, smile, false), "a sparse vertex outside the range");
+            break;
+        case 5:
+            // Smile's deltas past the deltas.
+            maniStoreU64(targets + 24, UINT64_MAX / 2);
+            CHECK(PositionsKept(&m, smile, true), "deltas past the deltas add nothing");
+            break;
+        case 6:
+            // Smile's indices past the indices.
+            maniStoreU64(targets + 16, m.indexCount);
+            CHECK(PositionsKept(&m, smile, true), "indices past the indices add nothing");
+            break;
+        case 8:
+        {
+            // Smile's name past the names.
+            maniStoreU32(channels + 8, (uint32_t)m.nameBytes);
+            size_t length = 7;
+            CHECK(maniMorphTargets_GetChannelName(&m, 0, &length) == NULL && length == 0 &&
+                      maniMorphTargets_FindChannel(&m, "smile", 5) == MANI_NO_CHANNEL &&
+                      maniMorphTargets_FindChannel(&m, "blink", 5) == 1,
+                  "a channel's name past the names: none");
+            break;
+        }
+        case 9:
+        {
+            // Blink's last target's name longer than the names.
+            maniStoreU32(targets + 3 * MANI_MORPH_TARGET_SIZE + 36, UINT32_MAX);
+            size_t length = 7;
+            CHECK(maniMorphTargets_GetTargetName(&m, 3, &length) == NULL && length == 0 &&
+                      maniMorphTargets_FindTarget(&m, "shut", 4) == MANI_NO_CHANNEL,
+                  "a target's name longer than the names: none");
+            break;
+        }
+        default:
+            // Blink's first target dense over fewer than the vertices.
+            maniStoreU32(targets + MANI_MORPH_TARGET_SIZE + 8, kVertices - 1);
+            CHECK(PositionsKept(&m, blink, true), "a dense target short of the vertices");
+            break;
+        }
+        CHECK(maniMorphTargets_ComputeTargetWeights(&m, channelWeights, weights, 5, NULL) ==
+                  mani_success,
+              "target weights");
+        free(block);
+    }
+    free(weights);
+}
+
 static int WriteSeed(const char* path)
 {
     BuildSample();
@@ -1011,6 +1147,7 @@ int main(int argc, char** argv)
     TestBuildRefusals();
     TestOpenRefusals();
     TestJobRefusals();
+    TestChangedBytes();
     TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

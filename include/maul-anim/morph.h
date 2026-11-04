@@ -39,10 +39,14 @@ extern "C"
         maniMorphColor = 4,
     };
 
-    // Morph targets over a file's bytes, which the caller keeps alive and
-    // unchanged while the view is used. Its fields are the library's;
-    // read it through the functions below. A view is immutable and
-    // copyable.
+    // Morph targets over a file's bytes, which the caller keeps alive
+    // while the view is used. Its fields are the library's; read it
+    // through the functions below. A view is immutable and copyable.
+    // Bytes changed after the open give some weights, some morphed
+    // attributes and some names: what a call reads from them (a channel's
+    // targets, a target's indices and deltas, a sparse target's vertices,
+    // a name's span) is bounded where it is read, so it reads only within
+    // the file and the job writes only the range it was given.
     typedef struct maniMorphTargets
     {
         const uint8_t* attributes;
@@ -51,6 +55,9 @@ extern "C"
         const uint8_t* indices;
         const uint8_t* deltas;
         const uint8_t* names;
+        uint64_t indexCount;
+        uint64_t deltaCount;
+        uint64_t nameBytes;
         uint64_t identity;
         uint32_t vertexCount;
         uint32_t channelCount;
@@ -127,9 +134,11 @@ extern "C"
     /// @param targets    Opened morph targets.
     /// @param channel    The channel.
     /// @param lengthOut  Receives the name's length in bytes, 0 for a
-    ///                   channel past the count. May be NULL.
+    ///                   channel past the count or a name that falls
+    ///                   outside the names. May be NULL.
     /// @return The name's bytes, inside the file, or NULL for a channel
-    /// past the count.
+    /// past the count, or one whose name's span, in bytes changed since
+    /// the open, falls outside the names.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMorphTargets_GetChannelName(const maniMorphTargets* targets,
@@ -155,9 +164,11 @@ extern "C"
     /// @param targets    Opened morph targets.
     /// @param target     The target.
     /// @param lengthOut  Receives the name's length in bytes, 0 for a
-    ///                   target past the count. May be NULL.
+    ///                   target past the count or a name that falls
+    ///                   outside the names. May be NULL.
     /// @return The name's bytes, inside the file, or NULL for a target
-    /// past the count.
+    /// past the count, or one whose name's span, in bytes changed since
+    /// the open, falls outside the names.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMorphTargets_GetTargetName(const maniMorphTargets* targets,
@@ -181,7 +192,9 @@ extern "C"
     /// @param targets   Opened morph targets.
     /// @param channel   The channel.
     /// @param firstOut  Receives the first target's index; may be NULL.
-    /// @return The number of targets, 0 for a channel past the count.
+    /// @return The number of targets, 0 for a channel past the count or
+    ///         one whose targets, in bytes changed since the open, are not
+    ///         within the targets.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargets_GetChannelTargets(const maniMorphTargets* targets,
