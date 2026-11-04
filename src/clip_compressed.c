@@ -71,21 +71,20 @@ static const uint8_t* SegmentOf(const maniClip* clip, uint32_t sample)
     uint32_t n = clip->segmentCount;
     // The view's check holds the segments to at most the samples.
     MANI_ASSERT(n >= 1 && n <= clip->sampleCount && sample < clip->sampleCount);
+    const uint8_t* segments = maniClipSection(clip, maniClipTagSegments);
     uint32_t per = clip->sampleCount / n;
     uint32_t s = sample / per < n ? sample / per : n - 1;
-    while (s > 0 && maniLoadU32(maniClipSection(clip, maniClipTagSegments) +
-                                (size_t)s * MANI_CLIP_SEGMENT_SIZE) > sample)
+    while (s > 0 && maniLoadU32(segments + (size_t)s * MANI_CLIP_SEGMENT_SIZE) > sample)
     {
         --s;
     }
-    while (s + 1 < n && maniLoadU32(maniClipSection(clip, maniClipTagSegments) +
-                                    (size_t)(s + 1) * MANI_CLIP_SEGMENT_SIZE) <= sample)
+    while (s + 1 < n && maniLoadU32(segments + (size_t)(s + 1) * MANI_CLIP_SEGMENT_SIZE) <= sample)
     {
         ++s;
     }
     // In bytes changed since the open it may not hold the sample: the
     // walker's reads stay within the segment data whatever bit it gives.
-    return maniClipSection(clip, maniClipTagSegments) + (size_t)s * MANI_CLIP_SEGMENT_SIZE;
+    return segments + (size_t)s * MANI_CLIP_SEGMENT_SIZE;
 }
 
 // A walker at a sample's first bone channel, or (floats) its first float.
@@ -408,14 +407,17 @@ static void Vectors(const Group* g, const manif8 va[3], const manif8 vb[3], floa
 }
 
 // The walk over the kinds' channels: the pose, the bones listed (or every
-// one), the two samples' walkers (sharing their segment's rates and
-// ranges when both are in it) or caches, how far along the constants and
-// clip ranges it is, and the group on the lanes.
+// one), the tracks and the skeleton's bone count, the two samples'
+// walkers (sharing their segment's rates and ranges when both are in it)
+// or caches, how far along the constants and clip ranges it is, and the
+// group on the lanes.
 typedef struct Sampling
 {
     const maniClip* clip;
     const maniBoneList* list;
     float* locals;
+    const uint8_t* tracks;
+    uint32_t bones;
     const uint8_t* dropped;
     Walker a;
     Walker b;
@@ -496,11 +498,15 @@ static void Constants(Sampling* s, uint32_t kind)
 {
     Group* g = &s->group;
     maniTrackWalk walk = maniWalkTracks(s->clip, kind, 0);
+    // Read once: the stores through the group and the walk may alias them.
+    const uint8_t* tracks = s->tracks;
+    uint32_t bones = s->bones;
+    uint32_t n = s->clip->constantKinds[kind];
     uint32_t next = 0;
-    for (uint32_t i = 0; i < s->clip->constantKinds[kind]; ++i)
+    for (uint32_t i = 0; i < n; ++i)
     {
         uint32_t t = maniNextTrack(&walk);
-        uint32_t bone = maniClipTrackBone(s->clip, t);
+        uint32_t bone = maniClipTrackBoneIn(tracks, bones, t);
         const uint8_t* value = s->constant;
         s->constant += 12;
         if (!Listed(s, bone, &next))
@@ -636,11 +642,13 @@ static void Animated(Sampling* s, uint32_t kind)
     uint32_t width = kind == maniClipKindRotation ? 4 : 3;
     bool cached = s->cacheA != NULL;
     maniTrackWalk walk = maniWalkTracks(s->clip, kind, 1);
+    const uint8_t* tracks = s->tracks;
+    uint32_t bones = s->bones;
     uint32_t next = 0;
     for (uint32_t i = 0; i < n; ++i)
     {
         uint32_t t = maniNextTrack(&walk);
-        uint32_t bone = maniClipTrackBone(s->clip, t);
+        uint32_t bone = maniClipTrackBoneIn(tracks, bones, t);
         bool listed = Listed(s, bone, &next);
         if (cached)
         {
@@ -735,6 +743,8 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
     Sampling s = {.clip = clip,
                   .list = list,
                   .locals = maniPoseLocals(pose),
+                  .tracks = maniClipSection(clip, maniClipTagTracks),
+                  .bones = clip->skeletonBoneCount,
                   .dropped = maniCompressedDropped(clip),
                   .cacheA = cached ? pair->cacheA : NULL,
                   .cacheB = cached ? pair->cacheB : NULL,
@@ -766,101 +776,6 @@ void maniSampleCompressedBones(const maniClip* clip, const maniSkeleton* skeleto
     maniPoseMarkStale(pose);
 }
 
-#if defined(MANI_CLIP_LANES)
-// The lanes past the last bone: the identity, never interpolated.
-static void HeldPadding(uint32_t bones, float* groups, float* masks)
-{
-    static const float kIdentity[MANI_POSE_COMPONENTS] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                                                          0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-    for (uint32_t bone = bones; bone % MANI_POSE_GROUP_BONES != 0; ++bone)
-    {
-        maniPoseSlotPut(maniPoseSlot(groups, bone), 0, kIdentity, MANI_POSE_COMPONENTS);
-        for (uint32_t c = 0; c < 3; ++c)
-        {
-            masks[(size_t)(bone / MANI_POSE_GROUP_BONES) * 3 * MANI_POSE_GROUP_BONES +
-                  c * MANI_POSE_GROUP_BONES + bone % MANI_POSE_GROUP_BONES] = 0.0f;
-        }
-    }
-}
-
-static float* MaskOf(float* masks, uint32_t bone, uint32_t channel)
-{
-    return masks + (size_t)(bone / MANI_POSE_GROUP_BONES) * 3 * MANI_POSE_GROUP_BONES +
-           channel * MANI_POSE_GROUP_BONES + bone % MANI_POSE_GROUP_BONES;
-}
-
-// A held sample (maniDecodeCompressedSample's floats) in a pose's group
-// layout for the forward cursor: each channel the clip stores at its
-// value (a constant read, a rotation rebuilt), the others at rest as the
-// walk writes them, padding lanes the identity; in masks (three rows of
-// eight a group: translation, rotation, scale) all bits set where the
-// walk interpolates the channel, clear where it writes a rest.
-// A stored channel's held value for the groups: the next decoded one
-// (animated) or the next constant, a rotation rebuilt.
-static void HeldValue(const maniClip* clip, uint32_t channel, uint32_t t, bool animated,
-                      const float** cache, const uint8_t** constant, float v[4])
-{
-    uint32_t width = channel == 1 ? 4 : 3;
-    if (animated)
-    {
-        memcpy(v, *cache, width * sizeof(float));
-        *cache += width;
-        return;
-    }
-    float kept[3];
-    for (int k = 0; k < 3; ++k)
-    {
-        kept[k] = LoadF32(*constant + 4 * k);
-    }
-    *constant += 12;
-    if (channel == 1)
-    {
-        maniCodecRotation(kept, 3u - maniCompressedDroppedField(maniCompressedDropped(clip), t), v);
-        return;
-    }
-    memcpy(v, kept, sizeof kept);
-}
-
-void maniExpandCompressedSample(const maniClip* clip, const maniSkeleton* skeleton,
-                                const float* cache, float* groups, float* masks)
-{
-    uint32_t bones = clip->skeletonBoneCount;
-    bool identity = clip->additive != maniAdditiveNone;
-    for (uint32_t bone = 0; bone < bones; ++bone)
-    {
-        for (uint32_t c = 0; c < 3; ++c)
-        {
-            maniSlotRest(maniPoseSlot(groups, bone), skeleton, bone, c, identity);
-            *MaskOf(masks, bone, c) = 0.0f;
-        }
-    }
-    const uint8_t* constant = maniClipSection(clip, maniClipTagConstants);
-    uint32_t all = UINT32_MAX;
-    for (uint32_t kind = 0; kind < maniClipKinds; ++kind)
-    {
-        uint32_t channel = maniClipKindChannel(kind);
-        for (uint32_t animated = 0; animated < 2; ++animated)
-        {
-            maniTrackWalk walk = maniWalkTracks(clip, kind, animated);
-            uint32_t n = animated != 0 ? clip->animatedKinds[kind] : clip->constantKinds[kind];
-            for (uint32_t i = 0; i < n; ++i)
-            {
-                uint32_t t = maniNextTrack(&walk);
-                uint32_t bone = maniClipTrackBone(clip, t);
-                float v[4];
-                HeldValue(clip, channel, t, animated != 0, &cache, &constant, v);
-                maniPoseSlotPut(maniPoseSlot(groups, bone), maniChannelFirst(channel), v,
-                                channel == 1 ? 4 : 3);
-                memcpy(MaskOf(masks, bone, channel), &all, sizeof all);
-            }
-        }
-    }
-    MANI_ASSERT(constant ==
-                maniClipSection(clip, maniClipTagConstants) + 12 * (size_t)clip->constantChannels);
-    HeldPadding(bones, groups, masks);
-}
-#endif
-
 void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, float* values)
 {
     size_t channels =
@@ -888,6 +803,8 @@ void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, 
     uint64_t constants =
         (maniClipSectionSize(clip, maniClipTagConstants) - 12 * (uint64_t)clip->constantChannels) /
         4;
+    const uint8_t* floatTracks = maniClipSection(clip, maniClipTagFloatTracks);
+    float alpha = pair->alpha;
     uint32_t n = clip->animatedFloats;
     uint32_t j = 0;
     uint64_t k = 0;
@@ -916,9 +833,7 @@ void maniSampleCompressedFloats(const maniClip* clip, const maniClipPair* pair, 
             vb = DecodeFloat(&b, minimum, extent);
             ++j;
         }
-        bool step = maniLoadU32(maniClipSection(clip, maniClipTagFloatTracks) +
-                                (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16) != 0;
-        float alpha = pair->alpha;
+        bool step = maniLoadU32(floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16) != 0;
         values[i] = step ? (alpha < 1.0f ? va : vb) : va + (vb - va) * alpha;
     }
 }
