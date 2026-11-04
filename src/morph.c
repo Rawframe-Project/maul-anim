@@ -403,6 +403,9 @@ static MANI_NOINLINE maniFileResult OpenMorphTargetsWork(const void* bytes, size
     m.indices = s.data[kIndices];
     m.deltas = s.data[kDeltas];
     m.names = s.data[kNames];
+    m.indexCount = s.sizes[kIndices] / 4;
+    m.deltaCount = s.sizes[kDeltas] / 4;
+    m.nameBytes = s.sizes[kNames];
     m.identity = c.identity;
     *targetsOut = m;
     return kOk;
@@ -448,80 +451,105 @@ maniMorphSemantic maniMorphTargets_GetAttribute(const maniMorphTargets* targets,
     return inside ? (maniMorphSemantic)maniLoadU32(e) : -1;
 }
 
+// A name by its span (offset, then length) in the names: NULL with length
+// 0 for a span in bytes changed since the open that falls outside them.
+static const char* Name(const maniMorphTargets* m, const uint8_t* span, size_t* lengthOut)
+{
+    uint64_t start = maniLoadU32(span);
+    uint64_t length = maniLoadU32(span + 4);
+    bool fits = start <= m->nameBytes && length <= m->nameBytes - start;
+    if (lengthOut != NULL)
+    {
+        *lengthOut = fits ? (size_t)length : 0;
+    }
+    return fits ? (const char*)m->names + start : NULL;
+}
+
+// The first of count entries whose name (its span at `span` bytes in) is
+// the one given, or MANI_NO_CHANNEL.
+static uint32_t FindName(const maniMorphTargets* m, const uint8_t* entries, size_t entrySize,
+                         uint32_t count, size_t span, const char* name, size_t length)
+{
+    // No channel or target has an empty name.
+    if (name == NULL || length == 0)
+    {
+        return MANI_NO_CHANNEL;
+    }
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        size_t entryLength = 0;
+        const char* entryName = Name(m, entries + (size_t)i * entrySize + span, &entryLength);
+        if (entryLength == length && memcmp(entryName, name, length) == 0)
+        {
+            return i;
+        }
+    }
+    return MANI_NO_CHANNEL;
+}
+
 const char* maniMorphTargets_GetChannelName(const maniMorphTargets* targets, uint32_t channel,
                                             size_t* lengthOut)
 {
-    bool inside = channel < targets->channelCount;
-    const uint8_t* e = targets->channels + (size_t)channel * MANI_MORPH_CHANNEL_SIZE;
-    if (lengthOut != NULL)
+    if (channel >= targets->channelCount)
     {
-        *lengthOut = inside ? maniLoadU32(e + 12) : 0;
+        if (lengthOut != NULL)
+        {
+            *lengthOut = 0;
+        }
+        return NULL;
     }
-    return inside ? (const char*)targets->names + maniLoadU32(e + 8) : NULL;
+    return Name(targets, targets->channels + (size_t)channel * MANI_MORPH_CHANNEL_SIZE + 8,
+                lengthOut);
 }
 
 uint32_t maniMorphTargets_FindChannel(const maniMorphTargets* targets, const char* name,
                                       size_t length)
 {
-    // No channel has an empty name.
-    if (name == NULL || length == 0)
-    {
-        return MANI_NO_CHANNEL;
-    }
-    for (uint32_t c = 0; c < targets->channelCount; ++c)
-    {
-        const uint8_t* e = targets->channels + (size_t)c * MANI_MORPH_CHANNEL_SIZE;
-        if (maniLoadU32(e + 12) == length &&
-            memcmp(targets->names + maniLoadU32(e + 8), name, length) == 0)
-        {
-            return c;
-        }
-    }
-    return MANI_NO_CHANNEL;
+    return FindName(targets, targets->channels, MANI_MORPH_CHANNEL_SIZE, targets->channelCount, 8,
+                    name, length);
 }
 
 const char* maniMorphTargets_GetTargetName(const maniMorphTargets* targets, uint32_t target,
                                            size_t* lengthOut)
 {
-    bool inside = target < targets->targetCount;
-    const uint8_t* e = targets->targets + (size_t)target * MANI_MORPH_TARGET_SIZE;
-    if (lengthOut != NULL)
+    if (target >= targets->targetCount)
     {
-        *lengthOut = inside ? maniLoadU32(e + 36) : 0;
+        if (lengthOut != NULL)
+        {
+            *lengthOut = 0;
+        }
+        return NULL;
     }
-    return inside ? (const char*)targets->names + maniLoadU32(e + 32) : NULL;
+    return Name(targets, targets->targets + (size_t)target * MANI_MORPH_TARGET_SIZE + 32,
+                lengthOut);
 }
 
 uint32_t maniMorphTargets_FindTarget(const maniMorphTargets* targets, const char* name,
                                      size_t length)
 {
-    // No target has an empty name.
-    if (name == NULL || length == 0)
-    {
-        return MANI_NO_CHANNEL;
-    }
-    for (uint32_t t = 0; t < targets->targetCount; ++t)
-    {
-        const uint8_t* e = targets->targets + (size_t)t * MANI_MORPH_TARGET_SIZE;
-        if (maniLoadU32(e + 36) == length &&
-            memcmp(targets->names + maniLoadU32(e + 32), name, length) == 0)
-        {
-            return t;
-        }
-    }
-    return MANI_NO_CHANNEL;
+    return FindName(targets, targets->targets, MANI_MORPH_TARGET_SIZE, targets->targetCount, 32,
+                    name, length);
 }
 
 uint32_t maniMorphTargets_GetChannelTargets(const maniMorphTargets* targets, uint32_t channel,
                                             uint32_t* firstOut)
 {
-    bool inside = channel < targets->channelCount;
-    const uint8_t* e = targets->channels + (size_t)channel * MANI_MORPH_CHANNEL_SIZE;
+    uint32_t first = 0;
+    uint32_t count = 0;
+    if (channel < targets->channelCount)
+    {
+        const uint8_t* e = targets->channels + (size_t)channel * MANI_MORPH_CHANNEL_SIZE;
+        first = maniLoadU32(e);
+        count = maniLoadU32(e + 4);
+    }
+    // A range in bytes changed since the open that is not within the
+    // targets is none.
+    bool within = first <= targets->targetCount && count <= targets->targetCount - first;
     if (firstOut != NULL)
     {
-        *firstOut = inside ? maniLoadU32(e) : 0;
+        *firstOut = within ? first : 0;
     }
-    return inside ? maniLoadU32(e + 4) : 0;
+    return within ? count : 0;
 }
 
 float maniMorphTargets_GetTargetFullWeight(const maniMorphTargets* targets, uint32_t target)
@@ -606,14 +634,15 @@ static void Walk(const maniMorphTargets* m, uint32_t first, uint32_t count, floa
         uint32_t key = prev == ZERO_KEY ? next : prev;
         if (key != ZERO_KEY)
         {
-            // Opening refused a full weight of 0.
-            MANI_ASSERT(key < count && Full(m, first, key) != 0.0f);
+            // Opening refused a full weight of 0; bytes changed since may
+            // hold one, which gives some weight.
+            MANI_ASSERT(key < count);
             out[key] = weight / Full(m, first, key);
         }
         return;
     }
     float low = Full(m, first, prev);
-    MANI_ASSERT(prev < count && next < count && Full(m, first, next) != low);
+    MANI_ASSERT(prev < count && next < count);
     float t = (weight - low) / (Full(m, first, next) - low);
     out[prev] = 1.0f - t;
     out[next] = t;
@@ -649,10 +678,9 @@ static MANI_NOINLINE maniResult MorphTargetWeightsWork(const maniMorphTargets* t
     for (uint32_t c = targets->channelCount; c-- > 0;)
     {
         uint32_t first = 0;
+        // Within the targets: a range in bytes changed since the open
+        // that is not writes no weights.
         uint32_t count = maniMorphTargets_GetChannelTargets(targets, c, &first);
-        // Opening checked that the channels cover the targets in order.
-        MANI_ASSERT(count > 0 && first <= targets->targetCount &&
-                    count <= targets->targetCount - first);
         Walk(targets, first, count, channelWeights[c], targetWeights + first);
     }
     return mani_success;
@@ -740,20 +768,22 @@ static uint32_t Slot(const maniMorphTargets* m, const maniMorphStream* s)
     return MANI_MAX_MORPH_ATTRIBUTES;
 }
 
-// Where a target's deltas for one table entry begin: past the entries
-// below it that it holds.
-static const uint8_t* SlotDeltas(const maniMorphTargets* m, const uint8_t* e, uint32_t slot)
+// Where a target's deltas for one table entry begin, in floats from the
+// deltas' start: past the entries below it that it holds. UINT64_MAX for
+// a start in bytes changed since the open past what 64 bits hold.
+static uint64_t SlotDeltas(const maniMorphTargets* m, const uint8_t* e, uint32_t slot)
 {
     uint32_t mask = maniLoadU32(e + 4);
     uint64_t count = maniLoadU32(e + 8);
     uint64_t at = maniLoadU64(e + 24);
-    MANI_ASSERT(slot < m->attributeCount && ((mask >> slot) & 1u) != 0);
+    MANI_ASSERT(slot < m->attributeCount);
     for (uint32_t a = 0; a < slot; ++a)
     {
         uint32_t semantic = maniMorphTargets_GetAttribute(m, a, NULL);
-        at += ((mask >> a) & 1u) != 0 ? count * maniMorphWidth(semantic) : 0;
+        uint64_t floats = ((mask >> a) & 1u) != 0 ? count * maniMorphWidth(semantic) : 0;
+        at = at <= UINT64_MAX - floats ? at + floats : UINT64_MAX;
     }
-    return m->deltas + 4 * at;
+    return at;
 }
 
 // The first of a sparse target's indices at or past vertex.
@@ -812,9 +842,22 @@ static inline void AddDelta(Apply a, uint32_t i, const uint8_t* delta)
     }
 }
 
+// A sparse target's deltas from its index `from` to `stop`. Indices in
+// bytes changed since the open may be out of order: one outside the range
+// is held at its last vertex, within the stream.
+static inline void AddSparse(Apply a, const uint8_t* deltas, const uint8_t* indices, uint32_t from,
+                             uint32_t stop, uint32_t first, uint32_t last)
+{
+    for (uint32_t i = from; i < stop; ++i)
+    {
+        uint32_t at = maniLoadU32(indices + 4 * (size_t)i) - first;
+        AddDelta(a, at < last ? at : last, deltas + a.stride * i);
+    }
+}
+
 // A target's dense or sparse deltas over the range [first, end).
-static void AddVertices(Apply a, const uint8_t* deltas, const uint8_t* indices, uint32_t count,
-                        uint32_t first, uint32_t end)
+static MANI_NOINLINE void AddVertices(Apply a, const uint8_t* deltas, const uint8_t* indices,
+                                      uint32_t count, uint32_t first, uint32_t end)
 {
     if (indices == NULL)
     {
@@ -824,13 +867,17 @@ static void AddVertices(Apply a, const uint8_t* deltas, const uint8_t* indices, 
         }
         return;
     }
+    uint32_t from = LowerBound(indices, count, first);
     uint32_t stop = LowerBound(indices, count, end);
-    for (uint32_t i = LowerBound(indices, count, first); i < stop; ++i)
+    uint32_t last = end - first - 1;
+    // Positions and normals apart, so their loop knows its width: the
+    // clamp would otherwise keep the compilers from taking the test out.
+    if (a.floats == 3)
     {
-        uint32_t vertex = maniLoadU32(indices + 4 * (size_t)i);
-        MANI_ASSERT(vertex >= first && vertex < end);
-        AddDelta(a, vertex - first, deltas + a.stride * i);
+        AddSparse(a, deltas, indices, from, stop, first, last);
+        return;
     }
+    AddSparse(a, deltas, indices, from, stop, first, last);
 }
 
 // One target's deltas onto one stream over the job's range.
@@ -842,7 +889,6 @@ static void AddTarget(const maniMorphJob* job, uint32_t t, const maniMorphStream
     {
         return;
     }
-    const uint8_t* deltas = SlotDeltas(m, e, slot);
     uint32_t width = maniMorphWidth(s->semantic);
     // JobValid took only streams of 2 to 4 components; a table entry's
     // width is that of its semantic.
@@ -850,10 +896,21 @@ static void AddTarget(const maniMorphJob* job, uint32_t t, const maniMorphStream
     Apply a = {(uint8_t*)s->out, s->outStride, 4 * (size_t)width,
                s->components < width ? s->components : width, job->weights[t]};
     bool dense = maniLoadU32(e + 12) == MANI_MORPH_DENSE;
-    const uint8_t* indices = dense ? NULL : m->indices + 4 * maniLoadU64(e + 16);
+    uint64_t index = maniLoadU64(e + 16);
     uint32_t count = maniLoadU32(e + 8);
     uint32_t end = job->first + job->count;
-    MANI_ASSERT(end <= m->vertexCount && (!dense || count == m->vertexCount));
+    MANI_ASSERT(end <= m->vertexCount);
+    // In bytes changed since the open a target may claim deltas or indices
+    // past their sections, or a dense count other than the vertices: such
+    // a target adds nothing.
+    uint64_t at = SlotDeltas(m, e, slot);
+    if (at > m->deltaCount || (uint64_t)count * width > m->deltaCount - at ||
+        (dense ? count != m->vertexCount : index > m->indexCount || count > m->indexCount - index))
+    {
+        return;
+    }
+    const uint8_t* deltas = m->deltas + 4 * at;
+    const uint8_t* indices = dense ? NULL : m->indices + 4 * index;
     AddVertices(a, deltas, indices, count, job->first, end);
 }
 

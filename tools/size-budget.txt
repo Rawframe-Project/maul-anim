@@ -45,7 +45,7 @@ ceiling retarget   O2 13000
 ceiling mirror     O2 6000
 ceiling match      O2 20000
 ceiling learned    O2 12000
-ceiling morph      O2 7000
+ceiling morph      O2 8000
 ceiling elementary O2 7000
 ceiling core       O3 101000
 ceiling skinning   O3 16000
