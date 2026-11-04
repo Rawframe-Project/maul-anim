@@ -12,6 +12,8 @@
 #ifndef MAUL_ANIM_TEST_FILE_TAG_H
 #define MAUL_ANIM_TEST_FILE_TAG_H
 
+#include "test_harness.h"
+
 #include "maul-anim/base.h"
 
 #include <stdbool.h>
@@ -90,11 +92,23 @@ static inline uint8_t* TestAlignedCopy(size_t size, uint8_t** blockOut)
     return block != NULL ? block + (16 - (uintptr_t)block % 16) % 16 : NULL;
 }
 
+#if defined(__SANITIZE_ADDRESS__)
+#define TEST_ADDRESS_SANITIZER 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define TEST_ADDRESS_SANITIZER 1
+#endif
+#endif
+#ifndef TEST_ADDRESS_SANITIZER
+#define TEST_ADDRESS_SANITIZER 0
+#endif
+
 // A block of exactly size bytes at a 16-byte aligned address where malloc
 // gives one, as it does on the desktop targets, so AddressSanitizer sees
 // a read past the end; where malloc aligns to less (Emscripten's 8), a
-// block aligned by hand as TestAlignedCopy does. *blockOut is what to
-// free.
+// block aligned by hand as TestAlignedCopy does. Under AddressSanitizer
+// the hand-aligned block is a failure: there the exact length is what
+// the copy is for. *blockOut is what to free.
 static inline uint8_t* TestExactCopy(size_t size, uint8_t** blockOut)
 {
     uint8_t* block = (uint8_t*)malloc(size);
@@ -103,6 +117,8 @@ static inline uint8_t* TestExactCopy(size_t size, uint8_t** blockOut)
         *blockOut = block;
         return block;
     }
+    CHECK(!TEST_ADDRESS_SANITIZER || block == NULL,
+          "malloc gave AddressSanitizer a block below 16-byte alignment");
     free(block);
     return TestAlignedCopy(size, blockOut);
 }
