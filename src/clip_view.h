@@ -92,13 +92,19 @@ static inline const uint8_t* maniCompressedFloatForms(const maniClip* clip)
     return maniCompressedDropped(clip) + ((uint64_t)clip->trackCount + 3) / 4;
 }
 
-// A track's bone, in the skeleton: bytes changed since the open name
-// bone 0 for a bone past it, so a write stays in the pose.
+// A track's bone from the tracks section, in a skeleton of `bones`: bytes
+// changed since the open name bone 0 for a bone past it, so a write stays
+// in the pose. Loops over tracks take the section and the count once.
+static inline uint32_t maniClipTrackBoneIn(const uint8_t* tracks, uint32_t bones, uint32_t t)
+{
+    uint32_t bone = maniLoadU16(tracks + (size_t)t * MANI_CLIP_TRACK_SIZE);
+    return bone < bones ? bone : 0;
+}
+
 static inline uint32_t maniClipTrackBone(const maniClip* clip, uint32_t t)
 {
-    uint32_t bone =
-        maniLoadU16(maniClipSection(clip, maniClipTagTracks) + (size_t)t * MANI_CLIP_TRACK_SIZE);
-    return bone < clip->skeletonBoneCount ? bone : 0;
+    return maniClipTrackBoneIn(maniClipSection(clip, maniClipTagTracks), clip->skeletonBoneCount,
+                               t);
 }
 
 // A discrete track's keys: the count, the first at *firstOut, within the

@@ -577,12 +577,15 @@ static void SampleFull(const maniClip* clip, const maniSkeleton* skeleton, const
         floats += maniChannelFloats(tracks[(size_t)t * MANI_CLIP_TRACK_SIZE + 2]);
     }
     uint32_t keep = floats <= clip->floatsPerSample ? 0xFFu : 0u;
+    uint32_t trackCount = clip->trackCount;
+    uint32_t bones = clip->skeletonBoneCount;
+    bool additive = clip->additive != maniAdditiveNone;
     uint32_t track = 0;
     uint32_t next = 0;
-    for (uint32_t bone = 0; bone < clip->skeletonBoneCount; ++bone)
+    for (uint32_t bone = 0; bone < bones; ++bone)
     {
         const uint8_t* entry = tracks + (size_t)track * MANI_CLIP_TRACK_SIZE;
-        bool tracked = track < clip->trackCount && maniLoadU16(entry) == bone;
+        bool tracked = track < trackCount && maniLoadU16(entry) == bone;
         uint32_t mask = tracked ? entry[2] & keep : 0;
         track += tracked ? 1 : 0;
         if (!maniBoneListed(list, bone, &next))
@@ -592,8 +595,7 @@ static void SampleFull(const maniClip* clip, const maniSkeleton* skeleton, const
             b += skip;
             continue;
         }
-        FullChannels(mask, &a, &b, pair, maniPoseSlot(locals, bone), skeleton, bone,
-                     clip->additive != maniAdditiveNone);
+        FullChannels(mask, &a, &b, pair, maniPoseSlot(locals, bone), skeleton, bone, additive);
     }
     maniPoseMarkStale(pose);
 }
@@ -603,14 +605,17 @@ static void SampleFullFloats(const maniClip* clip, const maniClipPair* pair, flo
     size_t stride = 4 * (size_t)clip->floatTrackCount;
     const uint8_t* a = maniClipSection(clip, maniClipTagFloatSamples) + stride * pair->first;
     const uint8_t* b = maniClipSection(clip, maniClipTagFloatSamples) + stride * pair->second;
-    for (uint32_t i = 0; i < clip->floatTrackCount; ++i)
+    // Read once: the stores through values may alias them.
+    const uint8_t* floatTracks = maniClipSection(clip, maniClipTagFloatTracks);
+    uint32_t count = clip->floatTrackCount;
+    float alpha = pair->alpha;
+    for (uint32_t i = 0; i < count; ++i)
     {
         float va = LoadF32(a + 4 * (size_t)i);
         float vb = LoadF32(b + 4 * (size_t)i);
-        bool step = maniLoadU32(maniClipSection(clip, maniClipTagFloatTracks) +
-                                (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16) != 0;
+        bool step = maniLoadU32(floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16) != 0;
         // A step track holds the sample at or before the time.
-        values[i] = step ? (pair->alpha < 1.0f ? va : vb) : va + (vb - va) * pair->alpha;
+        values[i] = step ? (alpha < 1.0f ? va : vb) : va + (vb - va) * alpha;
     }
 }
 
