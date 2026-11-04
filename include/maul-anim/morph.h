@@ -143,7 +143,9 @@ extern "C"
     /// @param targets    Opened morph targets.
     /// @param channel    The channel.
     /// @param lengthOut  Receives the name's length in bytes, 0 for a
-    ///                   channel past the count. May be NULL.
+    ///                   channel past the count, a view no open wrote or
+    ///                   whose counts do not fit its file, or a name that
+    ///                   falls outside the names. May be NULL.
     /// @return The name's bytes, inside the file, or NULL for a channel past
     /// the count, a view no open wrote or whose counts do not fit its file, or
     /// a name span in bytes changed after the open past the names.
@@ -173,7 +175,9 @@ extern "C"
     /// @param targets    Opened morph targets.
     /// @param target     The target.
     /// @param lengthOut  Receives the name's length in bytes, 0 for a
-    ///                   target past the count. May be NULL.
+    ///                   target past the count, a view no open wrote or
+    ///                   whose counts do not fit its file, or a name that
+    ///                   falls outside the names. May be NULL.
     /// @return The name's bytes, inside the file, or NULL for a target past the
     /// count, a view no open wrote or whose counts do not fit its file, or a
     /// name span in bytes changed after the open past the names.
@@ -294,9 +298,10 @@ extern "C"
     /// for positions, normals or tangents, or components other than its
     /// semantic's (nothing written). A target whose deltas or indices in bytes
     /// changed after the open are past their sections, or a dense one without
-    /// every vertex, adds nothing, and a sparse vertex outside the range is
-    /// skipped: changed bytes morph to some vertices, read and written only
-    /// within the file and the streams.
+    /// every vertex, adds nothing, and a sparse vertex outside the range
+    /// adds its delta to the range's last vertex: changed bytes morph to
+    /// some vertices, read and written only within the file and the
+    /// streams.
     /// @par Thread safety
     /// Safe from any thread; the output range is used by one thread at a time.
     /// Jobs over disjoint ranges run at once.
