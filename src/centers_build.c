@@ -18,6 +18,7 @@
 #include "elementary_float.h"
 #include "fpenv.h"
 #include "influence_file.h"
+#include "influences_view.h"
 #include "sort.h"
 
 #include "maul-anim/build.h"
@@ -54,12 +55,12 @@ static uint32_t Weighted(const maniInfluences* v, uint32_t vertex, uint32_t* joi
     uint32_t n = 0;
     for (uint32_t slot = 0; slot < per; ++slot)
     {
-        float w = LoadF32(v->weights + 4 * (base + slot));
+        float w = LoadF32(maniInfluencesSection(v, maniInfluencesWeights) + 4 * (base + slot));
         if (w == 0.0f)
         {
             break;
         }
-        joints[n] = maniLoadU16(v->joints + 2 * (base + slot));
+        joints[n] = maniInfluencesJoint(v, base + slot);
         weights[n] = (double)w;
         ++n;
     }
@@ -313,14 +314,15 @@ static maniBuildResult Write(maniBuilder* builder, const maniInfluences* v, cons
     maniStoreU32(binding + 12, v->vertexCount);
     maniStoreU32(binding + 16, v->groupCount);
     static const uint8_t kNone = 0;
+    bool dual = maniInfluencesHas(v, maniInfluencesDualWeights);
     const uint8_t* data[MANI_INFLUENCE_SECTIONS] = {
-        binding, v->joints, v->weights,
-        v->dualQuaternionWeights != NULL ? v->dualQuaternionWeights : &kNone,
+        binding, maniInfluencesSection(v, maniInfluencesJoints),
+        maniInfluencesSection(v, maniInfluencesWeights),
+        dual ? maniInfluencesSection(v, maniInfluencesDualWeights) : &kNone,
         (const uint8_t*)centers};
-    const uint64_t sizes[MANI_INFLUENCE_SECTIONS] = {
-        sizeof binding, 2 * slots, 4 * slots,
-        v->dualQuaternionWeights != NULL ? 4 * (uint64_t)v->vertexCount : 0,
-        12 * (uint64_t)v->vertexCount};
+    const uint64_t sizes[MANI_INFLUENCE_SECTIONS] = {sizeof binding, 2 * slots, 4 * slots,
+                                                     dual ? 4 * (uint64_t)v->vertexCount : 0,
+                                                     12 * (uint64_t)v->vertexCount};
     maniSectionSource sections[MANI_INFLUENCE_SECTIONS];
     uint32_t count = 0;
     for (uint32_t i = 0; i < MANI_INFLUENCE_SECTIONS; ++i)
@@ -357,7 +359,7 @@ static MANI_NOINLINE maniBuildResult BuildCentersWork(maniBuilder* builder,
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0);
     }
-    if (source == NULL || source->influences == NULL || source->positions == NULL ||
+    if (source == NULL || !maniInfluencesValid(source->influences) || source->positions == NULL ||
         (source->triangles == NULL && source->triangleCount > 0))
     {
         maniBuilderMisuse(builder);

@@ -18,7 +18,44 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 
-static void Exercise(const uint8_t* bytes, size_t size)
+// Up to 16 bytes inside an opened file changed, picked from its own
+// bytes, as a host's memory may change after the open: every call after
+// reads only within the file and ends, whatever it gives. Restore puts
+// them back.
+typedef struct Changed
+{
+    uint64_t at[16];
+    uint8_t kept[16];
+} Changed;
+
+static Changed Change(uint8_t* bytes, uint64_t size)
+{
+    Changed c;
+    uint64_t state = size * 0x9E3779B97F4A7C15u;
+    for (uint64_t i = 0; i < size && i < 64; ++i)
+    {
+        state = (state ^ bytes[i]) * 0x100000001B3u;
+    }
+    for (int i = 0; i < 16; ++i)
+    {
+        state ^= state >> 29;
+        state *= 0xBF58476D1CE4E5B9u;
+        c.at[i] = state % size;
+        c.kept[i] = bytes[c.at[i]];
+        bytes[c.at[i]] ^= (uint8_t)(state >> 56) | 1u;
+    }
+    return c;
+}
+
+static void Restore(uint8_t* bytes, const Changed* c)
+{
+    for (int i = 15; i >= 0; --i)
+    {
+        bytes[c->at[i]] = c->kept[i];
+    }
+}
+
+static void Exercise(uint8_t* bytes, size_t size)
 {
     maniInfluences v;
     if (maniOpenInfluences(bytes, size, &v).result != 0)
@@ -45,6 +82,19 @@ static void Exercise(const uint8_t* bytes, size_t size)
             abort();
         }
     }
+    Changed c = Change(bytes, v.size);
+    for (uint32_t vertex = 0; vertex < vertices && vertex < 4096; ++vertex)
+    {
+        float w = 0.0f;
+        maniVec3 center;
+        for (uint32_t slot = 0; slot < per; ++slot)
+        {
+            (void)maniInfluences_GetInfluence(&v, vertex, slot, &w);
+        }
+        (void)maniInfluences_GetDualQuaternionWeight(&v, vertex);
+        (void)maniInfluences_GetCenter(&v, vertex, &center);
+    }
+    Restore(bytes, &c);
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)

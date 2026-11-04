@@ -43,6 +43,12 @@ static size_t s_size;
 
 static uint64_t s_random = 0x2545F4914F6CDD1Dull;
 
+// A section of opened morph targets by its tag, through the view.
+static const uint8_t* MorphSection(const maniMorphTargets* m, uint32_t tag)
+{
+    return m->base + m->offsets[tag - maniMorphTagAttributes];
+}
+
 static uint32_t Next(void)
 {
     s_random ^= s_random << 13;
@@ -212,31 +218,37 @@ static void TestBuildsAndReads(void)
               maniMorphTargets_GetTargetFullWeight(&m, 5) == 0.0f,
           "full weights");
     // Smile: sorted, vertex 5 summed; wide: dense, tangents then colors.
-    const uint8_t* smile = m.targets;
-    const uint8_t* blink = m.targets + 2 * MANI_MORPH_TARGET_SIZE;
-    const uint8_t* wide = m.targets + 4 * MANI_MORPH_TARGET_SIZE;
+    const uint8_t* smile = MorphSection(&m, maniMorphTagTargets);
+    const uint8_t* blink = MorphSection(&m, maniMorphTagTargets) + 2 * MANI_MORPH_TARGET_SIZE;
+    const uint8_t* wide = MorphSection(&m, maniMorphTagTargets) + 4 * MANI_MORPH_TARGET_SIZE;
     CHECK(maniLoadU32(smile + 4) == 3u && maniLoadU32(smile + 12) == 0 &&
-              maniLoadU32(smile + 8) == 3 && maniLoadU32(m.indices) == 2 &&
-              maniLoadU32(m.indices + 4) == 5 && maniLoadU32(m.indices + 8) == 9,
+              maniLoadU32(smile + 8) == 3 &&
+              maniLoadU32(MorphSection(&m, maniMorphTagIndices)) == 2 &&
+              maniLoadU32(MorphSection(&m, maniMorphTagIndices) + 4) == 5 &&
+              maniLoadU32(MorphSection(&m, maniMorphTagIndices) + 8) == 9,
           "sparse sorted and merged");
     float d[3];
-    memcpy(d, m.deltas + 12, sizeof d);
+    memcpy(d, MorphSection(&m, maniMorphTagDeltas) + 12, sizeof d);
     CHECK(d[0] == 1.5f && d[1] == 0.25f && d[2] == 0.0f, "vertex 5 summed in source order");
-    memcpy(d, m.deltas + 4 * 9 + 12, sizeof d);
+    memcpy(d, MorphSection(&m, maniMorphTagDeltas) + 4 * 9 + 12, sizeof d);
     CHECK(d[0] == 0.0f && d[1] == 1.5f && d[2] == 0.0f, "normals summed too");
     CHECK(maniLoadU32(blink + 4) == 9u && maniLoadU32(blink + 12) == MANI_MORPH_DENSE,
           "positions and texture coordinates");
     float uv[2];
-    memcpy(uv, m.deltas + 4 * (maniLoadU64(blink + 24) + 3 * kVertices + 2 * 5), sizeof uv);
+    memcpy(uv,
+           MorphSection(&m, maniMorphTagDeltas) +
+               4 * (maniLoadU64(blink + 24) + 3 * kVertices + 2 * 5),
+           sizeof uv);
     CHECK(uv[0] == 0.3125f && uv[1] == -0.25f, "texture coordinates after the positions");
     CHECK(maniLoadU32(wide + 4) == 0x14u && maniLoadU32(wide + 12) == MANI_MORPH_DENSE &&
               maniLoadU32(wide + 8) == kVertices,
           "every vertex: dense");
     uint64_t deltas = maniLoadU64(wide + 24);
-    memcpy(d, m.deltas + 4 * (deltas + 3 * 7), sizeof d);
+    memcpy(d, MorphSection(&m, maniMorphTagDeltas) + 4 * (deltas + 3 * 7), sizeof d);
     CHECK(d[0] == 1.0f && d[1] == -0.5f, "dense in vertex order (given in reverse)");
     float color[4];
-    memcpy(color, m.deltas + 4 * (deltas + 3 * kVertices + 4 * 7), sizeof color);
+    memcpy(color, MorphSection(&m, maniMorphTagDeltas) + 4 * (deltas + 3 * kVertices + 4 * 7),
+           sizeof color);
     CHECK(color[0] == 0.125f && color[3] == 0.21875f, "colors after the tangents");
 }
 
@@ -464,6 +476,64 @@ static void Reference(const float* weights, uint32_t v, uint32_t a, double out[4
     }
 }
 
+// Whether every call refuses a view: the documented none from each
+// getter, the weights and the job refused.
+static bool Refused(const maniMorphTargets* m)
+{
+    uint32_t set = 7;
+    size_t length = 7;
+    uint32_t first = 7;
+    const float channels[3] = {0.5f, 0.5f, 0.5f};
+    float weights[5];
+    maniMorphStream streams[5];
+    Streams(s_in, s_out, streams);
+    maniMorphJob job = {m, weights, 0, kVertices, 5, streams};
+    return maniMorphTargets_GetVertexCount(m) == 0 && maniMorphTargets_GetChannelCount(m) == 0 &&
+           maniMorphTargets_GetTargetCount(m) == 0 && maniMorphTargets_GetAttributeCount(m) == 0 &&
+           (int)maniMorphTargets_GetAttribute(m, 0, &set) == -1 && set == 0 &&
+           maniMorphTargets_GetChannelName(m, 0, &length) == NULL && length == 0 &&
+           maniMorphTargets_FindChannel(m, "smile", 5) == MANI_NO_CHANNEL &&
+           maniMorphTargets_GetTargetName(m, 3, NULL) == NULL &&
+           maniMorphTargets_FindTarget(m, "shut", 4) == MANI_NO_CHANNEL &&
+           maniMorphTargets_GetChannelTargets(m, 0, &first) == 0 && first == 0 &&
+           maniMorphTargets_GetTargetFullWeight(m, 0) == 0.0f &&
+           maniMorphTargets_ComputeTargetWeights(m, channels, weights, 5, NULL) ==
+               mani_errorInvalid &&
+           maniApplyMorphTargets(&job) == mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: a count edited past the file, the
+// sections past a smaller size, a zeroed view and another kind's cookie
+// are each refused. What a call reads from bytes changed after the open
+// is bounded where it is used: a channel's first target past the targets
+// writes no weight, a sparse vertex past the vertices and a target's
+// deltas past the deltas add nothing, a name's span past the names is
+// none. The file and the weights are heap blocks of exactly their length.
+static void TestViewChecked(void)
+{
+    BuildSample();
+    uint8_t* block = NULL;
+    uint8_t* bytes = TestExactCopy(s_size, &block);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    maniMorphTargets m;
+    CHECK(maniOpenMorphTargets(bytes, s_size, &m).result == mani_success, "opens the copy");
+    maniMorphTargets edited = m;
+    edited.targetCount = 60000000;
+    CHECK(Refused(&edited), "a count edited past the file");
+    maniMorphTargets smaller = m;
+    smaller.size = MANI_CONTAINER_HEADER_SIZE;
+    CHECK(Refused(&smaller), "sections past a smaller size");
+    maniMorphTargets zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniMorphTargets other = m;
+    other.cookie ^= 1u;
+    CHECK(Refused(&zeroed) && Refused(&other) && Refused(NULL), "zeroed, another cookie, NULL");
+    CHECK(!Refused(&m), "the view as opened");
+    free(block);
+}
+
 static void TestJob(void)
 {
     BuildSample();
@@ -584,7 +654,8 @@ static void TestSparseAsDense(void)
               maniOpenMorphTargets(fb, nb, &mb).result == mani_success,
           "sparse and dense built");
     maniDestroyBuilder(builder);
-    CHECK(maniLoadU32(ma.targets + 12) == 0 && maniLoadU32(mb.targets + 12) == MANI_MORPH_DENSE,
+    CHECK(maniLoadU32(MorphSection(&ma, maniMorphTagTargets) + 12) == 0 &&
+              maniLoadU32(MorphSection(&mb, maniMorphTagTargets) + 12) == MANI_MORPH_DENSE,
           "one sparse, one dense");
     const float one = 0.625f;
     maniMorphStream points[1] = {Stream(s_in->position, s_out->position, maniMorphPosition, 0, 3)};
@@ -1001,9 +1072,9 @@ static void TestChangedBytes(void)
     for (int change = 0; weights != NULL && change < 10; ++change)
     {
         CHECK(OpenCopy(&m, &block), "opens");
-        uint8_t* channels = (uint8_t*)m.channels;
-        uint8_t* targets = (uint8_t*)m.targets;
-        uint8_t* indices = (uint8_t*)m.indices;
+        uint8_t* channels = (uint8_t*)MorphSection(&m, maniMorphTagChannels);
+        uint8_t* targets = (uint8_t*)MorphSection(&m, maniMorphTagTargets);
+        uint8_t* indices = (uint8_t*)MorphSection(&m, maniMorphTagIndices);
         float channelWeights[3] = {1.0f, 1.5f, 1.0f};
         uint32_t first = 7;
         switch (change)
@@ -1043,13 +1114,14 @@ static void TestChangedBytes(void)
             break;
         case 6:
             // Smile's indices past the indices.
-            maniStoreU64(targets + 16, m.indexCount);
+            maniStoreU64(targets + 16, m.sizes[maniMorphTagIndices - maniMorphTagAttributes] / 4);
             CHECK(PositionsKept(&m, smile, true), "indices past the indices add nothing");
             break;
         case 8:
         {
             // Smile's name past the names.
-            maniStoreU32(channels + 8, (uint32_t)m.nameBytes);
+            maniStoreU32(channels + 8,
+                         (uint32_t)m.sizes[maniMorphTagNames - maniMorphTagAttributes]);
             size_t length = 7;
             CHECK(maniMorphTargets_GetChannelName(&m, 0, &length) == NULL && length == 0 &&
                       maniMorphTargets_FindChannel(&m, "smile", 5) == MANI_NO_CHANNEL &&
@@ -1149,5 +1221,6 @@ int main(int argc, char** argv)
     TestJobRefusals();
     TestChangedBytes();
     TestPaddingIgnored();
+    TestViewChecked();
     return s_failures == 0 ? 0 : 1;
 }

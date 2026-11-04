@@ -21,18 +21,28 @@ extern "C"
 {
 #endif
 
-    // A skin over a file's bytes, which the caller keeps alive and
-    // unchanged while the view is used. Its fields are the library's; read
-    // a skin through the functions below. A view is immutable and
-    // copyable.
+    // A skin over a file's bytes, which the caller keeps alive while
+    // the view is used. Its fields are the library's; read a skin
+    // through the functions below. A view is immutable and copyable.
+    // Its base and size are the bytes the open was given; a view whose
+    // base or size the caller changed is outside the contract. Every
+    // call checks everything else the view holds, its counts and
+    // sections, against those bytes, and refuses a view that does not
+    // fit them; the bytes are read only within the extents recorded at
+    // open, whatever they become. Bytes changed after the open give
+    // some palette: a joint's bone past the skeleton reads the root's
+    // model.
     typedef struct maniSkin
     {
-        const uint8_t* joints;
-        const uint8_t* inverseBinds;
+        const uint8_t* base;
+        uint64_t size;
+        // The joints and the inverse binds: each one's offset from base.
+        uint64_t sections[2];
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint32_t skeletonBoneCount;
         uint32_t jointCount;
+        uint32_t cookie;
     } maniSkin;
 
     /// Opens a skin file in place: checks the container, the sizes, every
@@ -54,7 +64,8 @@ extern "C"
     /// Returns the number of joints, at least 1.
     ///
     /// @param skin  An opened skin.
-    /// @return The joint count.
+    /// @return The joint count; 0 for a view no open wrote or whose counts do
+    /// not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniSkin_GetJointCount(const maniSkin* skin);
@@ -62,7 +73,8 @@ extern "C"
     /// Returns the identity of the skeleton the skin is bound to.
     ///
     /// @param skin  An opened skin.
-    /// @return The skeleton's identity.
+    /// @return The skeleton's identity; 0 for a view no open wrote or whose
+    /// counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniSkin_GetSkeletonIdentity(const maniSkin* skin);
@@ -71,7 +83,8 @@ extern "C"
     /// to it.
     ///
     /// @param skin  An opened skin.
-    /// @return The identity.
+    /// @return The identity; 0 for a view no open wrote or whose counts do not
+    /// fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniSkin_GetIdentity(const maniSkin* skin);
@@ -80,7 +93,9 @@ extern "C"
     ///
     /// @param skin   An opened skin.
     /// @param joint  The joint.
-    /// @return The bone, or MANI_NO_BONE for a joint past the count.
+    /// @return The bone, or MANI_NO_BONE for a joint past the count, a view no
+    /// open wrote or whose counts do not fit its file, or a bone in bytes
+    /// changed after the open past the skeleton's bones.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniSkin_GetJoint(const maniSkin* skin, uint32_t joint);
@@ -89,7 +104,8 @@ extern "C"
     ///
     /// @param skin   An opened skin.
     /// @param joint  The joint.
-    /// @return The matrix, or the identity for a joint past the count.
+    /// @return The matrix, or the identity for a joint past the count or a view
+    /// no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API maniAffine maniSkin_GetInverseBind(const maniSkin* skin, uint32_t joint);
@@ -104,11 +120,13 @@ extern "C"
     ///                    0.
     /// @param capacity    The array's length.
     /// @param countOut    Receives the joint count. May be NULL.
-    /// @return `mani_success`; `mani_errorCapacity` when the array is
-    /// shorter than the joint count, with the count written and nothing
-    /// else; `mani_errorInvalid` for a NULL argument, a skeleton that is
-    /// not the skin's or the pose's, a pose whose model is stale, or a
-    /// difference.
+    /// @return `mani_success`; `mani_errorCapacity` when the array is shorter
+    /// than the joint count, with the count written and nothing else;
+    /// `mani_errorInvalid` for a skin view no open wrote or whose counts do not
+    /// fit its file, a NULL argument, a skeleton that is not the skin's or the
+    /// pose's, a pose whose model is stale, or a difference. A joint's bone in
+    /// bytes changed after the open past the skeleton's bones reads the root's
+    /// model, within the pose.
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniPose_ComputePalette(

@@ -18,6 +18,7 @@
 #include "decompose.h"
 #include "fpenv.h"
 #include "influence_file.h"
+#include "influences_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -47,7 +48,7 @@ static bool StreamValid(const maniSkinStream* s)
 // the method reads given.
 static bool JobValid(const maniSkinJob* job, bool linear, bool dual)
 {
-    if (job == NULL || job->influences == NULL || (linear && job->palette == NULL) ||
+    if (job == NULL || !maniInfluencesValid(job->influences) || (linear && job->palette == NULL) ||
         (dual && job->dualQuaternions == NULL) || (job->streams == NULL && job->streamCount > 0) ||
         job->paletteCount != job->influences->skinJointCount ||
         job->first > job->influences->vertexCount ||
@@ -72,24 +73,24 @@ static bool Blend(const maniSkinJob* job, uint32_t vertex, float m[12])
     const maniInfluences* v = job->influences;
     uint32_t per = v->groupCount * MANI_INFLUENCE_GROUP;
     size_t base = (size_t)vertex * per;
-    float w = LoadF32(v->weights + 4 * base);
+    float w = LoadF32(maniInfluencesSection(v, maniInfluencesWeights) + 4 * base);
     if (w == 0.0f)
     {
         return false;
     }
-    const float* p = job->palette[maniLoadU16(v->joints + 2 * base)].m;
+    const float* p = job->palette[maniInfluencesJoint(v, base)].m;
     for (int k = 0; k < 12; ++k)
     {
         m[k] = p[k] * w;
     }
     for (uint32_t slot = 1; slot < per; ++slot)
     {
-        w = LoadF32(v->weights + 4 * (base + slot));
+        w = LoadF32(maniInfluencesSection(v, maniInfluencesWeights) + 4 * (base + slot));
         if (w == 0.0f)
         {
             break;
         }
-        p = job->palette[maniLoadU16(v->joints + 2 * (base + slot))].m;
+        p = job->palette[maniInfluencesJoint(v, base + slot)].m;
         for (int k = 0; k < 12; ++k)
         {
             m[k] += p[k] * w;
@@ -128,13 +129,13 @@ static bool DualMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
     const float* lead = NULL;
     for (uint32_t slot = 0; slot < per; ++slot)
     {
-        float w = LoadF32(v->weights + 4 * (base + slot));
+        float w = LoadF32(maniInfluencesSection(v, maniInfluencesWeights) + 4 * (base + slot));
         if (w == 0.0f)
         {
             break;
         }
         const float* d =
-            job->dualQuaternions + DUAL_FLOATS * (size_t)maniLoadU16(v->joints + 2 * (base + slot));
+            job->dualQuaternions + DUAL_FLOATS * (size_t)maniInfluencesJoint(v, base + slot);
         lead = lead == NULL ? d : lead;
         float dot = ((d[0] * lead[0] + d[1] * lead[1]) + d[2] * lead[2]) + d[3] * lead[3];
         float sw = dot < 0.0f ? -w : w;
@@ -186,12 +187,12 @@ static bool CenterMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
     const float* lead = NULL;
     for (uint32_t slot = 0; slot < per; ++slot)
     {
-        float w = LoadF32(v->weights + 4 * (base + slot));
+        float w = LoadF32(maniInfluencesSection(v, maniInfluencesWeights) + 4 * (base + slot));
         if (w == 0.0f)
         {
             break;
         }
-        uint32_t joint = maniLoadU16(v->joints + 2 * (base + slot));
+        uint32_t joint = maniInfluencesJoint(v, base + slot);
         const float* d = job->dualQuaternions + DUAL_FLOATS * (size_t)joint;
         lead = lead == NULL ? d : lead;
         float dot = ((d[0] * lead[0] + d[1] * lead[1]) + d[2] * lead[2]) + d[3] * lead[3];
@@ -227,7 +228,7 @@ static bool CenterMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
     float inverse = 1.0f / sqrtf(squared);
     maniQuat q = {real[0] * inverse, real[1] * inverse, real[2] * inverse, real[3] * inverse};
     maniAffine r = maniAffineFromTrs((maniVec3){0.0f, 0.0f, 0.0f}, q, (maniVec3){1.0f, 1.0f, 1.0f});
-    const uint8_t* cp = v->centers + 12 * (size_t)vertex;
+    const uint8_t* cp = maniInfluencesSection(v, maniInfluencesCenters) + 12 * (size_t)vertex;
     const float c[3] = {LoadF32(cp), LoadF32(cp + 4), LoadF32(cp + 8)};
     float cs[3];
     for (int i = 0; i < 3; ++i)
@@ -382,7 +383,7 @@ static bool VertexMatrix(const maniSkinJob* job, Method method, uint32_t vertex,
 static maniResult Run(const maniSkinJob* job, Method method)
 {
     if (!JobValid(job, method != kDual, method != kLinear) ||
-        (method == kCenters && job->influences->centers == NULL))
+        (method == kCenters && !maniInfluencesHas(job->influences, maniInfluencesCenters)))
     {
         return mani_errorInvalid;
     }
