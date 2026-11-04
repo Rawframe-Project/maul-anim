@@ -27,11 +27,12 @@ extern "C"
     // A skeleton over a file's bytes, which the caller keeps alive and
     // unchanged while the view is used. Its fields are the library's;
     // read a skeleton through the functions below. A view is immutable:
-    // safe to read from any number of threads, and copyable. Every call
-    // checks the view it is given, so a view whose fields were changed or
-    // mixed from two views reads only within the file it names, and is
-    // refused when its counts do not fit that file; the bytes are read
-    // only within the extents recorded at open, whatever they become.
+    // safe to read from any number of threads, and copyable. Its base and
+    // size are the bytes the open was given; a view whose base or size the
+    // caller changed is outside the contract. Every call checks everything
+    // else the view holds, its counts and sections, against those bytes,
+    // and refuses a view that does not fit them; the bytes are read only
+    // within the extents recorded at open, whatever they become.
     typedef struct maniSkeleton
     {
         const uint8_t* base;

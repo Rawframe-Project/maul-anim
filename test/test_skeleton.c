@@ -151,8 +151,9 @@ static bool Refused(const maniSkeleton* s)
            maniInitPose(s, memory, sizeof memory, &pose) == mani_errorInvalid;
 }
 
-// The view is state a caller holds, checked by every call: a count
-// edited past the file, the fields of two views mixed, a zeroed view and
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: a count edited past the file, one
+// view's count and sections over another's bytes, a zeroed view and
 // another kind's cookie are each refused, and an index read from bytes
 // changed after the open is bounded where it is used.
 static void TestViewChecked(void)
@@ -168,7 +169,7 @@ static void TestViewChecked(void)
     maniSkeleton mixed = big;
     mixed.base = small.base;
     mixed.size = small.size;
-    CHECK(Refused(&mixed), "a view mixed from two");
+    CHECK(Refused(&mixed), "a count and sections over another view's bytes");
     maniSkeleton zeroed;
     memset(&zeroed, 0, sizeof zeroed);
     maniSkeleton other = big;

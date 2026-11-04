@@ -5,8 +5,10 @@
 // lies within the file it names. A view is state the library writes and
 // the caller holds, so every call checks it (maul-conventions.md): its
 // cookie, then each of its sections against the file's size it recorded.
-// A view changed or mixed from two then reads only within the one file it
-// names, or is refused.
+// Its base and size are the bytes the open was given, which a call cannot
+// check, as for any pointer and length; a count or section changed, or
+// taken from another view, then reads only within those bytes, or is
+// refused.
 
 #ifndef MAUL_ANIM_SRC_VIEW_H
 #define MAUL_ANIM_SRC_VIEW_H

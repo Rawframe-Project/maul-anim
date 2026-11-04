@@ -13,8 +13,7 @@
 # sampling, blending, the model pass and palettes, with skeletons and
 # root motion. Skinning is a part of its own, as ozz's skinning job is in
 # its geometry library, outside that measure. The -O2 core's goal is
-# ozz's size; it is past it since #245's skeleton view checks, tracked in
-# #246, and its ceiling follows the measure until then.
+# ozz's size, not met now; its ceiling follows the measure until it is.
 #
 # "ceiling PART O2-avx2|O3-avx2 BYTES" holds the AVX2 backend's archive
 # the same way: its vector kernels'
