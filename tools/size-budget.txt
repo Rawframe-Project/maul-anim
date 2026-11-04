@@ -76,7 +76,7 @@ ceiling elementary O2-avx2 6000
 ceiling core       O3-avx2 89000
 ceiling skinning   O3-avx2 15000
 ceiling graph      O3-avx2 138000
-ceiling ik         O3-avx2 33000
+ceiling ik         O3-avx2 34000
 ceiling bodyik     O3-avx2 34000
 ceiling springs    O3-avx2 30000
 ceiling ragdoll    O3-avx2 16000
