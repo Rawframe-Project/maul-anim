@@ -9,6 +9,7 @@
 
 #include "ik_frame.h"
 #include "ik_limit.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -27,7 +28,7 @@ uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t e
 {
     uint32_t reversed[MANI_MAX_IK_CHAIN_BONES];
     uint32_t n = 0;
-    for (uint32_t b = end; b != MANI_NO_BONE; b = maniSkeleton_GetParent(skeleton, b))
+    for (uint32_t b = end; b != MANI_NO_BONE; b = maniSkeletonParentOf(skeleton, b))
     {
         if (n == MANI_MAX_IK_CHAIN_BONES)
         {
@@ -49,7 +50,7 @@ uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t e
 bool maniIkChainPathPast(const maniSkeleton* skeleton, uint32_t root, uint32_t end)
 {
     uint32_t n = 0;
-    for (uint32_t b = end; b != MANI_NO_BONE; b = maniSkeleton_GetParent(skeleton, b))
+    for (uint32_t b = end; b != MANI_NO_BONE; b = maniSkeletonParentOf(skeleton, b))
     {
         ++n;
         if (b == root)
@@ -71,7 +72,7 @@ bool maniIkChainLimitsValid(const maniSkeleton* skeleton, const uint32_t* bones,
     for (uint32_t k = 0; k + 1 < count; ++k)
     {
         const maniJointLimit* limit = &limits[k];
-        maniVec3 axis = maniSkeleton_GetRest(skeleton, bones[k + 1]).translation;
+        maniVec3 axis = maniSkeletonRestOf(skeleton, bones[k + 1]).translation;
         float along = maniVec3Length(axis);
         // A hinge along the bone's own axis is no hinge.
         bool parallel = limit->kind == maniJointLimitHinge && along > 0.0f &&
@@ -88,8 +89,9 @@ maniResult maniIkChainCheck(const maniPose* pose, const maniSkeleton* skeleton,
                             const maniChainSolve* solve, bool poles, bool steps)
 {
     uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
-    if (pose == NULL || skeleton == NULL || solve == NULL || !maniIkPoseUsable(pose, skeleton) ||
-        solve->root >= skeleton->boneCount || solve->end >= skeleton->boneCount)
+    if (pose == NULL || !maniSkeletonValid(skeleton) || solve == NULL ||
+        !maniIkPoseUsable(pose, skeleton) || solve->root >= skeleton->boneCount ||
+        solve->end >= skeleton->boneCount)
     {
         return mani_errorInvalid;
     }
@@ -123,7 +125,7 @@ void maniIkChainBegin(maniIkChain* chain, const maniPose* pose, const maniSkelet
     {
         chain->before[k] = maniPose_GetLocal(pose, chain->bones[k]);
         maniVec3 next = k + 1 < chain->count
-                            ? maniSkeleton_GetRest(skeleton, chain->bones[k + 1]).translation
+                            ? maniSkeletonRestOf(skeleton, chain->bones[k + 1]).translation
                             : maniVec3Make(0.0f, 0.0f, 0.0f);
         chain->axes[k] = maniVec3Normalize(next, maniVec3Make(0.0f, 0.0f, 0.0f));
     }
@@ -151,7 +153,7 @@ void maniIkChainTurn(maniIkChain* chain, maniPose* pose, const maniSkeleton* ske
         return;
     }
     maniTransform t = maniPose_GetLocal(pose, bone);
-    maniQuat rest = maniSkeleton_GetRest(skeleton, bone).rotation;
+    maniQuat rest = maniSkeletonRestOf(skeleton, bone).rotation;
     maniQuat r = maniQuatNormalize(maniQuatMul(maniQuatConjugate(rest), t.rotation));
     t.rotation =
         maniQuatNormalize(maniQuatMul(rest, maniIkLimit(&solve->limits[k], chain->axes[k], r)));

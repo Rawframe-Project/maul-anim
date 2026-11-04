@@ -15,6 +15,7 @@
 #include "fpenv.h"
 #include "ik_frame.h"
 #include "scalar.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -121,7 +122,7 @@ static maniVec3 Coned(const maniAimSolve* s, const maniIkFrame* aiming, bool* in
 
 static maniResult Check(const maniPose* pose, const maniSkeleton* skeleton, const maniAimSolve* s)
 {
-    if (pose == NULL || skeleton == NULL || s == NULL)
+    if (pose == NULL || !maniSkeletonValid(skeleton) || s == NULL)
     {
         return mani_errorInvalid;
     }

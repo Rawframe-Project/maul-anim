@@ -18,6 +18,7 @@
 #include "container.h"
 #include "fpenv.h"
 #include "scalar.h"
+#include "skeleton_view.h"
 #include "spring_file.h"
 #include "spring_frame.h"
 #include "text.h"
@@ -462,7 +463,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniSpringSetSource* s,
 // The lists the counts name are given.
 static bool Given(const maniSpringSetSource* s)
 {
-    return s->skeleton != NULL && (s->colliders != NULL || s->colliderCount == 0) &&
+    return maniSkeletonValid(s->skeleton) && (s->colliders != NULL || s->colliderCount == 0) &&
            (s->colliderGroups != NULL || s->colliderGroupCount == 0) &&
            (s->springs != NULL || s->springCount == 0);
 }

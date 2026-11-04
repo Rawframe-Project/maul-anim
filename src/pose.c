@@ -14,6 +14,7 @@
 #include "fpenv.h"
 #include "invariant.h"
 #include "pose_memory.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -93,23 +94,32 @@ static maniTransform LoadLocal(const float* locals, uint32_t bone)
 
 size_t maniSkeleton_GetPoseSize(const maniSkeleton* skeleton)
 {
-    size_t bones = maniSkeleton_GetBoneCount(skeleton);
+    if (!maniSkeletonValid(skeleton))
+    {
+        return 0;
+    }
+    size_t bones = skeleton->boneCount;
     size_t groups = (bones + kGroupBones - 1) / kGroupBones;
     size_t size =
         kHeaderSize + groups * kGroupFloats * sizeof(float) + bones * kModelFloats * sizeof(float);
     return (size + MANI_POSE_ALIGNMENT - 1) / MANI_POSE_ALIGNMENT * MANI_POSE_ALIGNMENT;
 }
 
+bool maniPoseFits(const maniPose* pose, const maniSkeleton* skeleton)
+{
+    return pose != NULL && pose->tag == kPoseTag && pose->identity == skeleton->identity &&
+           pose->boneCount == skeleton->boneCount;
+}
+
 bool maniPoseMatches(const maniPose* pose, const maniSkeleton* skeleton)
 {
-    return pose != NULL && skeleton != NULL && pose->tag == kPoseTag &&
-           pose->identity == skeleton->identity && pose->boneCount == skeleton->boneCount;
+    return maniSkeletonValid(skeleton) && maniPoseFits(pose, skeleton);
 }
 
 MANI_NOINLINE maniResult maniInitPoseEntered(const maniSkeleton* skeleton, void* memory,
                                              size_t size, maniPose** poseOut)
 {
-    if (skeleton == NULL || memory == NULL || poseOut == NULL ||
+    if (!maniSkeletonValid(skeleton) || memory == NULL || poseOut == NULL ||
         (uintptr_t)memory % MANI_POSE_ALIGNMENT != 0)
     {
         return mani_errorInvalid;
@@ -242,7 +252,7 @@ maniResult maniPoseSetRestLocals(maniPose* pose, const maniSkeleton* skeleton)
     }
     for (uint32_t bone = 0; bone < pose->boneCount; ++bone)
     {
-        maniTransform rest = maniSkeleton_GetRest(skeleton, bone);
+        maniTransform rest = maniSkeletonRestOf(skeleton, bone);
         StoreLocal(Locals(pose), bone, &rest);
     }
     pose->modelCurrent = 0;
@@ -272,17 +282,23 @@ MANI_NOINLINE maniResult maniComputeModelEntered(maniPose* pose, const maniSkele
     }
     const float* locals = Locals(pose);
     float* models = Models(pose);
+    const uint8_t* parents = maniSkeletonSection(skeleton, maniSkeletonParents);
     for (uint32_t bone = 0; bone < pose->boneCount; ++bone)
     {
         maniTransform t = LoadLocal(locals, bone);
         maniAffine local = maniAffineFromTrs(t.translation, t.rotation, t.scale);
-        uint32_t parent = maniLoadU16(skeleton->parents + 2 * (size_t)bone);
+        uint32_t parent = maniLoadU16(parents + 2 * (size_t)bone);
         maniAffine model = local;
         if (parent != MANI_NO_BONE)
         {
-            // Opening the skeleton checked depth-first order: a parent's
-            // model is composed before its children's.
-            MANI_ASSERT(parent < bone);
+            // Opening the skeleton checked depth-first order, but the
+            // bytes may have changed since: a parent not composed before
+            // its child refuses the pose.
+            if (parent >= bone)
+            {
+                pose->modelCurrent = 0;
+                return mani_errorFormat;
+            }
             maniAffine parentModel;
             memcpy(parentModel.m, models + (size_t)parent * kModelFloats, sizeof parentModel.m);
             model = maniAffineMul(&parentModel, &local);

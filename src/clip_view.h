@@ -11,6 +11,7 @@
 #include "bytes.h"
 #include "clip_file.h"
 #include "pose_memory.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
@@ -188,8 +189,8 @@ static inline void maniSlotRest(float* slot, const maniSkeleton* skeleton, uint3
     else
     {
         memcpy(rest,
-               skeleton->rests + MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone +
-                   sizeof(float) * first,
+               maniSkeletonSection(skeleton, maniSkeletonRests) +
+                   MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone + sizeof(float) * first,
                sizeof(float) * count);
     }
     maniPoseSlotPut(slot, first, rest, count);

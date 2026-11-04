@@ -22,6 +22,7 @@
 #include "gltf_property.h"
 #include "gltf_rest.h"
 #include "json.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/build.h"
@@ -641,9 +642,9 @@ static MANI_NOINLINE maniImportResult GltfBuildClipWork(
     {
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};
     }
-    if (gltf == NULL || skeleton == NULL || options == NULL || !maniGltfOptionsValid(options) ||
-        clipOptions == NULL || !maniImportClipOptionsValid(clipOptions, skeleton) ||
-        animation >= gltf->animationCount)
+    if (gltf == NULL || !maniSkeletonValid(skeleton) || options == NULL ||
+        !maniGltfOptionsValid(options) || clipOptions == NULL ||
+        !maniImportClipOptionsValid(clipOptions, skeleton) || animation >= gltf->animationCount)
     {
         maniBuilderMisuse(builder);
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};

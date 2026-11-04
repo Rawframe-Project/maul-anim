@@ -30,7 +30,8 @@ extern "C"
     /// Returns the bytes a pose of the skeleton needs.
     ///
     /// @param skeleton  An opened skeleton.
-    /// @return The size in bytes.
+    /// @return The size in bytes; 0 for a view no open wrote or whose
+    /// counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API size_t maniSkeleton_GetPoseSize(const maniSkeleton* skeleton);
@@ -43,8 +44,11 @@ extern "C"
     ///                  aligned; the pose lives in it.
     /// @param size      The memory's size in bytes.
     /// @param poseOut   Receives the pose.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// misaligned memory; `mani_errorCapacity` when size is too small.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
+    /// misaligned memory, or a skeleton view no open wrote or whose counts
+    /// do not fit its file; `mani_errorCapacity` when size is too small;
+    /// `mani_errorFormat`, with *poseOut set and its model not current,
+    /// when a parent in the skeleton's bytes is not a lower index.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniInitPose(const maniSkeleton* skeleton, void* memory,
@@ -113,8 +117,11 @@ extern "C"
     ///
     /// @param pose      The pose.
     /// @param skeleton  The pose's skeleton.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or a
-    /// skeleton of another identity.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// skeleton of another identity, or a skeleton view no open wrote or
+    /// whose counts do not fit its file; `mani_errorFormat`, the locals at
+    /// rest and the model not current, when a parent in the skeleton's
+    /// bytes is not a lower index (the bytes changed after the open).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniPose_SetRest(maniPose* pose,
@@ -127,7 +134,11 @@ extern "C"
     /// @param pose      The pose.
     /// @param skeleton  The pose's skeleton.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// skeleton of another identity or a difference (which has no model).
+    /// skeleton of another identity or a difference (which has no model),
+    /// or a skeleton view no open wrote or whose counts do not fit its
+    /// file; `mani_errorFormat`, the model not current, when a parent in
+    /// the skeleton's bytes is not a lower index (the bytes changed after
+    /// the open).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniPose_ComputeModel(maniPose* pose,

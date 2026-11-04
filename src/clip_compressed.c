@@ -664,7 +664,9 @@ static void FillRests(float* locals, const maniSkeleton* skeleton, uint32_t bone
     for (; list == NULL && !identity && bone + lanes <= bones; bone += lanes)
     {
         float rests[MANI_POSE_GROUP_BONES * MANI_POSE_COMPONENTS];
-        memcpy(rests, skeleton->rests + MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone,
+        memcpy(rests,
+               maniSkeletonSection(skeleton, maniSkeletonRests) +
+                   MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone,
                sizeof rests);
         float* group = locals + (size_t)bone * MANI_POSE_COMPONENTS;
         for (uint32_t k = 0; k < MANI_POSE_COMPONENTS; ++k)
@@ -686,7 +688,9 @@ static void FillRests(float* locals, const maniSkeleton* skeleton, uint32_t bone
         float values[MANI_POSE_COMPONENTS];
         if (!identity)
         {
-            memcpy(values, skeleton->rests + MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone,
+            memcpy(values,
+                   maniSkeletonSection(skeleton, maniSkeletonRests) +
+                       MANI_POSE_COMPONENTS * sizeof(float) * (size_t)bone,
                    sizeof values);
             rest = values;
         }

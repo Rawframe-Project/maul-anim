@@ -11,6 +11,7 @@
 #include "clip_build.h"
 #include "fpenv.h"
 #include "scalar.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
@@ -233,7 +234,7 @@ static MANI_NOINLINE maniResult MeasureClipWork(maniBuilder* builder, const mani
     {
         return mani_errorInvalid;
     }
-    if (source == NULL || source->skeleton == NULL || clip == NULL || reportOut == NULL)
+    if (source == NULL || !maniSkeletonValid(source->skeleton) || clip == NULL || reportOut == NULL)
     {
         maniBuilderMisuse(builder);
         return mani_errorInvalid;

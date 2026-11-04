@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Sirac Ozmen
 //
 // Skeletons: building from bones in any order, opening the file, reading
-// it, every refusal of the builder and of opening, and the bytes pinned.
-// Run as test_skeleton --seed <file> it writes the fuzz target's seed.
+// it, the view checked by every call, every refusal of the builder and of opening, and the bytes
+// pinned. Run as test_skeleton --seed <file> it writes the fuzz target's seed.
 
 // The seed writer uses fopen, which the Microsoft C library deprecates;
 // the request comes before any header that reaches the C library.
@@ -20,6 +20,7 @@
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/pose.h"
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
@@ -114,6 +115,90 @@ static void TestGettersPastTheCount(void)
           "identity past");
     size_t length = 7;
     CHECK(maniSkeleton_GetBoneName(&s, 6, &length) == NULL && length == 0, "name past");
+}
+
+// A heap copy of the sample's file at its own allocation, opened.
+static uint8_t* OpenCopy(const maniBoneSource* bones, uint32_t count, maniSkeleton* out,
+                         uint8_t** blockOut)
+{
+    maniBuilder* builder = NewBuilder();
+    maniSkeletonSource source = {bones, count};
+    size_t size = 0;
+    CHECK(maniBuildSkeleton(builder, &source).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success,
+          "builds");
+    maniDestroyBuilder(builder);
+    uint8_t* copy = TestAlignedCopy(size, blockOut);
+    memcpy(copy, s_file, size);
+    CHECK(maniOpenSkeleton(copy, size, out).result == mani_success, "opens the copy");
+    return copy;
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, a pose of it refused.
+static bool Refused(const maniSkeleton* s)
+{
+    size_t length = 7;
+    maniTransform rest = maniSkeleton_GetRest(s, 5);
+    static _Alignas(MANI_POSE_ALIGNMENT) uint8_t memory[4096];
+    maniPose* pose = NULL;
+    return maniSkeleton_GetBoneCount(s) == 0 && maniSkeleton_GetIdentity(s) == 0 &&
+           maniSkeleton_GetParent(s, 4) == MANI_NO_BONE && maniSkeleton_GetSubtreeEnd(s, 4) == 4 &&
+           rest.translation.x == 0.0f && rest.rotation.w == 1.0f &&
+           maniSkeleton_GetBoneName(s, 4, &length) == NULL && length == 0 &&
+           maniSkeleton_FindBone(s, "head", 4) == MANI_NO_BONE &&
+           maniSkeleton_GetPoseSize(s) == 0 &&
+           maniInitPose(s, memory, sizeof memory, &pose) == mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: a count edited past the file, one
+// view's count and sections over another's bytes, a zeroed view and
+// another kind's cookie are each refused, and an index read from bytes
+// changed after the open is bounded where it is used.
+static void TestViewChecked(void)
+{
+    uint8_t* blocks[2] = {NULL, NULL};
+    maniSkeleton big;
+    maniSkeleton small;
+    uint8_t* bigBytes = OpenCopy(kBones, 6, &big, &blocks[0]);
+    uint8_t* bytes = OpenCopy(kBones + 5, 1, &small, &blocks[1]);
+    maniSkeleton edited = big;
+    edited.boneCount = 60000;
+    CHECK(Refused(&edited), "a count edited past the file");
+    maniSkeleton mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(Refused(&mixed), "a count and sections over another view's bytes");
+    maniSkeleton zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniSkeleton other = big;
+    other.cookie ^= 1u;
+    CHECK(Refused(&zeroed) && Refused(&other) && Refused(NULL), "zeroed, another cookie, NULL");
+    CHECK(!Refused(&big) && maniSkeleton_GetBoneCount(&small) == 1, "the views as opened");
+    // Bytes changed after the open: a parent past the count, a subtree's
+    // end past it, a name's span past the names.
+    maniStoreU16(bytes + small.sections[0], 0xFFFE);
+    maniStoreU16(bytes + small.sections[1], 0xFFFE);
+    maniStoreU32(bytes + small.sections[5], 0xFFFFFF00u);
+    size_t length = 7;
+    CHECK(maniSkeleton_GetParent(&small, 0) == MANI_NO_BONE &&
+              maniSkeleton_GetSubtreeEnd(&small, 0) == 0 &&
+              maniSkeleton_GetBoneName(&small, 0, &length) == NULL && length == 0 &&
+              maniSkeleton_FindBone(&small, "prop", 4) == MANI_NO_BONE,
+          "indices in changed bytes bounded");
+    static _Alignas(MANI_POSE_ALIGNMENT) uint8_t memory[4096];
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&small, memory, sizeof memory, &pose) == mani_errorFormat &&
+              maniPose_ComputeModel(pose, &small) == mani_errorFormat,
+          "a parent past the count refused");
+    maniStoreU16(bigBytes + big.sections[0] + 2 * 4, 4);
+    CHECK(maniInitPose(&big, memory, sizeof memory, &pose) == mani_errorFormat &&
+              maniPose_ComputeModel(pose, &big) == mani_errorFormat &&
+              !maniPose_IsModelCurrent(pose),
+          "a parent not before its child refused");
+    free(blocks[0]);
+    free(blocks[1]);
 }
 
 static void TestOrderMap(void)
@@ -507,6 +592,7 @@ int main(int argc, char** argv)
     }
     TestBuildsDepthFirst();
     TestGettersPastTheCount();
+    TestViewChecked();
     TestOrderMap();
     TestDefRefusals();
     TestBuildRefusals();

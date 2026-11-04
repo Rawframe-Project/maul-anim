@@ -13,6 +13,7 @@
 #include "fpenv.h"
 #include "pose_memory.h"
 #include "ragdoll_file.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -262,7 +263,7 @@ static MANI_NOINLINE maniResult RagdollPoseFromBodiesWork(
     uint32_t count, const maniTransform* placement, const maniPose* reference, maniPose* poseOut)
 {
     Rigid place;
-    if (ragdoll == NULL || bodies == NULL || skeleton == NULL ||
+    if (ragdoll == NULL || bodies == NULL || !maniSkeletonValid(skeleton) ||
         maniSkeleton_GetIdentity(skeleton) != ragdoll->skeletonIdentity ||
         !maniPoseOfSkeleton(reference, ragdoll->skeletonIdentity, ragdoll->boneCount) ||
         !maniPoseOfSkeleton(poseOut, ragdoll->skeletonIdentity, ragdoll->boneCount) ||

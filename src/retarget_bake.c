@@ -11,6 +11,7 @@
 #include "fpenv.h"
 #include "retarget_file.h"
 #include "retarget_motion.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -105,7 +106,8 @@ static maniRootMotionSource Declared(const Bake* b, maniRootMotionSource s)
 
 static bool Usable(const maniRetargetClipSource* s)
 {
-    return s != NULL && s->map != NULL && s->source != NULL && s->target != NULL && s->clip != NULL;
+    return s != NULL && s->map != NULL && maniSkeletonValid(s->source) &&
+           maniSkeletonValid(s->target) && s->clip != NULL;
 }
 
 // The skeletons the map's, the clip the source's.

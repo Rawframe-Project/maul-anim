@@ -20,6 +20,7 @@
 #include "quat64.h"
 #include "root_motion.h"
 #include "root_motion_build.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/clip.h"
@@ -802,7 +803,7 @@ maniBuildResult maniBuildClipMoved(maniBuilder* builder, const maniClipSource* s
     {
         return Outcome(mani_errorInvalid);
     }
-    if (source == NULL || source->skeleton == NULL)
+    if (source == NULL || !maniSkeletonValid(source->skeleton))
     {
         maniBuilderMisuse(builder);
         return Outcome(mani_errorInvalid);

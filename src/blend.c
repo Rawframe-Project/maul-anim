@@ -13,6 +13,7 @@
 #include "blend_lanes.h"
 #include "fpenv.h"
 #include "pose_memory.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/pose.h"
@@ -35,7 +36,7 @@ static bool Usable(float w)
 static bool LayerValid(const maniBlendLayer* layer, const maniSkeleton* skeleton,
                        const maniPose* out, bool difference)
 {
-    if (!maniPoseMatches(layer->pose, skeleton) || layer->pose == out || !Usable(layer->weight) ||
+    if (!maniPoseFits(layer->pose, skeleton) || layer->pose == out || !Usable(layer->weight) ||
         maniPose_IsDifference(layer->pose) != difference)
     {
         return false;
@@ -100,7 +101,7 @@ static void Rest(const maniSkeleton* skeleton, uint32_t bone, bool difference, f
     maniTransform t =
         difference
             ? (maniTransform){{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}
-            : maniSkeleton_GetRest(skeleton, bone);
+            : maniSkeletonRestOf(skeleton, bone);
     const float values[COMPONENTS] = {
         t.translation.x, t.translation.y, t.translation.z, t.rotation.x, t.rotation.y,
         t.rotation.z,    t.rotation.w,    t.scale.x,       t.scale.y,    t.scale.z};

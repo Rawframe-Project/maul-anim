@@ -17,6 +17,7 @@
 #include "decompose.h"
 #include "fpenv.h"
 #include "ragdoll_file.h"
+#include "skeleton_view.h"
 #include "text.h"
 #include "vecmath.h"
 
@@ -387,7 +388,7 @@ static MANI_NOINLINE maniBuildResult BuildRagdollWork(maniBuilder* builder,
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);
     }
-    if (source == NULL || source->skeleton == NULL || source->bodies == NULL)
+    if (source == NULL || !maniSkeletonValid(source->skeleton) || source->bodies == NULL)
     {
         maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0, 0);

@@ -9,6 +9,7 @@
 #include "bytes.h"
 #include "container.h"
 #include "fpenv.h"
+#include "skeleton_view.h"
 #include "skin_file.h"
 
 #include "maul-anim/build.h"
@@ -68,7 +69,7 @@ static MANI_NOINLINE maniBuildResult BuildSkinWork(maniBuilder* builder,
     {
         return Result(mani_errorInvalid, maniBuildReasonNone, 0);
     }
-    if (source == NULL || source->skeleton == NULL)
+    if (source == NULL || !maniSkeletonValid(source->skeleton))
     {
         maniBuilderMisuse(builder);
         return Result(mani_errorInvalid, maniBuildReasonNone, 0);

@@ -11,9 +11,14 @@
 
 #include <stdbool.h>
 
-// True when pose is a pose of skeleton: both non-NULL, the pose made by
-// maniInitPose, and the identity and bone count the same.
+// True when pose is a pose of skeleton: the skeleton a checked view
+// (maniSkeletonValid), the pose made by maniInitPose, and the identity
+// and bone count the same.
 bool maniPoseMatches(const maniPose* pose, const maniSkeleton* skeleton);
+
+// maniPoseMatches for a further pose of a skeleton the call has already
+// checked: the view not checked again.
+bool maniPoseFits(const maniPose* pose, const maniSkeleton* skeleton);
 
 // Sets every bone's local to the skeleton's rest and marks the model
 // stale; mani_errorInvalid when the pose is not the skeleton's.

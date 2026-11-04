@@ -18,6 +18,7 @@
 #include "gltf_property.h"
 #include "gltf_rest.h"
 #include "json.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -345,7 +346,8 @@ static MANI_NOINLINE maniImportResult GltfBuildSkinWork(maniBuilder* builder, co
     {
         return (maniImportResult){mani_errorBusy, maniImportReasonNone, 0, 0};
     }
-    if (!Usable(builder, gltf, options, gltf != NULL && skin < gltf->skinCount && skeleton != NULL))
+    if (!Usable(builder, gltf, options,
+                gltf != NULL && skin < gltf->skinCount && maniSkeletonValid(skeleton)))
     {
         return Invalid();
     }

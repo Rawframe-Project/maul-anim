@@ -25,6 +25,7 @@
 #include "graph_spring.h"
 #include "graph_turn.h"
 #include "invariant.h"
+#include "skeleton_view.h"
 #include "sort.h"
 #include "triangulate.h"
 
@@ -964,7 +965,7 @@ static MANI_NOINLINE maniBuildResult BuildGraphWork(maniBuilder* builder,
     {
         return Outcome(mani_errorInvalid);
     }
-    if (source == NULL || source->skeleton == NULL)
+    if (source == NULL || !maniSkeletonValid(source->skeleton))
     {
         maniBuilderMisuse(builder);
         return Outcome(mani_errorInvalid);

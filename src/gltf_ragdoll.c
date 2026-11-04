@@ -21,6 +21,7 @@
 #include "gltf_rest.h"
 #include "host_code.h"
 #include "json.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -578,7 +579,7 @@ static MANI_NOINLINE maniImportResult GltfReadRagdollWork(maniGltf* gltf,
     {
         memset(sourceOut, 0, sizeof *sourceOut);
     }
-    if (gltf == NULL || skeleton == NULL || options == NULL || sourceOut == NULL ||
+    if (gltf == NULL || !maniSkeletonValid(skeleton) || options == NULL || sourceOut == NULL ||
         !maniGltfOptionsValid(options) || !AxesValid(facing, up))
     {
         return (maniImportResult){mani_errorInvalid, maniImportReasonNone, 0, 0};

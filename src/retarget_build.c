@@ -17,6 +17,7 @@
 #include "fpenv.h"
 #include "ik_chain.h"
 #include "retarget_file.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -484,7 +485,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniRetargetMapSource* 
 
 static bool SourceUsable(const maniRetargetMapSource* s)
 {
-    return s != NULL && s->source != NULL && s->target != NULL &&
+    return s != NULL && maniSkeletonValid(s->source) && maniSkeletonValid(s->target) &&
            (s->pairs != NULL || s->pairCount == 0) && (s->chains != NULL || s->chainCount == 0);
 }
 

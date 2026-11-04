@@ -12,6 +12,7 @@
 #include "fpenv.h"
 #include "ik_frame.h"
 #include "ik_limit.h"
+#include "skeleton_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -91,7 +92,7 @@ static uint32_t Collect(const maniSkeleton* skeleton, const maniBodySolve* solve
         {
             return 0;
         }
-        for (; b != solve->top; b = maniSkeleton_GetParent(skeleton, b))
+        for (; b != solve->top; b = maniSkeletonParentOf(skeleton, b))
         {
             if (!Add(list, &count, b))
             {
@@ -117,7 +118,7 @@ static maniVec3 Axis(const maniSkeleton* skeleton, const uint32_t* list, uint32_
     uint32_t child = MANI_BODY_NONE;
     for (uint32_t k = slot + 1; k < count; ++k)
     {
-        if (maniSkeleton_GetParent(skeleton, list[k]) == list[slot])
+        if (maniSkeletonParentOf(skeleton, list[k]) == list[slot])
         {
             if (child != MANI_BODY_NONE)
             {
@@ -128,7 +129,7 @@ static maniVec3 Axis(const maniSkeleton* skeleton, const uint32_t* list, uint32_
     }
     return child == MANI_BODY_NONE
                ? zero
-               : maniVec3Normalize(maniSkeleton_GetRest(skeleton, child).translation, zero);
+               : maniVec3Normalize(maniSkeletonRestOf(skeleton, child).translation, zero);
 }
 
 static bool EffectorValid(const maniBodyEffector* e)
@@ -167,7 +168,8 @@ static bool HeaderValid(const maniBodySolve* solve)
 uint32_t maniBodyPartShape(const maniSkeleton* skeleton, const maniBodySolve* solve, bool* past)
 {
     *past = false;
-    if (skeleton == NULL || solve == NULL || solve->top >= maniSkeleton_GetBoneCount(skeleton))
+    if (!maniSkeletonValid(skeleton) || solve == NULL ||
+        solve->top >= maniSkeleton_GetBoneCount(skeleton))
     {
         return 0;
     }
@@ -225,7 +227,7 @@ maniResult maniBodyPartCheck(const maniPose* pose, const maniSkeleton* skeleton,
                              uint32_t* countOut)
 {
     *countOut = 0;
-    if (pose == NULL || skeleton == NULL || solve == NULL || scratch == NULL ||
+    if (pose == NULL || !maniSkeletonValid(skeleton) || solve == NULL || scratch == NULL ||
         ((uintptr_t)scratch & 15u) != 0 || !maniIkPoseUsable(pose, skeleton))
     {
         return mani_errorInvalid;
@@ -296,8 +298,8 @@ static void ReadNode(maniBodyPart* part, const maniPose* pose, const maniSkeleto
 {
     maniBodyNode* node = &part->nodes[k];
     node->bone = list[k];
-    node->parent = k == 0 ? MANI_BODY_NONE
-                          : Find(list, part->count, maniSkeleton_GetParent(skeleton, list[k]));
+    node->parent =
+        k == 0 ? MANI_BODY_NONE : Find(list, part->count, maniSkeletonParentOf(skeleton, list[k]));
     node->parentFrame =
         k == 0 ? maniIkParentModel(pose, skeleton, list[k]) : part->nodes[node->parent].frame;
     maniIkFrame local = maniIkLocal(pose, list[k]);
@@ -575,7 +577,7 @@ void maniBodyLimit(maniBodyPart* part, const maniSkeleton* skeleton, const maniB
     {
         return;
     }
-    maniQuat rest = maniSkeleton_GetRest(skeleton, node->bone).rotation;
+    maniQuat rest = maniSkeletonRestOf(skeleton, node->bone).rotation;
     maniQuat r = maniQuatNormalize(maniQuatMul(maniQuatConjugate(rest), maniBodyLocal(part, k)));
     maniQuat limited = maniIkLimit(&s->limit, node->axis, r);
     if (limited.x == r.x && limited.y == r.y && limited.z == r.z && limited.w == r.w)

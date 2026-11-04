@@ -34,6 +34,7 @@
 #include "fbx_value.h"
 #include "fbx_world.h"
 #include "fpenv.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/build.h"
 #include "maul-anim/import.h"
@@ -538,7 +539,7 @@ static MANI_NOINLINE maniImportResult FbxBuildClipWork(maniBuilder* builder, con
     }
     bool usable =
         maniFbxUsable(builder, fbx, options,
-                      fbx != NULL && skeleton != NULL && clip < fbx->stackCount &&
+                      fbx != NULL && maniSkeletonValid(skeleton) && clip < fbx->stackCount &&
                           clipOptions != NULL && maniImportClipOptionsValid(clipOptions, skeleton));
     // fbx and clipOptions are not NULL when usable; said again for the
     // analyzer.

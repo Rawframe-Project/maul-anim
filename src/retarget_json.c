@@ -15,6 +15,7 @@
 #include "graph_json_write.h"
 #include "json.h"
 #include "map_json.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
@@ -186,7 +187,7 @@ static MANI_NOINLINE maniBuildResult BuildRetargetMapJsonWork(maniBuilder* build
     {
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};
     }
-    if ((text == NULL && length > 0) || source == NULL || target == NULL)
+    if ((text == NULL && length > 0) || !maniSkeletonValid(source) || !maniSkeletonValid(target))
     {
         maniBuilderMisuse(builder);
         return (maniBuildResult){mani_errorInvalid, maniBuildReasonNone, 0, 0};

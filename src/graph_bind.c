@@ -16,6 +16,7 @@
 #include "graph_match.h"
 #include "graph_spring.h"
 #include "retarget_motion.h"
+#include "skeleton_view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
@@ -393,7 +394,7 @@ static bool BindMirror(maniGraphBinding* binding, const maniMirrorMap* map, uint
 
 static bool AssetsValid(const maniGraph* graph, const maniGraphAssets* a)
 {
-    return a != NULL && a->skeleton != NULL && (a->clips != NULL || a->clipCount == 0) &&
+    return a != NULL && maniSkeletonValid(a->skeleton) && (a->clips != NULL || a->clipCount == 0) &&
            (a->databases != NULL || a->databaseCount == 0) &&
            (a->models != NULL || a->modelCount == 0) &&
            (a->springSets != NULL || a->springSetCount == 0) &&
