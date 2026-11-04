@@ -106,16 +106,21 @@ all_c_files() { git ls-files 'include/*.h' 'src/*.[ch]' 'test/*.[ch]' 'tools/*.[
 
 # clang-tidy on the files given, as CI's checks job runs it: on the
 # Release preset, where the assertions compile out, and with them live.
-# Each hides findings the other shows.
+# Each hides findings the other shows. Run from the root, clang-tidy-20
+# applies no header filter from .clang-tidy and drops every finding in a
+# header, so tools/tidy_filter.sh gives it: this checkout's src/ and
+# include/, anchored at the tree's source directory, so headers fetched
+# under out/ (another library's) stay out.
 tidy() { # files
-    local build
+    local build filter
     for build in Release Debug; do
         step "clang-tidy, $build, on $# files"
         cmake --preset linux-clang-20 -B "$out/check-tidy-$build" -DCMAKE_BUILD_TYPE=$build \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DMAUL_ANIM_BUILD_TESTS=OFF -DMAUL_ANIM_BUILD_BENCH=OFF \
             >"$out/check-tidy-$build.log"
+        filter=$(tools/tidy_filter.sh "$out/check-tidy-$build")
         printf '%s\n' "$@" | xargs -P "$jobs" -n 4 clang-tidy-20 -p "$out/check-tidy-$build" --quiet \
-            --warnings-as-errors='*' 2>/dev/null
+            --header-filter="$filter" --warnings-as-errors='*' 2>/dev/null
     done
 }
 
@@ -138,9 +143,17 @@ if [ "$tier" = changed ]; then
         clang-format --dry-run -Werror "${present[@]}"
     fi
     # The pr tier's set, git ls-files 'src/*.c', narrowed to the changed
-    # files still present.
+    # files still present; all of it when a header under src/ or include/
+    # changed, since its findings show only through the sources that
+    # include it.
     sources=()
-    for f in "${changed[@]}"; do [[ $f == src/*.c && -f $f ]] && sources+=("$f"); done
+    for f in "${changed[@]}"; do
+        if [[ $f == src/*.h || $f == include/*.h ]]; then
+            mapfile -t sources < <(git ls-files 'src/*.c')
+            break
+        fi
+        [[ $f == src/*.c && -f $f ]] && sources+=("$f")
+    done
     if [ ${#sources[@]} -gt 0 ]; then
         tidy "${sources[@]}"
     fi

@@ -127,6 +127,12 @@ def factorial(n):
     return out
 
 
+def macro_value(text):
+    # A negative constant is parenthesized, so the macro stays one operand
+    # wherever it is expanded.
+    return f"({text})" if text.startswith("-") else text
+
+
 def lines():
     ln2 = D(2).ln()
     pio2 = pi() / 2
@@ -134,7 +140,7 @@ def lines():
 
     def const(name, value, note):
         out.append(f"// {note}")
-        out.append(f"#define {name} {value.hex()}")
+        out.append(f"#define {name} {macro_value(value.hex())}")
 
     ln2hi, rest = split(ln2, 40)
     const("MANI_LN2_HI", ln2hi, "ln 2 to 40 bits: k times it is exact for |k| < 2^13.")
@@ -226,7 +232,7 @@ def lines_float():
 
     def const(name, value, note):
         out.append(f"// {note}")
-        out.append(f"#define {name} {float_hex(value)}")
+        out.append(f"#define {name} {macro_value(float_hex(value))}")
 
     ln2hi = to_bits(ln2, 16)
     const("MANI_LN2_HI_F", ln2hi, "ln 2 to 16 bits: k times it is exact for |k| < 2^8.")
