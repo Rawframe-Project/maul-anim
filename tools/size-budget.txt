@@ -31,11 +31,11 @@ retarget: retarget retarget_motion retarget_pose
 mirror: mirror mirror_pose
 match: match match_move match_search trajectory
 learned: learned learned_eval
-morph: morph
+morph: morph morph_apply
 elementary: elementary_float
 
 ceiling core       O2 74000
-ceiling skinning   O2 13000
+ceiling skinning   O2 14000
 ceiling graph      O2 111000
 ceiling ik         O2 33000
 ceiling bodyik     O2 28000
@@ -45,10 +45,10 @@ ceiling retarget   O2 13000
 ceiling mirror     O2 6000
 ceiling match      O2 20000
 ceiling learned    O2 12000
-ceiling morph      O2 8000
+ceiling morph      O2 9000
 ceiling elementary O2 7000
 ceiling core       O3 98000
-ceiling skinning   O3 16000
+ceiling skinning   O3 17000
 ceiling graph      O3 135000
 ceiling ik         O3 36000
 ceiling bodyik     O3 34000
@@ -58,11 +58,11 @@ ceiling retarget   O3 14000
 ceiling mirror     O3 6000
 ceiling match      O3 23000
 ceiling learned    O3 18000
-ceiling morph      O3 8000
+ceiling morph      O3 9000
 ceiling elementary O3 8000
 
 ceiling core       O2-avx2 76000
-ceiling skinning   O2-avx2 12000
+ceiling skinning   O2-avx2 14000
 ceiling graph      O2-avx2 111000
 ceiling ik         O2-avx2 31000
 ceiling bodyik     O2-avx2 27000
@@ -72,10 +72,10 @@ ceiling retarget   O2-avx2 12000
 ceiling mirror     O2-avx2 6000
 ceiling match      O2-avx2 20000
 ceiling learned    O2-avx2 12000
-ceiling morph      O2-avx2 8000
+ceiling morph      O2-avx2 9000
 ceiling elementary O2-avx2 6000
 ceiling core       O3-avx2 92000
-ceiling skinning   O3-avx2 15000
+ceiling skinning   O3-avx2 16000
 ceiling graph      O3-avx2 138000
 ceiling ik         O3-avx2 34000
 ceiling bodyik     O3-avx2 36000
@@ -85,5 +85,5 @@ ceiling retarget   O3-avx2 13000
 ceiling mirror     O3-avx2 6000
 ceiling match      O3-avx2 27000
 ceiling learned    O3-avx2 19000
-ceiling morph      O3-avx2 8000
+ceiling morph      O3-avx2 9000
 ceiling elementary O3-avx2 7000

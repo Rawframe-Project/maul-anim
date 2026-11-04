@@ -20,7 +20,7 @@ One influence format serves every method: linear blend (`maniSkinLinear`), dual 
 
 ## Morph targets
 
-Morph targets (kind 7) are a file per primitive of named channels, each one or more targets at increasing full weights (FBX's in-betweens; glTF's targets are one at 1), over an attribute table (positions, normals, tangents, texture coordinate and color sets: every attribute glTF morphs), each target dense or sparse deltas for some of the table ([`src/morph.c`](../../src/morph.c)).
+Morph targets (kind 7) are a file per primitive of named channels, each one or more targets at increasing full weights (FBX's in-betweens; glTF's targets are one at 1), over an attribute table (positions, normals, tangents, texture coordinate and color sets: every attribute glTF morphs), each target dense or sparse deltas for some of the table ([`src/morph.c`](../../src/morph.c); the job in [`src/morph_apply.c`](../../src/morph_apply.c)).
 
 Clips carry morph weights as float tracks named by target; FBX channel weights are turned into target weights at import, following ufbx's walk from an implicit zero shape through the in-betweens, so the runtime has one weighting model whichever format the data came from. The job adds the weighted deltas in target order before skinning, then renormalizes normals and tangents.
 

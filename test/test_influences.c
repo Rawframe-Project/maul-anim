@@ -261,9 +261,25 @@ static void TestBuildRefusals(void)
     static uint32_t manyOffsets[2] = {0, 65};
     static uint32_t manyJoints[65];
     static float manyWeights[65];
+    // A skin of 70 joints, so that 65 influences name distinct joints.
+    static _Alignas(16) uint8_t wideFile[8192];
+    static uint32_t wideJoints[70];
+    static maniAffine wideBinds[70];
+    for (uint32_t j = 0; j < 70; ++j)
+    {
+        wideJoints[j] = j % kBones;
+        wideBinds[j] = (maniAffine){{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}};
+    }
+    maniSkinSource wideSource = {&s_skeleton, wideJoints, wideBinds, 70};
+    maniBuilder* wideBuilder = NewBuilder();
+    size_t wideSize = 0;
     static maniSkin wide;
-    wide = s_skin;
-    wide.jointCount = 70;
+    CHECK(maniBuildSkin(wideBuilder, &wideSource).result == mani_success &&
+              maniBuilder_CopyBuilt(wideBuilder, wideFile, sizeof wideFile, &wideSize) ==
+                  mani_success &&
+              maniOpenSkin(wideFile, wideSize, &wide).result == mani_success,
+          "a skin of 70 joints");
+    maniDestroyBuilder(wideBuilder);
     for (uint32_t i = 0; i < 65; ++i)
     {
         manyJoints[i] = i;

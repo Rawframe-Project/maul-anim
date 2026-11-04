@@ -13,6 +13,7 @@
 #include "fpenv.h"
 #include "pose_memory.h"
 #include "skin_file.h"
+#include "skin_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -110,12 +111,14 @@ static MANI_NOINLINE maniFileResult OpenSkinWork(const void* bytes, size_t size,
         return Fail(40);
     }
     *skinOut = (maniSkin){
-        .joints = data[1],
-        .inverseBinds = data[2],
+        .base = c.bytes,
+        .size = c.size,
+        .sections = {offsets[1], offsets[2]},
         .identity = c.identity,
         .skeletonIdentity = maniLoadU64(data[0]),
         .skeletonBoneCount = bones,
         .jointCount = joints,
+        .cookie = MANI_VIEW_COOKIE(maniKindSkin),
     };
     return (maniFileResult){mani_success, 0, 0};
 }
@@ -128,32 +131,44 @@ maniFileResult maniOpenSkin(const void* bytes, size_t size, maniSkin* skinOut)
     return result;
 }
 
+MANI_NOINLINE bool maniSkinValid(const maniSkin* s)
+{
+    return s != NULL && s->cookie == MANI_VIEW_COOKIE(maniKindSkin) && s->base != NULL &&
+           s->skeletonBoneCount - 1u < MANI_MAX_BONES && s->jointCount - 1u < MANI_MAX_BONES &&
+           maniViewFits(s->sections[maniSkinJoints], 2 * (uint64_t)s->jointCount, s->size) &&
+           maniViewFits(s->sections[maniSkinInverseBinds],
+                        MANI_SKIN_MATRIX_SIZE * (uint64_t)s->jointCount, s->size);
+}
+
 uint32_t maniSkin_GetJointCount(const maniSkin* skin)
 {
-    return skin->jointCount;
+    return maniSkinValid(skin) ? skin->jointCount : 0;
 }
 
 uint64_t maniSkin_GetSkeletonIdentity(const maniSkin* skin)
 {
-    return skin->skeletonIdentity;
+    return maniSkinValid(skin) ? skin->skeletonIdentity : 0;
 }
 
 uint64_t maniSkin_GetIdentity(const maniSkin* skin)
 {
-    return skin->identity;
+    return maniSkinValid(skin) ? skin->identity : 0;
 }
 
 uint32_t maniSkin_GetJoint(const maniSkin* skin, uint32_t joint)
 {
-    return joint < skin->jointCount ? maniLoadU16(skin->joints + 2 * (size_t)joint) : MANI_NO_BONE;
+    return maniSkinValid(skin) && joint < skin->jointCount ? maniSkinJointBone(skin, joint)
+                                                           : MANI_NO_BONE;
 }
 
 maniAffine maniSkin_GetInverseBind(const maniSkin* skin, uint32_t joint)
 {
     maniAffine m = {{1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f}};
-    if (joint < skin->jointCount)
+    if (maniSkinValid(skin) && joint < skin->jointCount)
     {
-        memcpy(m.m, skin->inverseBinds + MANI_SKIN_MATRIX_SIZE * (size_t)joint, sizeof m.m);
+        memcpy(m.m,
+               maniSkinSection(skin, maniSkinInverseBinds) + MANI_SKIN_MATRIX_SIZE * (size_t)joint,
+               sizeof m.m);
     }
     return m;
 }
@@ -163,8 +178,8 @@ static MANI_NOINLINE maniResult ComputePaletteWork(const maniPose* pose,
                                                    const maniSkin* skin, maniAffine* palette,
                                                    uint32_t capacity, uint32_t* countOut)
 {
-    if (skin == NULL || (palette == NULL && capacity > 0) || !maniPoseMatches(pose, skeleton) ||
-        skin->skeletonIdentity != skeleton->identity ||
+    if (!maniSkinValid(skin) || (palette == NULL && capacity > 0) ||
+        !maniPoseMatches(pose, skeleton) || skin->skeletonIdentity != skeleton->identity ||
         skin->skeletonBoneCount != skeleton->boneCount || !maniPose_IsModelCurrent(pose) ||
         maniPose_IsDifference(pose))
     {
@@ -179,14 +194,19 @@ static MANI_NOINLINE maniResult ComputePaletteWork(const maniPose* pose,
         return mani_errorCapacity;
     }
     const float* models = maniPoseModelData(pose);
+    const uint8_t* joints = maniSkinSection(skin, maniSkinJoints);
+    const uint8_t* binds = maniSkinSection(skin, maniSkinInverseBinds);
+    uint32_t bones = skin->skeletonBoneCount;
     for (uint32_t j = 0; j < skin->jointCount; ++j)
     {
-        uint32_t bone = maniLoadU16(skin->joints + 2 * (size_t)j);
+        // A bone in bytes changed since the open past the skeleton reads
+        // as the root: the model read stays in the pose.
+        uint32_t bone = maniLoadU16(joints + 2 * (size_t)j);
+        bone = bone < bones ? bone : 0;
         maniAffine model;
         maniAffine inverseBind;
         memcpy(model.m, models + 12 * (size_t)bone, sizeof model.m);
-        memcpy(inverseBind.m, skin->inverseBinds + MANI_SKIN_MATRIX_SIZE * (size_t)j,
-               sizeof inverseBind.m);
+        memcpy(inverseBind.m, binds + MANI_SKIN_MATRIX_SIZE * (size_t)j, sizeof inverseBind.m);
         palette[j] = maniAffineMul(&model, &inverseBind);
     }
     return mani_success;
