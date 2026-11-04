@@ -23,21 +23,32 @@ extern "C"
 // The most weighted influences a vertex holds.
 #define MANI_MAX_INFLUENCES 64u
 
-    // Influences over a file's bytes, which the caller keeps alive and
-    // unchanged while the view is used. Its fields are the library's;
-    // read it through the functions below. A view is immutable and
-    // copyable.
+    // Influences over a file's bytes, which the caller keeps alive
+    // while the view is used. Its fields are the library's; read it
+    // through the functions below. A view is immutable and copyable.
+    // Its base and size are the bytes the open was given; a view whose
+    // base or size the caller changed is outside the contract. Every
+    // call checks everything else the view holds, its counts and
+    // sections, against those bytes, and refuses a view that does not
+    // fit them; the bytes are read only within the extents recorded at
+    // open, whatever they become. Bytes changed after the open give
+    // some skinned vertices: a joint past the skin's joints reads joint
+    // 0.
     typedef struct maniInfluences
     {
-        const uint8_t* joints;
-        const uint8_t* weights;
-        const uint8_t* dualQuaternionWeights;
-        const uint8_t* centers;
+        const uint8_t* base;
+        uint64_t size;
+        // The joints, the weights, the dual quaternion weights and the
+        // centers: each one's offset from base and size, 0 for one the
+        // file leaves out.
+        uint64_t offsets[4];
+        uint64_t sizes[4];
         uint64_t identity;
         uint64_t skinIdentity;
         uint32_t skinJointCount;
         uint32_t vertexCount;
         uint32_t groupCount;
+        uint32_t cookie;
     } maniInfluences;
 
     /// Opens an influences file in place: checks the container, the sizes,
@@ -61,7 +72,8 @@ extern "C"
     /// Returns the number of vertices.
     ///
     /// @param influences  Opened influences.
-    /// @return The vertex count.
+    /// @return The vertex count; 0 for a view no open wrote or whose counts do
+    /// not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniInfluences_GetVertexCount(const maniInfluences* influences);
@@ -70,7 +82,8 @@ extern "C"
     /// the last ones of weight 0 where a vertex has fewer.
     ///
     /// @param influences  Opened influences.
-    /// @return The influences a vertex.
+    /// @return The influences a vertex; 0 for a view no open wrote or whose
+    /// counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniInfluences_GetPerVertex(const maniInfluences* influences);
@@ -80,7 +93,8 @@ extern "C"
     ///
     /// @param influences  Opened influences.
     /// @param skin        An opened skin.
-    /// @return True when bound to the skin.
+    /// @return True when bound to the skin; false for a view no open wrote or
+    /// whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API bool maniInfluences_IsSkinFit(const maniInfluences* influences, const maniSkin* skin);
@@ -93,7 +107,9 @@ extern "C"
     /// @param vertex      The vertex.
     /// @param slot        The influence, 0 the heaviest.
     /// @param weightOut   Receives the weight; may be NULL.
-    /// @return The joint.
+    /// @return The joint; 0, with the weight 0, for a vertex or slot past the
+    /// counts or a view no open wrote or whose counts do not fit its file; 0
+    /// for a joint in bytes changed after the open past the skin's joints.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniInfluences_GetInfluence(const maniInfluences* influences, uint32_t vertex,
@@ -105,7 +121,8 @@ extern "C"
     ///
     /// @param influences  Opened influences.
     /// @param vertex      The vertex.
-    /// @return The weight, 0 to 1.
+    /// @return The weight, 0 to 1; 0 without the weights or for a view no open
+    /// wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API float maniInfluences_GetDualQuaternionWeight(const maniInfluences* influences,
@@ -117,7 +134,8 @@ extern "C"
     /// @param vertex      The vertex.
     /// @param centerOut   Receives the center; zero on false.
     /// @return True when the influences hold centers and the vertex is in
-    /// range.
+    /// range; false for a view no open wrote or whose counts do not fit its
+    /// file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API bool maniInfluences_GetCenter(const maniInfluences* influences, uint32_t vertex,
@@ -183,10 +201,13 @@ extern "C"
     /// they collapse). A vertex without weight is copied.
     ///
     /// @param job  The job.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// palette count other than the influences' joint count, a range past
-    /// the vertices, or a stream without pointers, with a stride too
-    /// small or of an unknown kind (nothing written).
+    /// @return `mani_success`; `mani_errorInvalid` for an influences view no
+    /// open wrote or whose counts do not fit its file, a NULL argument, a
+    /// palette count other than the influences' joint count, a range past the
+    /// vertices, or a stream without pointers, with a stride too small or of an
+    /// unknown kind (nothing written). A joint in bytes changed after the open
+    /// past the skin's joints reads palette entry 0: changed bytes skin to some
+    /// vertices, read only within the file and the palette.
     /// @par Thread safety
     /// Safe from any thread; the output range is used by one thread at a time.
     /// Jobs over disjoint ranges run at once.

@@ -7,6 +7,7 @@
 // weight copied; ranges, strides and in-place runs giving the same bits;
 // refusals leaving the outputs; row palettes; the bits pinned.
 
+#include "file_tag.h"
 #include "negative_kinds.h"
 #include "source_padding.h"
 #include "test_harness.h"
@@ -21,6 +22,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // The skinning scene: linear, dual quaternion and blended skinning, the
@@ -297,6 +299,91 @@ static double Apart(const Vertex* a, const Vertex* b)
         worst = e > worst ? e : worst;
     }
     return worst;
+}
+
+// A heap block of exactly the influences just built, opened from it.
+static uint8_t* OpenCopy(maniInfluences* out, uint8_t** blockOut)
+{
+    uint8_t* bytes = TestExactCopy(s_size, blockOut);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    CHECK(maniOpenInfluences(bytes, s_size, out).result == mani_success, "opens the copy");
+    return bytes;
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, every skinning job refused.
+static bool Refused(const maniInfluences* v)
+{
+    float weight = 7.0f;
+    maniVec3 center = {7.0f, 7.0f, 7.0f};
+    maniSkinStream streams[4];
+    Streams(s_in, s_out, streams);
+    maniSkinJob job = Job(0, 1, streams, 4);
+    job.influences = v;
+    return maniInfluences_GetVertexCount(v) == 0 && maniInfluences_GetPerVertex(v) == 0 &&
+           !maniInfluences_IsSkinFit(v, &s_skin) &&
+           maniInfluences_GetInfluence(v, 0, 0, &weight) == 0 && weight == 0.0f &&
+           maniInfluences_GetDualQuaternionWeight(v, 0) == 0.0f &&
+           !maniInfluences_GetCenter(v, 0, &center) && center.x == 0.0f &&
+           maniSkinLinear(&job) == mani_errorInvalid &&
+           maniSkinDualQuaternion(&job) == mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: a count edited past the file, one
+// view's counts and sections over another's bytes, a zeroed view and
+// another kind's cookie are each refused. A joint in bytes changed after
+// the open past the skin's joints reads as joint 0, so the palette read
+// stays in the palette.
+static void TestViewChecked(void)
+{
+    BuildInfluences();
+    maniInfluences big;
+    uint8_t* bigBlock = NULL;
+    uint8_t* bigBytes = OpenCopy(&big, &bigBlock);
+    static const uint32_t offsets[2] = {0, 1};
+    static const uint32_t joints[1] = {0};
+    static const float weights[1] = {1.0f};
+    maniInfluenceSource source = {&s_skin, offsets, joints, weights, NULL, 1};
+    maniBuilder* builder = NewBuilder();
+    CHECK(maniBuildInfluences(builder, &source).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+          "one vertex's influences build");
+    maniDestroyBuilder(builder);
+    maniInfluences small;
+    uint8_t* smallBlock = NULL;
+    (void)OpenCopy(&small, &smallBlock);
+    maniInfluences edited = big;
+    edited.vertexCount = 60000000;
+    CHECK(Refused(&edited), "a count edited past the file");
+    maniInfluences mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(Refused(&mixed), "counts and sections over another view's bytes");
+    maniInfluences zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniInfluences other = big;
+    other.cookie ^= 1u;
+    CHECK(Refused(&zeroed) && Refused(&other) && Refused(NULL), "zeroed, another cookie, NULL");
+    CHECK(!Refused(&big), "the view as opened");
+    // Vertex 1 has weight: its first slot's joint moved past the skin's.
+    uint32_t per = maniInfluences_GetPerVertex(&big);
+    uint8_t* joint = bigBytes + big.offsets[0] + 2 * (size_t)per;
+    joint[0] = 0xFE;
+    joint[1] = 0xFF;
+    float weight = 0.0f;
+    RandomPalette();
+    RandomVertices();
+    maniSkinStream streams[4];
+    Streams(s_in, s_out, streams);
+    maniSkinJob job = Job(0, kVertices, streams, 4);
+    job.influences = &big;
+    CHECK(maniInfluences_GetInfluence(&big, 1, 0, &weight) == 0 && weight > 0.0f &&
+              maniSkinLinear(&job) == mani_success && maniSkinDualQuaternion(&job) == mani_success,
+          "a joint past the skin's read within the palette");
+    free(bigBlock);
+    free(smallBlock);
 }
 
 static void TestLinearAgainstReference(void)
@@ -1362,5 +1449,6 @@ int main(void)
     TestCentersRefused();
     TestCentersJob();
     TestScenePinned();
+    TestViewChecked();
     return s_failures == 0 ? 0 : 1;
 }

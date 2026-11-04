@@ -136,7 +136,7 @@ static void Exercise(uint8_t* bytes, size_t size)
     maniMorphJob job = {&m, targetWeights, 0, count, 5, streams};
     (void)maniApplyMorphTargets(&job);
     // Again over bytes changed after the open: names, weights and the job.
-    Changed c = Change(bytes, size);
+    Changed c = Change(bytes, m.size);
     for (uint32_t i = 0; i < channels; ++i)
     {
         size_t length = 0;

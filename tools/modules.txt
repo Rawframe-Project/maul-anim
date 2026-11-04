@@ -33,15 +33,19 @@ blend_lanes: pose_memory simd
 blend: blend_groups blend_lanes fpenv pose_memory skeleton_view
 mask: fpenv skeleton_view
 skin_file:
-skin: bytes container fpenv pose_memory skin_file vecmath
+skin: bytes container fpenv pose_memory skin_file skin_view vecmath
+skin_view: bytes view
 skin_build: allocator builder bytes container fpenv skeleton_view skin_file
 influence_file:
-influences: bytes container fpenv influence_file invariant
-skinning: bytes decompose fpenv influence_file vecmath
+influences: bytes container fpenv influence_file influences_view invariant
+influences_view: bytes view
+skinning: bytes decompose fpenv influence_file influences_view vecmath
 influences_build: allocator builder bytes container fpenv influence_file
-centers_build: allocator builder bytes container elementary_float fpenv influence_file sort
+centers_build: allocator builder bytes container elementary_float fpenv influence_file influences_view sort
 morph_file:
-morph: bytes container fpenv invariant morph_file
+morph: bytes container fpenv invariant morph_file morph_view
+morph_apply: bytes fpenv invariant morph_file morph_view
+morph_view: bytes morph_file view
 morph_build: allocator builder bytes container fpenv morph_file sort text
 match_file:
 match: bytes container fpenv invariant match_file text

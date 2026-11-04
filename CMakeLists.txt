@@ -158,6 +158,7 @@ add_library(maul-anim ${MAUL_LIBRARY_KIND}
     src/skin.c
     src/skinning.c
     src/morph.c
+    src/morph_apply.c
     src/text.c
     src/vecmath.c)
 # The offline side (builders, compression, import) is part of the one

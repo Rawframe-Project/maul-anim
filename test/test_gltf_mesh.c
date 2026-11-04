@@ -376,10 +376,16 @@ static maniImportResult ImportMorph(maniBuilder* builder, const maniGltfOptions*
     return r;
 }
 
+// A section of opened morph targets by its tag, through the view.
+static const uint8_t* MorphSection(const maniMorphTargets* m, uint32_t tag)
+{
+    return m->base + m->offsets[tag - maniMorphTagAttributes];
+}
+
 // A target's deltas for a table entry at its i-th kept vertex.
 static const float* Delta(const maniMorphTargets* m, uint32_t t, uint32_t a, uint32_t i)
 {
-    const uint8_t* e = m->targets + (size_t)t * MANI_MORPH_TARGET_SIZE;
+    const uint8_t* e = MorphSection(m, maniMorphTagTargets) + (size_t)t * MANI_MORPH_TARGET_SIZE;
     uint32_t mask = maniLoadU32(e + 4);
     uint32_t count = maniLoadU32(e + 8);
     uint64_t at = maniLoadU64(e + 24);
@@ -389,7 +395,7 @@ static const float* Delta(const maniMorphTargets* m, uint32_t t, uint32_t a, uin
                   ? (uint64_t)count * maniMorphWidth(maniMorphTargets_GetAttribute(m, b, NULL))
                   : 0;
     }
-    return (const float*)(const void*)(m->deltas +
+    return (const float*)(const void*)(MorphSection(m, maniMorphTagDeltas) +
                                        4 * (at + (uint64_t)i *
                                                      maniMorphWidth(maniMorphTargets_GetAttribute(
                                                          m, a, NULL))));
@@ -397,8 +403,8 @@ static const float* Delta(const maniMorphTargets* m, uint32_t t, uint32_t a, uin
 
 static uint32_t Index(const maniMorphTargets* m, uint32_t t, uint32_t i)
 {
-    const uint8_t* e = m->targets + (size_t)t * MANI_MORPH_TARGET_SIZE;
-    return maniLoadU32(m->indices + 4 * (maniLoadU64(e + 16) + i));
+    const uint8_t* e = MorphSection(m, maniMorphTagTargets) + (size_t)t * MANI_MORPH_TARGET_SIZE;
+    return maniLoadU32(MorphSection(m, maniMorphTagIndices) + 4 * (maniLoadU64(e + 16) + i));
 }
 
 // A basis that only flips z is no identity: position deltas' z negated.
@@ -426,7 +432,7 @@ static void TestMorphAlpha(void)
     maniGltfOptions options = maniDefaultGltfOptions();
     maniMorphTargets m;
     CHECK(ImportMorph(builder, &options, &m).result == mani_success, "a color target imports");
-    const uint8_t* e = m.targets;
+    const uint8_t* e = MorphSection(&m, maniMorphTagTargets);
     CHECK(maniLoadU32(e + 8) == 2 && Index(&m, 0, 0) == 0 && Index(&m, 0, 1) == 2,
           "the vertex moving only alpha kept");
     const float* alpha = Delta(&m, 0, 0, 0);
@@ -462,8 +468,8 @@ static void TestMorphTargets(void)
               maniMorphTargets_GetTargetFullWeight(&m, 1) == 1.0f,
           "channels named by targetNames, full weight 1");
     CHECK(maniMorphTargets_FindTarget(&m, "blink", 5) == 1, "targets named as their channels");
-    const uint8_t* t0 = m.targets;
-    const uint8_t* t1 = m.targets + MANI_MORPH_TARGET_SIZE;
+    const uint8_t* t0 = MorphSection(&m, maniMorphTagTargets);
+    const uint8_t* t1 = MorphSection(&m, maniMorphTagTargets) + MANI_MORPH_TARGET_SIZE;
     CHECK(maniLoadU32(t0 + 8) == 3 && Index(&m, 0, 0) == 0 && Index(&m, 0, 1) == 1 &&
               Index(&m, 0, 2) == 3 && maniLoadU32(t0 + 4) == 3u,
           "target 0: the vertices it moves");

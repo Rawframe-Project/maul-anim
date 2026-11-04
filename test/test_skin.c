@@ -27,6 +27,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum
@@ -157,6 +158,83 @@ static void TestIdentityCoversTheBinds(void)
     CHECK(maniOpenSkin(file, size, &skin).result == mani_success &&
               maniSkin_GetIdentity(&skin) != identity,
           "another inverse bind, another identity");
+}
+
+// A heap block of exactly the skin just built, opened from it.
+static uint8_t* OpenCopy(maniSkin* out, uint8_t** blockOut)
+{
+    uint8_t* bytes = TestExactCopy(s_size, blockOut);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    CHECK(maniOpenSkin(bytes, s_size, out).result == mani_success, "opens the copy");
+    return bytes;
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, the palette refused.
+static bool Refused(const maniSkin* skin)
+{
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
+          "pose");
+    maniAffine palette[kJoints];
+    maniAffine bind = maniSkin_GetInverseBind(skin, 0);
+    return maniSkin_GetJointCount(skin) == 0 && maniSkin_GetIdentity(skin) == 0 &&
+           maniSkin_GetSkeletonIdentity(skin) == 0 && maniSkin_GetJoint(skin, 0) == MANI_NO_BONE &&
+           bind.m[0] == 1.0f && bind.m[9] == 0.0f &&
+           maniPose_ComputePalette(pose, &s_skeleton, skin, palette, kJoints, NULL) ==
+               mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: a count edited past the file, one
+// view's count and sections over another's bytes, a zeroed view and
+// another kind's cookie are each refused. A joint's bone in bytes changed
+// after the open past the skeleton is none from the getter, and the
+// palette reads the root's model in its place, within the pose.
+static void TestViewChecked(void)
+{
+    BuildSample();
+    maniSkin big;
+    uint8_t* bigBlock = NULL;
+    uint8_t* bigBytes = OpenCopy(&big, &bigBlock);
+    maniAffine binds[kJoints];
+    RestInverseBinds(binds);
+    maniBuilder* builder = NewBuilder();
+    maniSkinSource source = {&s_skeleton, kJointBones, binds, 1};
+    CHECK(maniBuildSkin(builder, &source).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &s_size) == mani_success,
+          "a one-joint skin builds");
+    maniDestroyBuilder(builder);
+    maniSkin small;
+    uint8_t* smallBlock = NULL;
+    (void)OpenCopy(&small, &smallBlock);
+    maniSkin edited = big;
+    edited.jointCount = 60000;
+    CHECK(Refused(&edited), "a count edited past the file");
+    maniSkin mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(Refused(&mixed), "a count and sections over another view's bytes");
+    maniSkin zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniSkin other = big;
+    other.cookie ^= 1u;
+    CHECK(Refused(&zeroed) && Refused(&other) && Refused(NULL), "zeroed, another cookie, NULL");
+    CHECK(!Refused(&big) && maniSkin_GetJoint(&big, 0) == kJointBones[0], "the view as opened");
+    uint8_t* joint = bigBytes + big.sections[0];
+    joint[0] = 0xFE;
+    joint[1] = 0xFF;
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseMemory, sizeof s_poseMemory, &pose) == mani_success,
+          "pose");
+    maniAffine palette[kJoints];
+    CHECK(maniSkin_GetJoint(&big, 0) == MANI_NO_BONE &&
+              maniPose_ComputePalette(pose, &s_skeleton, &big, palette, kJoints, NULL) ==
+                  mani_success,
+          "a bone past the skeleton read within the pose");
+    free(bigBlock);
+    free(smallBlock);
 }
 
 static void TestPaletteAtBindIsIdentity(void)
@@ -441,6 +519,7 @@ int main(int argc, char** argv)
     TestOpenRefusals();
     TestTableRefusals();
     TestEveryByteFlip();
+    TestViewChecked();
     TestPaddingIgnored();
     return s_failures == 0 ? 0 : 1;
 }

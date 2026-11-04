@@ -64,6 +64,7 @@ Morph targets add weighted deltas to a primitive's attributes (positions, normal
 
 ## Not obvious
 
+- Skin, influences and morph target views are checked by every call that takes them, as skeleton views are ([Skeletons and clips](skeletons-and-clips.md)). Their bytes changed after the open give some palette, some skinned vertices and some morphed attributes, read only within the file and written only within the vertex range the job was given; a joint, a name or a channel's targets read from them outside their sections gives the getter's documented none.
 - Influences are bound to a skin, not a skeleton: several primitives of one mesh share a skin, and a skin serves every mesh that lists the same joints.
 - A vertex with no weight at all is left where it is.
 - The palette maps from bind space to the pose's model space. A skeleton imported with its placement reported, not folded, needs the placement applied on top.

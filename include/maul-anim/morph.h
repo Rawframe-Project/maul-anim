@@ -42,27 +42,31 @@ extern "C"
     // Morph targets over a file's bytes, which the caller keeps alive
     // while the view is used. Its fields are the library's; read it
     // through the functions below. A view is immutable and copyable.
-    // Bytes changed after the open give some weights, some morphed
-    // attributes and some names: what a call reads from them (a channel's
-    // targets, a target's indices and deltas, a sparse target's vertices,
-    // a name's span) is bounded where it is read, so it reads only within
-    // the file and the job writes only the range it was given.
+    // Its base and size are the bytes the open was given; a view whose
+    // base or size the caller changed is outside the contract. Every
+    // call checks everything else the view holds, its counts and
+    // sections, against those bytes, and refuses a view that does not
+    // fit them; the bytes are read only within the extents recorded at
+    // open, whatever they become. Bytes changed after the open give
+    // some weights, some morphed attributes and some names: what a call
+    // reads from them (a channel's targets, a target's indices and
+    // deltas, a sparse target's vertices, a name's span) is bounded
+    // where it is read, so it reads only within the file and the job
+    // writes only the range it was given.
     typedef struct maniMorphTargets
     {
-        const uint8_t* attributes;
-        const uint8_t* channels;
-        const uint8_t* targets;
-        const uint8_t* indices;
-        const uint8_t* deltas;
-        const uint8_t* names;
-        uint64_t indexCount;
-        uint64_t deltaCount;
-        uint64_t nameBytes;
+        const uint8_t* base;
+        uint64_t size;
+        // Sections 2 to 7 of the file (attributes to names): each one's
+        // offset from base and size.
+        uint64_t offsets[6];
+        uint64_t sizes[6];
         uint64_t identity;
         uint32_t vertexCount;
         uint32_t channelCount;
         uint32_t targetCount;
         uint32_t attributeCount;
+        uint32_t cookie;
     } maniMorphTargets;
 
     /// Opens a morph targets file in place: checks the container, the
@@ -88,7 +92,8 @@ extern "C"
     /// Returns the number of vertices the targets move.
     ///
     /// @param targets  Opened morph targets.
-    /// @return The vertex count.
+    /// @return The vertex count; 0 for a view no open wrote or whose counts do
+    /// not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargets_GetVertexCount(const maniMorphTargets* targets);
@@ -96,7 +101,8 @@ extern "C"
     /// Returns the number of channels, each weighted by its own value.
     ///
     /// @param targets  Opened morph targets.
-    /// @return The channel count.
+    /// @return The channel count; 0 for a view no open wrote or whose counts do
+    /// not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargets_GetChannelCount(const maniMorphTargets* targets);
@@ -104,7 +110,8 @@ extern "C"
     /// Returns the number of targets over all channels, in channel order.
     ///
     /// @param targets  Opened morph targets.
-    /// @return The target count.
+    /// @return The target count; 0 for a view no open wrote or whose counts do
+    /// not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargets_GetTargetCount(const maniMorphTargets* targets);
@@ -112,7 +119,8 @@ extern "C"
     /// Returns the number of attributes the targets move.
     ///
     /// @param targets  Opened morph targets.
-    /// @return The attribute count, at most MANI_MAX_MORPH_ATTRIBUTES.
+    /// @return The attribute count, at most MANI_MAX_MORPH_ATTRIBUTES; 0 for a
+    /// view no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargets_GetAttributeCount(const maniMorphTargets* targets);
@@ -123,7 +131,8 @@ extern "C"
     /// @param attribute  The attribute, in the file's order.
     /// @param setOut     Receives its set (0 for positions, normals and
     ///                   tangents); may be NULL.
-    /// @return Its semantic; -1 (and set 0) past the count.
+    /// @return Its semantic; -1 (and set 0) past the count or for a view no
+    /// open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API maniMorphSemantic maniMorphTargets_GetAttribute(const maniMorphTargets* targets,
@@ -134,11 +143,10 @@ extern "C"
     /// @param targets    Opened morph targets.
     /// @param channel    The channel.
     /// @param lengthOut  Receives the name's length in bytes, 0 for a
-    ///                   channel past the count or a name that falls
-    ///                   outside the names. May be NULL.
-    /// @return The name's bytes, inside the file, or NULL for a channel
-    /// past the count, or one whose name's span, in bytes changed since
-    /// the open, falls outside the names.
+    ///                   channel past the count. May be NULL.
+    /// @return The name's bytes, inside the file, or NULL for a channel past
+    /// the count, a view no open wrote or whose counts do not fit its file, or
+    /// a name span in bytes changed after the open past the names.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMorphTargets_GetChannelName(const maniMorphTargets* targets,
@@ -150,7 +158,8 @@ extern "C"
     /// @param name     The name's UTF-8 bytes; may be NULL when length is
     ///                 0.
     /// @param length   The name's length in bytes.
-    /// @return The channel, or MANI_NO_CHANNEL when none has that name.
+    /// @return The channel, or MANI_NO_CHANNEL when none has that name or for a
+    /// view no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargets_FindChannel(const maniMorphTargets* targets,
@@ -164,11 +173,10 @@ extern "C"
     /// @param targets    Opened morph targets.
     /// @param target     The target.
     /// @param lengthOut  Receives the name's length in bytes, 0 for a
-    ///                   target past the count or a name that falls
-    ///                   outside the names. May be NULL.
-    /// @return The name's bytes, inside the file, or NULL for a target
-    /// past the count, or one whose name's span, in bytes changed since
-    /// the open, falls outside the names.
+    ///                   target past the count. May be NULL.
+    /// @return The name's bytes, inside the file, or NULL for a target past the
+    /// count, a view no open wrote or whose counts do not fit its file, or a
+    /// name span in bytes changed after the open past the names.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMorphTargets_GetTargetName(const maniMorphTargets* targets,
@@ -181,7 +189,8 @@ extern "C"
     /// @param name     The name's UTF-8 bytes; may be NULL when length is
     ///                 0.
     /// @param length   The name's length in bytes.
-    /// @return The target, or MANI_NO_CHANNEL when none has that name.
+    /// @return The target, or MANI_NO_CHANNEL when none has that name or for a
+    /// view no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargets_FindTarget(const maniMorphTargets* targets, const char* name,
@@ -192,9 +201,9 @@ extern "C"
     /// @param targets   Opened morph targets.
     /// @param channel   The channel.
     /// @param firstOut  Receives the first target's index; may be NULL.
-    /// @return The number of targets, 0 for a channel past the count or
-    ///         one whose targets, in bytes changed since the open, are not
-    ///         within the targets.
+    /// @return The number of targets, 0 for a channel past the count, a view no
+    /// open wrote or whose counts do not fit its file, or targets in bytes
+    /// changed after the open past the target count.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMorphTargets_GetChannelTargets(const maniMorphTargets* targets,
@@ -204,7 +213,8 @@ extern "C"
     ///
     /// @param targets  Opened morph targets.
     /// @param target   The target.
-    /// @return The full weight; 0 for a target past the count.
+    /// @return The full weight; 0 for a target past the count or a view no open
+    /// wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API float maniMorphTargets_GetTargetFullWeight(const maniMorphTargets* targets,
@@ -224,10 +234,14 @@ extern "C"
     ///                          channelWeights, with the same results.
     /// @param capacity          The floats targetWeightsOut holds.
     /// @param countOut          Receives the target count. May be NULL.
-    /// @return `mani_success`; `mani_errorCapacity` when capacity is below
-    /// the target count, with the count still written and nothing else;
-    /// `mani_errorInvalid` for a NULL targets or weights, a NULL array with
-    /// a positive capacity, or a weight not finite (nothing written).
+    /// @return `mani_success`; `mani_errorCapacity` when capacity is below the
+    /// target count, with the count still written and nothing else;
+    /// `mani_errorInvalid` for a morph targets view no open wrote or whose
+    /// counts do not fit its file, a NULL targets or weights, a NULL array with
+    /// a positive capacity, or a weight not finite (nothing written). A channel
+    /// whose targets in bytes changed after the open are past the target count
+    /// writes no weight; changed bytes give some weights, read and written only
+    /// within the file and the array.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniMorphTargets_ComputeTargetWeights(
@@ -273,11 +287,16 @@ extern "C"
     /// skinning job's input.
     ///
     /// @param job  The job.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// @return `mani_success`; `mani_errorInvalid` for a morph targets view no
+    /// open wrote or whose counts do not fit its file, a NULL argument, a
     /// weight not finite, a range past the vertices, or a stream without
-    /// pointers, with a stride too small, an unknown semantic, a set
-    /// beyond 0 for positions, normals or tangents, or components other
-    /// than its semantic's (nothing written).
+    /// pointers, with a stride too small, an unknown semantic, a set beyond 0
+    /// for positions, normals or tangents, or components other than its
+    /// semantic's (nothing written). A target whose deltas or indices in bytes
+    /// changed after the open are past their sections, or a dense one without
+    /// every vertex, adds nothing, and a sparse vertex outside the range is
+    /// skipped: changed bytes morph to some vertices, read and written only
+    /// within the file and the streams.
     /// @par Thread safety
     /// Safe from any thread; the output range is used by one thread at a time.
     /// Jobs over disjoint ranges run at once.

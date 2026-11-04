@@ -10,6 +10,7 @@
 #include "container.h"
 #include "fpenv.h"
 #include "influence_file.h"
+#include "influences_view.h"
 #include "invariant.h"
 
 #include "maul-anim/base.h"
@@ -205,11 +206,15 @@ static MANI_NOINLINE maniFileResult OpenInfluencesWork(const void* bytes, size_t
     {
         return Fail(40);
     }
-    v.joints = s.data[1];
-    v.weights = s.data[2];
-    v.dualQuaternionWeights = s.sizes[3] > 0 ? s.data[3] : NULL;
-    v.centers = s.sizes[4] > 0 ? s.data[4] : NULL;
+    v.base = c.bytes;
+    v.size = c.size;
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        v.offsets[i] = s.sizes[i + 1] > 0 ? s.at[i + 1] : 0;
+        v.sizes[i] = s.sizes[i + 1];
+    }
     v.identity = c.identity;
+    v.cookie = MANI_VIEW_COOKIE(maniKindInfluences);
     *influencesOut = v;
     return (maniFileResult){mani_success, 0, 0};
 }
@@ -222,19 +227,41 @@ maniFileResult maniOpenInfluences(const void* bytes, size_t size, maniInfluences
     return result;
 }
 
+MANI_NOINLINE bool maniInfluencesValid(const maniInfluences* v)
+{
+    if (v == NULL || v->cookie != MANI_VIEW_COOKIE(maniKindInfluences) || v->base == NULL ||
+        v->skinJointCount - 1u >= MANI_MAX_BONES || v->vertexCount == 0 ||
+        v->groupCount - 1u >= MANI_INFLUENCE_MAX_GROUPS)
+    {
+        return false;
+    }
+    // The least bytes each section holds; an optional one absent or whole.
+    uint64_t slots = (uint64_t)v->vertexCount * v->groupCount * MANI_INFLUENCE_GROUP;
+    const uint64_t need[4] = {2 * slots, 4 * slots, 4 * (uint64_t)v->vertexCount,
+                              12 * (uint64_t)v->vertexCount};
+    bool fits = true;
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        bool absent = i >= maniInfluencesDualWeights && v->sizes[i] == 0;
+        fits = fits && maniViewFits(v->offsets[i], v->sizes[i], v->size) &&
+               (absent || need[i] <= v->sizes[i]);
+    }
+    return fits;
+}
+
 uint32_t maniInfluences_GetVertexCount(const maniInfluences* influences)
 {
-    return influences->vertexCount;
+    return maniInfluencesValid(influences) ? influences->vertexCount : 0;
 }
 
 uint32_t maniInfluences_GetPerVertex(const maniInfluences* influences)
 {
-    return influences->groupCount * MANI_INFLUENCE_GROUP;
+    return maniInfluencesValid(influences) ? influences->groupCount * MANI_INFLUENCE_GROUP : 0;
 }
 
 bool maniInfluences_IsSkinFit(const maniInfluences* influences, const maniSkin* skin)
 {
-    return influences != NULL && skin != NULL &&
+    return maniInfluencesValid(influences) && skin != NULL &&
            influences->skinIdentity == maniSkin_GetIdentity(skin) &&
            influences->skinJointCount == maniSkin_GetJointCount(skin);
 }
@@ -242,23 +269,29 @@ bool maniInfluences_IsSkinFit(const maniInfluences* influences, const maniSkin* 
 uint32_t maniInfluences_GetInfluence(const maniInfluences* influences, uint32_t vertex,
                                      uint32_t slot, float* weightOut)
 {
-    uint32_t per = influences->groupCount * MANI_INFLUENCE_GROUP;
-    bool inside = vertex < influences->vertexCount && slot < per;
+    bool valid = maniInfluencesValid(influences);
+    uint32_t per = valid ? influences->groupCount * MANI_INFLUENCE_GROUP : 0;
+    bool inside = valid && vertex < influences->vertexCount && slot < per;
     size_t k = inside ? (size_t)vertex * per + slot : 0;
     if (weightOut != NULL)
     {
-        *weightOut = inside ? LoadF32(influences->weights + 4 * k) : 0.0f;
+        *weightOut = inside
+                         ? LoadF32(maniInfluencesSection(influences, maniInfluencesWeights) + 4 * k)
+                         : 0.0f;
     }
-    return inside ? maniLoadU16(influences->joints + 2 * k) : 0;
+    return inside ? maniInfluencesJoint(influences, k) : 0;
 }
 
 float maniInfluences_GetDualQuaternionWeight(const maniInfluences* influences, uint32_t vertex)
 {
-    if (influences->dualQuaternionWeights == NULL || vertex >= influences->vertexCount)
+    if (!maniInfluencesValid(influences) ||
+        !maniInfluencesHas(influences, maniInfluencesDualWeights) ||
+        vertex >= influences->vertexCount)
     {
         return 0.0f;
     }
-    return LoadF32(influences->dualQuaternionWeights + 4 * (size_t)vertex);
+    return LoadF32(maniInfluencesSection(influences, maniInfluencesDualWeights) +
+                   4 * (size_t)vertex);
 }
 
 bool maniInfluences_GetCenter(const maniInfluences* influences, uint32_t vertex,
@@ -268,11 +301,13 @@ bool maniInfluences_GetCenter(const maniInfluences* influences, uint32_t vertex,
     {
         memset(centerOut, 0, sizeof *centerOut);
     }
-    if (influences->centers == NULL || vertex >= influences->vertexCount || centerOut == NULL)
+    if (!maniInfluencesValid(influences) || !maniInfluencesHas(influences, maniInfluencesCenters) ||
+        vertex >= influences->vertexCount || centerOut == NULL)
     {
         return false;
     }
-    const uint8_t* c = influences->centers + 12 * (size_t)vertex;
+    const uint8_t* c =
+        maniInfluencesSection(influences, maniInfluencesCenters) + 12 * (size_t)vertex;
     *centerOut = (maniVec3){LoadF32(c), LoadF32(c + 4), LoadF32(c + 8)};
     return true;
 }
