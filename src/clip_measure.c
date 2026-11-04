@@ -9,6 +9,7 @@
 #include "allocator.h"
 #include "builder.h"
 #include "clip_build.h"
+#include "clip_view.h"
 #include "fpenv.h"
 #include "scalar.h"
 #include "skeleton_view.h"
@@ -234,7 +235,8 @@ static MANI_NOINLINE maniResult MeasureClipWork(maniBuilder* builder, const mani
     {
         return mani_errorInvalid;
     }
-    if (source == NULL || !maniSkeletonValid(source->skeleton) || clip == NULL || reportOut == NULL)
+    if (source == NULL || !maniSkeletonValid(source->skeleton) || !maniClipValid(clip) ||
+        reportOut == NULL)
     {
         maniBuilderMisuse(builder);
         return mani_errorInvalid;

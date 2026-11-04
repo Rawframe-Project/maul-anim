@@ -99,8 +99,9 @@ extern "C"
     ///                 taken within the period).
     /// @param step     The step, seconds, either sign.
     /// @param moveOut  Receives the move.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// a time or step not finite (nothing written).
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// clip view no open wrote or whose counts do not fit its file, or a
+    /// time or step not finite (nothing written).
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniClip_GetRootMotion(const maniClip* clip, float time,
@@ -147,8 +148,9 @@ extern "C"
     /// @param time      The time in seconds.
     /// @param pose      A pose of the skeleton, not a difference pose.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// skeleton that is not the clip's or the pose's, or a difference
-    /// pose (nothing written).
+    /// skeleton that is not the clip's or the pose's, a clip view no open
+    /// wrote or whose counts do not fit its file, or a difference pose
+    /// (nothing written).
     /// @par Thread safety
     /// Safe from any thread; the pose is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniClip_RestoreRootMotion(const maniClip* clip,
@@ -159,7 +161,9 @@ extern "C"
     ///
     /// @param clip       An opened clip.
     /// @param sourceOut  Receives the source; zeroed on false.
-    /// @return True when the clip has root motion.
+    /// @return True when the clip has root motion; false for a NULL
+    /// argument or a clip view no open wrote or whose counts do not fit
+    /// its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API bool maniClip_GetRootMotionSource(const maniClip* clip,

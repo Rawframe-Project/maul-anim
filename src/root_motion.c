@@ -78,7 +78,8 @@ static bool BoneTracked(const maniClip* clip, uint32_t bone)
 {
     for (uint32_t i = 0; i < clip->trackCount; ++i)
     {
-        const uint8_t* t = clip->tracks + (size_t)i * MANI_CLIP_TRACK_SIZE;
+        const uint8_t* t =
+            maniClipSection(clip, maniClipTagTracks) + (size_t)i * MANI_CLIP_TRACK_SIZE;
         uint32_t mask = maniChannelTranslation | maniChannelRotation;
         if (maniLoadU16(t) == bone)
         {
@@ -91,7 +92,6 @@ static bool BoneTracked(const maniClip* clip, uint32_t bone)
 MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t size, uint64_t at,
                                                  uint64_t entry, maniClip* clip)
 {
-    clip->rootMotion = NULL;
     if (size == 0)
     {
         return (maniFileResult){mani_success, 0, 0};
@@ -117,7 +117,6 @@ MANI_COLD maniFileResult maniCheckClipRootMotion(const uint8_t* data, uint64_t s
             return Fail(at + MANI_ROOT_MOTION_HEADER_SIZE + 4 * k);
         }
     }
-    clip->rootMotion = data;
     return (maniFileResult){mani_success, 0, 0};
 }
 
@@ -127,11 +126,12 @@ bool maniClip_GetRootMotionSource(const maniClip* clip, maniRootMotionSource* so
     {
         memset(sourceOut, 0, sizeof *sourceOut);
     }
-    if (clip == NULL || clip->rootMotion == NULL || sourceOut == NULL)
+    if (!maniClipValid(clip) || maniClipSectionSize(clip, maniClipTagRootMotion) == 0 ||
+        sourceOut == NULL)
     {
         return false;
     }
-    *sourceOut = LoadSource(clip->rootMotion);
+    *sourceOut = LoadSource(maniClipSection(clip, maniClipTagRootMotion));
     return true;
 }
 
@@ -188,8 +188,8 @@ static maniRootMove Stored(const uint8_t* section, uint32_t k)
 static maniRootMove At(const maniClip* clip, float time)
 {
     maniClipPair pair = maniClipLocate(clip, time);
-    maniRootMove a = Stored(clip->rootMotion, pair.first);
-    maniRootMove b = Stored(clip->rootMotion, pair.second);
+    maniRootMove a = Stored(maniClipSection(clip, maniClipTagRootMotion), pair.first);
+    maniRootMove b = Stored(maniClipSection(clip, maniClipTagRootMotion), pair.second);
     maniVec3 t = maniVec3Add(a.translation,
                              maniVec3Scale(maniVec3Sub(b.translation, a.translation), pair.alpha));
     return (maniRootMove){t, maniQuatNlerp(a.rotation, b.rotation, pair.alpha)};
@@ -236,9 +236,9 @@ static maniRootMove Repeating(const maniClip* clip, double u0, double u1)
     {
         return Between(At(clip, f0), At(clip, f1));
     }
-    maniRootMove start = Stored(clip->rootMotion, 0);
-    maniRootMove end = Stored(clip->rootMotion, clip->sampleCount - 1);
-    maniRootMove period = Stored(clip->rootMotion, UINT32_MAX);
+    maniRootMove start = Stored(maniClipSection(clip, maniClipTagRootMotion), 0);
+    maniRootMove end = Stored(maniClipSection(clip, maniClipTagRootMotion), clip->sampleCount - 1);
+    maniRootMove period = Stored(maniClipSection(clip, maniClipTagRootMotion), UINT32_MAX);
     bool forward = w1 > w0;
     maniRootMove out = Between(At(clip, f0), forward ? end : start);
     out = Compose(out, Repeated(forward ? period : Inverse(period), Wraps(w0, w1) - 1));
@@ -248,11 +248,11 @@ static maniRootMove Repeating(const maniClip* clip, double u0, double u1)
 MANI_NOINLINE maniResult maniClipRootMotionEntered(const maniClip* clip, float time, float step,
                                                    maniRootMove* moveOut)
 {
-    if (clip == NULL || moveOut == NULL || !isfinite(time) || !isfinite(step))
+    if (!maniClipValid(clip) || moveOut == NULL || !isfinite(time) || !isfinite(step))
     {
         return mani_errorInvalid;
     }
-    if (clip->rootMotion == NULL)
+    if (maniClipSectionSize(clip, maniClipTagRootMotion) == 0)
     {
         *moveOut = maniMakeRootMoveIdentity();
         return mani_success;
@@ -362,11 +362,11 @@ static MANI_NOINLINE maniResult RestoreRootMotionWork(const maniClip* clip,
     {
         return mani_errorInvalid;
     }
-    if (clip->rootMotion == NULL)
+    if (maniClipSectionSize(clip, maniClipTagRootMotion) == 0)
     {
         return mani_success;
     }
-    uint32_t bone = maniLoadU32(clip->rootMotion);
+    uint32_t bone = maniLoadU32(maniClipSection(clip, maniClipTagRootMotion));
     maniRootMove m = At(clip, time);
     maniTransform local = maniPose_GetLocal(pose, bone);
     local.translation = maniVec3Add(m.translation, maniQuatRotate(m.rotation, local.translation));

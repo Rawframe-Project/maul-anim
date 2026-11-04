@@ -12,6 +12,7 @@
 #include "clip_file.h"
 #include "pose_memory.h"
 #include "skeleton_view.h"
+#include "view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/clip.h"
@@ -24,6 +25,28 @@
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h>
 #endif
+
+// The sections a view holds, tracks to root motion.
+#define MANI_CLIP_VIEW_SECTIONS (maniClipTagRootMotion - maniClipTagTracks + 1u)
+_Static_assert(MANI_CLIP_VIEW_SECTIONS == sizeof((maniClip*)0)->offsets / sizeof(uint64_t),
+               "a view holds tracks to root motion");
+
+// Whether a view is one an open wrote: its cookie, and its counts and
+// every section within the file it names.
+bool maniClipValid(const maniClip* clip);
+
+// A section of the view by its tag, maniClipTagTracks to
+// maniClipTagRootMotion: its bytes and its size, 0 for one the file
+// leaves out. The view checked.
+static inline const uint8_t* maniClipSection(const maniClip* clip, uint32_t tag)
+{
+    return clip->base + clip->offsets[tag - maniClipTagTracks];
+}
+
+static inline uint64_t maniClipSectionSize(const maniClip* clip, uint32_t tag)
+{
+    return clip->sizes[tag - maniClipTagTracks];
+}
 
 // Checks sections 4 to 10 against the counts the header gave (in clip)
 // and fills clip's pointers to them.
@@ -47,12 +70,14 @@ static inline uint64_t maniCompressedSegmentHead(const maniClip* clip)
 static inline const uint8_t* maniCompressedBitset(const maniClip* clip, uint32_t kind,
                                                   uint32_t animated)
 {
-    return clip->forms + (2 * kind + animated) * maniClipBitsetBytes(clip->trackCount);
+    return maniClipSection(clip, maniClipTagForms) +
+           (2 * kind + animated) * maniClipBitsetBytes(clip->trackCount);
 }
 
 static inline const uint8_t* maniCompressedDropped(const maniClip* clip)
 {
-    return clip->forms + 2 * maniClipKinds * maniClipBitsetBytes(clip->trackCount);
+    return maniClipSection(clip, maniClipTagForms) +
+           2 * maniClipKinds * maniClipBitsetBytes(clip->trackCount);
 }
 
 // A track's 2 bits among the dropped components': 3 less the component
@@ -67,9 +92,22 @@ static inline const uint8_t* maniCompressedFloatForms(const maniClip* clip)
     return maniCompressedDropped(clip) + ((uint64_t)clip->trackCount + 3) / 4;
 }
 
+// A track's bone, in the skeleton: bytes changed since the open name
+// bone 0 for a bone past it, so a write stays in the pose.
 static inline uint32_t maniClipTrackBone(const maniClip* clip, uint32_t t)
 {
-    return maniLoadU16(clip->tracks + (size_t)t * MANI_CLIP_TRACK_SIZE);
+    uint32_t bone =
+        maniLoadU16(maniClipSection(clip, maniClipTagTracks) + (size_t)t * MANI_CLIP_TRACK_SIZE);
+    return bone < clip->skeletonBoneCount ? bone : 0;
+}
+
+// A full-precision track's channels, after the floats `used` of the
+// tracks before it: none when bytes changed since the open would take
+// more floats than a sample holds, so a read stays in its sample.
+static inline uint32_t maniClipTrackMask(const maniClip* clip, uint32_t t, uint32_t used)
+{
+    uint32_t mask = maniClipSection(clip, maniClipTagTracks)[(size_t)t * MANI_CLIP_TRACK_SIZE + 2];
+    return used + maniChannelFloats(mask) <= clip->floatsPerSample ? mask : 0;
 }
 
 // The lowest set bit's index of a word not 0.
@@ -92,21 +130,32 @@ typedef struct maniTrackWalk
     uint64_t next;
     uint64_t word;
     uint32_t base;
+    uint32_t tracks;
 } maniTrackWalk;
 
 static inline maniTrackWalk maniWalkTracks(const maniClip* clip, uint32_t kind, uint32_t animated)
 {
     return (maniTrackWalk){maniCompressedBitset(clip, kind, animated),
-                           maniClipBitsetBytes(clip->trackCount), 0, 0, 0};
+                           maniClipBitsetBytes(clip->trackCount),
+                           0,
+                           0,
+                           0,
+                           clip->trackCount};
 }
 
-// The next track in the set; the caller takes no more than the set holds
-// (counted at open).
+// The next track in the set. The caller takes as many as the view counts,
+// which the open counted in the set; bytes changed since may hold fewer.
 static inline uint32_t maniNextTrack(maniTrackWalk* w)
 {
     while (w->word == 0)
     {
         uint64_t left = w->bytes - w->next;
+        if (left == 0)
+        {
+            // Bytes changed since the open hold fewer tracks than the
+            // view counts: track 0 for the rest, so the walk ends.
+            return 0;
+        }
         uint64_t word = 0;
         if (left >= 8)
         {
@@ -122,7 +171,8 @@ static inline uint32_t maniNextTrack(maniTrackWalk* w)
     }
     uint32_t t = w->base + maniLowestBit(w->word);
     w->word &= w->word - 1;
-    return t;
+    // A bit past the last track, set in changed bytes, is track 0 too.
+    return t < w->tracks ? t : 0;
 }
 
 // Checks a compressed clip's sections 11 to 15 against its header and

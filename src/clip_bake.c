@@ -182,8 +182,9 @@ static bool TakeLists(Bake* b)
 // Sample k's move, carried.
 static void Move(const Bake* b, uint32_t k)
 {
-    const uint8_t* p = b->s->clip->rootMotion + MANI_ROOT_MOTION_HEADER_SIZE +
-                       MANI_ROOT_MOTION_PERIOD_SIZE + 4 * (size_t)MANI_ROOT_MOTION_MOVE_FLOATS * k;
+    const uint8_t* p = maniClipSection(b->s->clip, maniClipTagRootMotion) +
+                       MANI_ROOT_MOTION_HEADER_SIZE + MANI_ROOT_MOTION_PERIOD_SIZE +
+                       4 * (size_t)MANI_ROOT_MOTION_MOVE_FLOATS * k;
     maniRootMove move = {maniVec3Make(LoadF32(p), LoadF32(p + 4), LoadF32(p + 8)),
                          LoadQuat(p + 12)};
     move = b->s->move(b->s->context, move);
@@ -323,8 +324,8 @@ static void LayFloatTracks(Bake* b)
     {
         size_t length = 0;
         const char* name = Renamed(b, maniClip_GetFloatTrackName(clip, i, &length), &length);
-        uint32_t interpolation =
-            maniLoadU32(clip->floatTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16);
+        uint32_t interpolation = maniLoadU32(maniClipSection(clip, maniClipTagFloatTracks) +
+                                             (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 16);
         b->floatTracks[i] = (maniFloatTrackSource){
             name, length,
             (maniChannelSource){b->times, b->floatValues + (size_t)i * b->samples, b->samples,
@@ -340,12 +341,14 @@ static void LayCopied(Bake* b)
     size_t at = 0;
     for (uint32_t i = 0; i < clip->discreteTrackCount; ++i)
     {
-        const uint8_t* e = clip->discreteTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE;
+        const uint8_t* e = maniClipSection(clip, maniClipTagDiscreteTracks) +
+                           (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE;
         uint32_t first = maniLoadU32(e + 16);
         uint32_t count = maniLoadU32(e + 20);
         for (uint32_t j = 0; j < count; ++j)
         {
-            const uint8_t* key = clip->discreteKeys + (size_t)(first + j) * MANI_CLIP_KEY_SIZE;
+            const uint8_t* key = maniClipSection(clip, maniClipTagDiscreteKeys) +
+                                 (size_t)(first + j) * MANI_CLIP_KEY_SIZE;
             b->discreteTimes[at + j] = LoadF32(key);
             b->discreteValues[at + j] = (int32_t)maniLoadU32(key + 4);
         }
@@ -417,7 +420,8 @@ static size_t DiscreteKeys(const maniClip* clip)
     size_t keys = 0;
     for (uint32_t i = 0; i < clip->discreteTrackCount; ++i)
     {
-        keys += maniLoadU32(clip->discreteTracks + (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 20);
+        keys += maniLoadU32(maniClipSection(clip, maniClipTagDiscreteTracks) +
+                            (size_t)i * MANI_CLIP_NAMED_TRACK_SIZE + 20);
     }
     return keys;
 }

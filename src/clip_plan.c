@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "clip_codec.h"
 #include "clip_file.h"
+#include "clip_view.h"
 #include "vecmath.h"
 
 #include <math.h>
@@ -45,10 +46,12 @@ void maniPlanValue(const maniCompressPlan* p, const maniSubTrack* t, uint32_t sa
     const maniClip* c = p->clip;
     if (t->channel == maniSubFloat)
     {
-        out[0] = LoadF32(c->floatSamples + 4 * ((size_t)sample * c->floatTrackCount + t->offset));
+        out[0] = LoadF32(maniClipSection(c, maniClipTagFloatSamples) +
+                         4 * ((size_t)sample * c->floatTrackCount + t->offset));
         return;
     }
-    const uint8_t* v = c->samples + 4 * ((size_t)sample * c->floatsPerSample + t->offset);
+    const uint8_t* v = maniClipSection(c, maniClipTagSamples) +
+                       4 * ((size_t)sample * c->floatsPerSample + t->offset);
     if (t->channel != maniSubRotation)
     {
         for (int k = 0; k < 3; ++k)
@@ -73,7 +76,8 @@ void maniPlanChooseDropped(const maniCompressPlan* p, maniSubTrack* t)
     float smallest[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     for (uint32_t k = 0; k < c->sampleCount; ++k)
     {
-        const uint8_t* v = c->samples + 4 * ((size_t)k * c->floatsPerSample + t->offset);
+        const uint8_t* v = maniClipSection(c, maniClipTagSamples) +
+                           4 * ((size_t)k * c->floatsPerSample + t->offset);
         for (uint32_t i = 0; i < 4; ++i)
         {
             float m = fabsf(LoadF32(v + 4 * i));
