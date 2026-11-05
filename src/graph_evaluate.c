@@ -3,7 +3,7 @@
 //
 // Evaluating a graph instance: each weighed node in order
 // writes its slot's pose from its inputs' slots, through a scratch of a
-// pose per slot made once for the binding it last served.
+// pose per slot, made again on every evaluation.
 
 #include "blend_groups.h"
 #include "bytes.h"
@@ -42,18 +42,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#define SCRATCH_STAMP 0x4D475343u
-#define HEADER_SIZE   64u
-
-// The scratch's head: whom its poses were made for.
-typedef struct Head
-{
-    uint32_t stamp;
-    uint32_t slotCount;
-    const maniGraphBinding* binding;
-    uint64_t identity;
-} Head;
-
 static size_t Round(size_t size)
 {
     return (size + MANI_GRAPH_SCRATCH_ALIGNMENT - 1) / MANI_GRAPH_SCRATCH_ALIGNMENT *
@@ -63,7 +51,7 @@ static size_t Round(size_t size)
 static maniGraphEvalParts PartsOf(const maniGraphBinding* binding)
 {
     maniGraphEvalParts parts;
-    parts.layersAt = HEADER_SIZE;
+    parts.layersAt = 0;
     parts.weightsAt = parts.layersAt + Round((size_t)binding->maxInputs * sizeof(maniBlendLayer));
     parts.posesAt =
         parts.weightsAt + Round(2 * (size_t)binding->graph.skeletonBoneCount * sizeof(float));
@@ -87,23 +75,16 @@ size_t maniGraphBinding_GetScratchSize(const maniGraphBinding* binding)
     return PartsOf(binding).size;
 }
 
-// The poses made for this binding, once.
+// The slots' poses' headers, made on every evaluation: the scratch is
+// the caller's memory, and what an earlier evaluation left in it may
+// since have been written over. A node writes its slot's bones before
+// any node reads them.
 static void Prepare(maniGraphEvaluation* e)
 {
-    void* memory = e->scratch;
-    Head* head = memory;
-    if (head->stamp == SCRATCH_STAMP && head->binding == e->binding &&
-        head->identity == e->graph->identity)
-    {
-        return;
-    }
     for (uint32_t slot = 0; slot < e->graph->slotCount; ++slot)
     {
-        maniPose* pose = NULL;
-        (void)maniInitPoseEntered(e->binding->skeleton, maniGraphEvalSlot(e, slot),
-                                  e->parts.poseSize, &pose);
+        (void)maniPoseMakeHeader(e->binding->skeleton, maniGraphEvalSlot(e, slot));
     }
-    *head = (Head){SCRATCH_STAMP, e->graph->slotCount, e->binding, e->graph->identity};
 }
 
 static void Blend(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out,
@@ -312,23 +293,19 @@ static void Additive(const maniGraphEvaluation* e, const uint8_t* record, maniPo
 
 // A mapped clip's pose: sampled into a pose of the map's source and
 // carried; an additive clip's difference added to the source's rest,
-// carried, and taken from the source's rest carried. The room's poses
-// are made again only when they are not poses of their skeletons.
+// carried, and taken from the source's rest carried. The room's poses'
+// headers are made on every call, as the slots' are; each pose's bones
+// are written before they are read.
 static void SampleMapped(const maniGraphEvaluation* e, const maniGraphBoundMapPair* pair,
                          maniClipCursor* c, const maniClip* clip, float time, maniPose* out)
 {
     uint8_t* at = e->scratch + e->parts.retargetAt;
     size_t sourceSize = e->binding->sourcePoseSize;
-    maniPose* poses[3] = {(void*)at, (void*)(at + sourceSize), (void*)(at + 2 * sourceSize)};
-    void* scratch = at + 2 * sourceSize + e->parts.poseSize;
     const maniSkeleton* skeleton = e->binding->skeleton;
-    if (!maniPoseMatches(poses[0], pair->source) || !maniPoseMatches(poses[1], pair->source) ||
-        !maniPoseMatches(poses[2], skeleton))
-    {
-        (void)maniInitPoseEntered(pair->source, poses[0], sourceSize, &poses[0]);
-        (void)maniInitPoseEntered(pair->source, poses[1], sourceSize, &poses[1]);
-        (void)maniInitPoseEntered(skeleton, poses[2], e->parts.poseSize, &poses[2]);
-    }
+    maniPose* poses[3] = {maniPoseMakeHeader(pair->source, at),
+                          maniPoseMakeHeader(pair->source, at + sourceSize),
+                          maniPoseMakeHeader(skeleton, at + 2 * sourceSize)};
+    void* scratch = at + 2 * sourceSize + e->parts.poseSize;
     size_t size = e->binding->retargetScratchSize;
     (void)maniSampleClipCursorEntered(c, clip, pair->source, time, poses[0]);
     if (!maniPose_IsDifference(poses[0]))

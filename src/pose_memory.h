@@ -72,6 +72,12 @@ MANI_NODISCARD bool maniPoseOfSkeleton(const maniPose* pose, uint64_t identity, 
 void maniPoseStoreModel(maniPose* pose, uint32_t bone, const maniAffine* model);
 void maniPoseMarkModelCurrent(maniPose* pose);
 
+// A pose's header and the identity bones padding its last group, made
+// in memory of the skeleton's pose size and MANI_POSE_ALIGNMENT, its
+// bones left as they were: for memory whose bones the caller writes
+// before it reads them. The skeleton is valid.
+maniPose* maniPoseMakeHeader(const maniSkeleton* skeleton, void* memory);
+
 // A pose made in memory, the model pass and a bone's model transform
 // for a caller already in
 // the library's floating-point environment (fpenv.h): the public calls'

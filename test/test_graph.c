@@ -1046,6 +1046,12 @@ static void TestEvaluate(void)
     CHECK(maniGraphInstance_Evaluate(copy, s_scratch, size, again) == mani_success &&
               SamePose(again, expected),
           "a copy evaluates the same");
+    // The scratch written over between two evaluations, all but its first
+    // bytes: the caller's memory, used for other work in between.
+    memset(s_scratch + 64, 0x3F, size - 64);
+    CHECK(maniGraphInstance_Evaluate(instance, s_scratch, size, again) == mani_success &&
+              SamePose(again, expected),
+          "the scratch written over in between evaluates the same");
     CHECK(maniGraphInstance_Evaluate(instance, s_scratch, size - 1, pose) == mani_errorCapacity &&
               maniGraphInstance_Evaluate(instance, s_scratch + 16, size, pose) ==
                   mani_errorInvalid &&

@@ -116,18 +116,8 @@ bool maniPoseMatches(const maniPose* pose, const maniSkeleton* skeleton)
     return maniSkeletonValid(skeleton) && maniPoseFits(pose, skeleton);
 }
 
-MANI_NOINLINE maniResult maniInitPoseEntered(const maniSkeleton* skeleton, void* memory,
-                                             size_t size, maniPose** poseOut)
+maniPose* maniPoseMakeHeader(const maniSkeleton* skeleton, void* memory)
 {
-    if (!maniSkeletonValid(skeleton) || memory == NULL || poseOut == NULL ||
-        (uintptr_t)memory % MANI_POSE_ALIGNMENT != 0)
-    {
-        return mani_errorInvalid;
-    }
-    if (size < maniSkeleton_GetPoseSize(skeleton))
-    {
-        return mani_errorCapacity;
-    }
     maniPose* pose = memory;
     uint32_t bones = maniSkeleton_GetBoneCount(skeleton);
     *pose = (maniPose){
@@ -141,6 +131,22 @@ MANI_NOINLINE maniResult maniInitPoseEntered(const maniSkeleton* skeleton, void*
     {
         StoreLocal(Locals(pose), bone, &s_identity);
     }
+    return pose;
+}
+
+MANI_NOINLINE maniResult maniInitPoseEntered(const maniSkeleton* skeleton, void* memory,
+                                             size_t size, maniPose** poseOut)
+{
+    if (!maniSkeletonValid(skeleton) || memory == NULL || poseOut == NULL ||
+        (uintptr_t)memory % MANI_POSE_ALIGNMENT != 0)
+    {
+        return mani_errorInvalid;
+    }
+    if (size < maniSkeleton_GetPoseSize(skeleton))
+    {
+        return mani_errorCapacity;
+    }
+    maniPose* pose = maniPoseMakeHeader(skeleton, memory);
     maniResult result = maniPose_SetRest(pose, skeleton);
     *poseOut = pose;
     return result;
