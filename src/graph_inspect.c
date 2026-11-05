@@ -37,7 +37,9 @@ maniGraphNodeKind maniGraph_GetNodeKind(const maniGraph* graph, uint32_t node)
 
 uint32_t maniGraph_GetNodeInputCount(const maniGraph* graph, uint32_t node)
 {
-    return graph != NULL && node < graph->nodeCount ? maniLoadU32(Record(graph, node) + 8) : 0u;
+    return graph != NULL && node < graph->nodeCount
+               ? maniGraphInputCount(graph, Record(graph, node))
+               : 0u;
 }
 
 uint32_t maniGraph_GetNodeInput(const maniGraph* graph, uint32_t node, uint32_t input)
@@ -47,7 +49,8 @@ uint32_t maniGraph_GetNodeInput(const maniGraph* graph, uint32_t node, uint32_t 
         return MANI_GRAPH_NONE;
     }
     uint32_t first = maniLoadU32(Record(graph, node) + 4);
-    return maniLoadU32(graph->inputs + 4 * ((size_t)first + input));
+    uint32_t found = maniLoadU32(graph->inputs + 4 * ((size_t)first + input));
+    return found < graph->nodeCount ? found : MANI_GRAPH_NONE;
 }
 
 uint32_t maniGraph_GetOutputNode(const maniGraph* graph)
@@ -74,18 +77,11 @@ static float Progress(float elapsed, float duration)
     return duration > 0.0f ? elapsed / duration : 1.0f;
 }
 
-// The data word at of the node whose data words begin at data.
-static uint32_t Word(const maniGraph* graph, uint32_t data, uint32_t at)
-{
-    return maniLoadU32(graph->data + 4 * ((size_t)data + at));
-}
-
 // A machine's state, transition under way and its fade.
-static void Machine(const maniGraph* graph, const uint8_t* e, const uint32_t* blocks,
+static void Machine(const maniGraph* graph, const uint8_t* e, const uint32_t* block,
                     maniGraphNodeView* v)
 {
     maniGraphMachine m = {graph, maniLoadU32(e + 12), maniLoadU32(e + 8)};
-    const uint32_t* block = blocks + maniGraphMachineBlockAt(&m);
     uint32_t t = block[maniGraphBlockRunning];
     v->current = block[maniGraphBlockCurrent];
     if (t != MANI_GRAPH_NO_TRANSITION)
@@ -98,20 +94,15 @@ static void Machine(const maniGraph* graph, const uint8_t* e, const uint32_t* bl
 
 // The kind's block's words: a one-shot's phase and weight, an
 // inertialization's easing, a motion matching node's entry.
-static void Block(const maniGraph* graph, const uint8_t* e, const uint32_t* blocks,
-                  maniGraphNodeView* v)
+static void Block(const uint32_t* block, maniGraphNodeView* v)
 {
-    uint32_t data = maniLoadU32(e + 12);
     if (v->kind == maniGraphNodeOneShot)
     {
-        maniGraphShot shot = {graph, data, 0};
-        const uint32_t* block = blocks + maniGraphShotWord(&shot, maniGraphShotBlock);
         v->current = block[maniGraphShotPhase];
         v->progress = FloatOf(block[maniGraphShotWeight]);
     }
     else if (v->kind == maniGraphNodeInertialize)
     {
-        const uint32_t* block = blocks + Word(graph, data, maniGraphInertiaBlock);
         bool active = (block[maniGraphInertiaFlags] & maniGraphInertiaActive) != 0;
         v->progress = active ? Progress(maniGraphInertiaGet(block, maniGraphInertiaElapsed),
                                         maniGraphInertiaGet(block, maniGraphInertiaDuration))
@@ -119,7 +110,7 @@ static void Block(const maniGraph* graph, const uint8_t* e, const uint32_t* bloc
     }
     else if (v->kind == maniGraphNodeMatch)
     {
-        v->current = blocks[Word(graph, data, maniGraphMatchBlock) + maniGraphMatchEntry];
+        v->current = block[maniGraphMatchEntry];
     }
 }
 
@@ -134,7 +125,9 @@ static MANI_NOINLINE maniResult InspectGraphNodeWork(const maniGraphInstance* in
     const maniGraph* graph = &instance->binding->graph;
     const maniGraphNodeState* s = &instance->cells[graph->parameterCount + node].node;
     const uint8_t* e = Record(graph, node);
-    const uint32_t* blocks = (const uint32_t*)((const uint8_t*)instance + instance->machinesAt);
+    // A node whose block does not fit (the bytes changed since the open)
+    // shows none of it.
+    const uint32_t* block = maniGraphNodeBlockRead(instance, node);
     maniGraphNodeView v = {maniLoadU16(e),
                            s->weight,
                            0.0,
@@ -150,13 +143,13 @@ static MANI_NOINLINE maniResult InspectGraphNodeWork(const maniGraphInstance* in
     {
         v.current = s->word;
     }
-    else if (v.kind == maniGraphNodeMachine)
+    else if (block != NULL && v.kind == maniGraphNodeMachine)
     {
-        Machine(graph, e, blocks, &v);
+        Machine(graph, e, block, &v);
     }
-    else
+    else if (block != NULL)
     {
-        Block(graph, e, blocks, &v);
+        Block(block, &v);
     }
     *out = v;
     return mani_success;

@@ -691,24 +691,24 @@ static uint32_t WordsValid(const maniGraph* g, const Node* n, uint32_t p, uint32
     }
 }
 
-// The words of the block node n keeps in an instance.
-static uint32_t BlockWords(const maniGraph* g, const Node* n)
+uint64_t maniGraphBlockWords(const maniGraph* g, uint32_t kind, uint32_t count, uint32_t data)
 {
-    switch (n->kind)
+    switch (kind)
     {
     case maniGraphNodeMachine:
-        return MANI_GRAPH_BLOCK_SIZE(n->count, Word(g, n->data + 2), Word(g, n->data + 4));
+        return MANI_GRAPH_BLOCK_SIZE((uint64_t)count, (uint64_t)maniGraphWord(g, data + 2),
+                                     (uint64_t)maniGraphWord(g, data + 4));
     case maniGraphNodeOneShot:
         return MANI_GRAPH_SHOT_BLOCK_WORDS;
     case maniGraphNodeInertialize:
-        return MANI_GRAPH_INERTIA_BLOCK(g->skeletonBoneCount,
-                                        Word(g, n->data + maniGraphInertiaMethod));
+        return MANI_GRAPH_INERTIA_BLOCK((uint64_t)g->skeletonBoneCount,
+                                        (uint64_t)maniGraphWord(g, data + maniGraphInertiaMethod));
     case maniGraphNodeMatch:
         return MANI_GRAPH_MATCH_BLOCK_WORDS;
     case maniGraphNodeLearned:
-        return maniGraphLearnedBlockWords(g, n->data);
+        return maniGraphLearnedBlockWords(g, data);
     case maniGraphNodeSpring:
-        return maniGraphSpringBlockWords(g, n->data);
+        return maniGraphSpringBlockWords(g, data);
     case maniGraphNodeTurnLimit:
         return maniGraphTurnBlockWords(g->skeletonBoneCount);
     default:
@@ -750,12 +750,12 @@ maniFileResult maniCheckGraphNodes(const maniGraph* g, uint64_t nodesAt, uint64_
         }
         inputAt += n.count;
         wordAt += n.words;
-        uint32_t block = BlockWords(g, &n);
+        uint64_t block = maniGraphBlockWords(g, n.kind, n.count, n.data);
         if (block > UINT32_MAX - blockAt)
         {
             return Fail(dataAt + 4 * (uint64_t)n.data);
         }
-        blockAt += block;
+        blockAt += (uint32_t)block;
     }
     *machineWordsOut = blockAt;
     if (inputAt != g->inputCount)

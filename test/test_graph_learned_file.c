@@ -388,15 +388,15 @@ static void TestRoom(bool wideFirst)
             at[found] = p;
             found += 1;
         }
-        others = others && (learned || maniGraphLearnedCache(instance, p) == NULL);
+        others = others && (learned || maniGraphLearnedCache(instance, p, first) == NULL);
     }
     const maniLearnedModel* earlier = BoundModelOf(instance, &g, at[0]);
     CHECK(found == 2 && others && maniLearnedHiddenCount(first) > 0 &&
-              (uint8_t*)maniGraphLearnedCache(instance, at[0]) ==
+              (uint8_t*)maniGraphLearnedCache(instance, at[0], earlier) ==
                   (uint8_t*)instance + instance->cachesAt + table &&
 
-              (uint8_t*)maniGraphLearnedCache(instance, at[1]) ==
-                  (uint8_t*)maniGraphLearnedCache(instance, at[0]) + Cache(earlier),
+              (uint8_t*)maniGraphLearnedCache(instance, at[1], BoundModelOf(instance, &g, at[1])) ==
+                  (uint8_t*)maniGraphLearnedCache(instance, at[0], earlier) + Cache(earlier),
           "each node's cache in node order");
     Update(instance, 0.0f);
     Update(instance, 0.05f);

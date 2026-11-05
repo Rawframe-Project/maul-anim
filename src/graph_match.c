@@ -33,7 +33,7 @@ static float FloatOf(uint32_t bits)
 
 static uint32_t Word(const maniGraph* g, uint32_t at)
 {
-    return maniLoadU32(g->data + 4 * (size_t)at);
+    return maniGraphWord(g, at);
 }
 
 static uint32_t ParameterType(const maniGraph* g, uint32_t parameter)
