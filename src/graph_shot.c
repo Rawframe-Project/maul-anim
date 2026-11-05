@@ -33,7 +33,7 @@ static uint32_t BitsOf(float value)
 
 uint32_t maniGraphShotWord(const maniGraphShot* s, uint32_t at)
 {
-    return maniLoadU32(s->graph->data + 4 * (size_t)(s->data + at));
+    return maniGraphWord(s->graph, s->data + at);
 }
 
 float maniGraphShotFloat(const maniGraphShot* s, uint32_t at)
@@ -95,7 +95,7 @@ uint32_t maniGraphSavedShotValid(const uint8_t* bytes)
 
 static uint32_t Word(const maniGraph* g, uint32_t at)
 {
-    return maniLoadU32(g->data + 4 * (size_t)at);
+    return maniGraphWord(g, at);
 }
 
 uint32_t maniGraphShotDataWords(const maniGraph* g, uint32_t data, uint32_t available)

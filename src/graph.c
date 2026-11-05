@@ -607,15 +607,19 @@ uint32_t maniGraph_GetParameterCount(const maniGraph* graph)
     return graph != NULL ? graph->parameterCount : 0;
 }
 
+// A record's name; NULL with a length of 0 for a span past the names
+// (opening took only names inside them, but the bytes stay in the
+// caller's hands).
 static const char* EntryName(const maniGraph* graph, const uint8_t* entry, size_t* lengthOut)
 {
-    // Opening took only names inside the names.
-    MANI_ASSERT((uint64_t)maniLoadU32(entry) + maniLoadU32(entry + 4) <= graph->namesSize);
+    uint32_t at = maniLoadU32(entry);
+    uint32_t length = maniLoadU32(entry + 4);
+    bool inside = (uint64_t)at + length <= graph->namesSize;
     if (lengthOut != NULL)
     {
-        *lengthOut = maniLoadU32(entry + 4);
+        *lengthOut = inside ? length : 0u;
     }
-    return (const char*)(graph->names + maniLoadU32(entry));
+    return inside ? (const char*)(graph->names + at) : NULL;
 }
 
 uint32_t maniGraph_FindParameter(const maniGraph* graph, const char* name, size_t length)
@@ -630,7 +634,7 @@ uint32_t maniGraph_FindParameter(const maniGraph* graph, const char* name, size_
         const uint8_t* e = graph->parameters + (size_t)i * MANI_GRAPH_PARAMETER_SIZE;
         size_t found = 0;
         const char* text = EntryName(graph, e + 8, &found);
-        if (maniLoadU64(e + 16) == hash && found == length &&
+        if (text != NULL && maniLoadU64(e + 16) == hash && found == length &&
             (length == 0 || memcmp(text, name, length) == 0))
         {
             return i;
@@ -809,8 +813,8 @@ uint32_t maniGraph_GetClipRetargetMap(const maniGraph* graph, uint32_t clip)
     {
         return MANI_NO_TRACK;
     }
+    // Opening took only a clip's map slot within the maps; one past them
+    // (the bytes changed since) is none.
     uint32_t map = maniLoadU32(graph->clips + (size_t)clip * MANI_GRAPH_CLIP_SIZE + 28);
-    // Opening took only a clip's map slot within the maps.
-    MANI_ASSERT(map == MANI_GRAPH_NO_MAP || map < graph->mapCount);
-    return map == MANI_GRAPH_NO_MAP ? MANI_NO_TRACK : map;
+    return map < graph->mapCount ? map : MANI_NO_TRACK;
 }

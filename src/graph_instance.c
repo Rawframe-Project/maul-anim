@@ -15,6 +15,7 @@
 #include "graph_learned.h"
 #include "graph_machine.h"
 #include "graph_match.h"
+#include "graph_nodes.h"
 #include "graph_shot.h"
 #include "graph_spring.h"
 #include "graph_turn.h"
@@ -68,7 +69,7 @@ static size_t CursorsAt(const maniGraph* graph)
 static size_t MachinesAt(const maniGraphBinding* binding)
 {
     const maniGraph* graph = &binding->graph;
-    return CursorsAt(graph) + (size_t)ClipNodeCount(graph) * binding->cursorSize;
+    return CursorsAt(graph) + (size_t)binding->clipNodeCount * binding->cursorSize;
 }
 
 static const uint8_t* ParameterEntry(const maniGraph* graph, uint32_t parameter)
@@ -106,29 +107,40 @@ static uint32_t PosesBefore(const maniGraph* graph, uint32_t parameter)
 
 static size_t RoomAt(const maniGraphBinding* binding)
 {
-    const maniGraph* graph = &binding->graph;
-    return PosesAt(binding) + PosesBefore(graph, graph->parameterCount) * PoseBytes(binding);
+    return PosesAt(binding) + (size_t)binding->poseCount * PoseBytes(binding);
 }
 
-// A pose parameter's locals, between the machines' blocks and the room.
+// A pose parameter's place among the poses bind counted, or UINT32_MAX
+// for a parameter past the count, of another type, or past the poses
+// bind counted (the graph's bytes changed since).
+static uint32_t PoseSlot(const maniGraphBinding* b, uint32_t parameter)
+{
+    if (parameter >= b->graph.parameterCount ||
+        maniLoadU32(ParameterEntry(&b->graph, parameter)) != maniGraphParameterPose)
+    {
+        return UINT32_MAX;
+    }
+    uint32_t slot = PosesBefore(&b->graph, parameter);
+    return slot < b->poseCount ? slot : UINT32_MAX;
+}
+
+// Pose slot s's locals, between the machines' blocks and the room.
+static size_t SlotAt(const maniGraphInstance* instance, uint32_t s)
+{
+    return instance->posesAt + (size_t)s * PoseBytes(instance->binding);
+}
+
+// A pose parameter's locals; NULL for none (PoseSlot).
 float* maniGraphPoseLocals(maniGraphInstance* instance, uint32_t parameter)
 {
-    const maniGraphBinding* b = instance->binding;
-    MANI_ASSERT(parameter < b->graph.parameterCount &&
-                maniLoadU32(ParameterEntry(&b->graph, parameter)) == maniGraphParameterPose);
-    size_t at = instance->posesAt + PosesBefore(&b->graph, parameter) * PoseBytes(b);
-    MANI_ASSERT(at + PoseBytes(b) <= instance->roomAt);
-    return (float*)((uint8_t*)instance + at);
+    uint32_t s = PoseSlot(instance->binding, parameter);
+    return s != UINT32_MAX ? (float*)((uint8_t*)instance + SlotAt(instance, s)) : NULL;
 }
 
 const float* maniGraphPoseLocalsRead(const maniGraphInstance* instance, uint32_t parameter)
 {
-    const maniGraphBinding* b = instance->binding;
-    MANI_ASSERT(parameter < b->graph.parameterCount &&
-                maniLoadU32(ParameterEntry(&b->graph, parameter)) == maniGraphParameterPose);
-    size_t at = instance->posesAt + PosesBefore(&b->graph, parameter) * PoseBytes(b);
-    MANI_ASSERT(at + PoseBytes(b) <= instance->roomAt);
-    return (const float*)((const uint8_t*)instance + at);
+    uint32_t s = PoseSlot(instance->binding, parameter);
+    return s != UINT32_MAX ? (const float*)((const uint8_t*)instance + SlotAt(instance, s)) : NULL;
 }
 
 // Every pose parameter at the skeleton's rest.
@@ -136,13 +148,9 @@ static void RestPoses(maniGraphInstance* instance)
 {
     const maniGraphBinding* b = instance->binding;
     uint32_t bones = maniSkeleton_GetBoneCount(b->skeleton);
-    for (uint32_t i = 0; i < b->graph.parameterCount; ++i)
+    for (uint32_t s = 0; s < b->poseCount; ++s)
     {
-        if (maniLoadU32(ParameterEntry(&b->graph, i)) != maniGraphParameterPose)
-        {
-            continue;
-        }
-        float* locals = maniGraphPoseLocals(instance, i);
+        float* locals = (float*)((uint8_t*)instance + SlotAt(instance, s));
         for (uint32_t bone = 0; bone < bones; ++bone)
         {
             maniTransform t = maniSkeleton_GetRest(b->skeleton, bone);
@@ -158,8 +166,7 @@ static void RestPoses(maniGraphInstance* instance)
 static const maniLearnedModel* LearnedModel(const maniGraphBinding* binding, uint32_t data)
 {
     const maniGraph* graph = &binding->graph;
-    return maniGraphBoundModel(
-        binding, maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel)));
+    return maniGraphBoundModel(binding, maniGraphWord(graph, data + maniGraphLearnedModel));
 }
 
 // A learned node's cache in floats: a word set once kept (0 from the
@@ -167,6 +174,10 @@ static const maniLearnedModel* LearnedModel(const maniGraphBinding* binding, uin
 // hidden values; none for a Decompressor of one layer.
 static size_t CacheFloats(const maniLearnedModel* m)
 {
+    if (m == NULL)
+    {
+        return 0;
+    }
     uint32_t hidden = maniLearnedHiddenCount(m);
     return hidden > 0 ? 1u + (size_t)m->featureCount + m->latentCount + hidden : 0u;
 }
@@ -198,31 +209,35 @@ static void PlaceCaches(maniGraphInstance* instance)
         return;
     }
     uint32_t* table = (uint32_t*)((uint8_t*)instance + instance->cachesAt);
-    uint32_t at = 0;
+    size_t at = 0;
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
         size_t floats = maniLoadU16(e) == maniGraphNodeLearned
                             ? CacheFloats(LearnedModel(binding, maniLoadU32(e + 12)))
                             : 0u;
-        table[p] = floats > 0 ? at : UINT32_MAX;
-        at += (uint32_t)floats;
+        // Only what bind counted is placed: bytes changed since leave a
+        // node without a cache.
+        bool fits = floats > 0 && floats <= binding->cacheFloats - at;
+        table[p] = fits ? (uint32_t)at : UINT32_MAX;
+        at += fits ? floats : 0u;
     }
-    // The table and the caches fill the instance to its end.
-    MANI_ASSERT(instance->cachesAt + sizeof(float) * ((size_t)graph->nodeCount + at) ==
-                instance->size);
 }
 
-float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node)
+float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node,
+                             const maniLearnedModel* model)
 {
-    if (instance->cachesAt == instance->size)
+    const maniGraphBinding* binding = instance->binding;
+    if (instance->cachesAt == instance->size || node >= binding->graph.nodeCount || model == NULL)
     {
         return NULL;
     }
-    MANI_ASSERT(node < instance->binding->graph.nodeCount);
     uint32_t* table = (uint32_t*)((uint8_t*)instance + instance->cachesAt);
     uint32_t at = table[node];
-    return at != UINT32_MAX ? (float*)(table + instance->binding->graph.nodeCount) + at : NULL;
+    size_t floats = CacheFloats(model);
+    // The model the node names now may take more than its place.
+    bool fits = at != UINT32_MAX && floats > 0 && floats <= binding->cacheFloats - at;
+    return fits ? (float*)(table + binding->graph.nodeCount) + at : NULL;
 }
 
 size_t maniGraphRoom(const maniGraphBinding* binding)
@@ -234,18 +249,21 @@ size_t maniGraphRoom(const maniGraphBinding* binding)
         const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
         uint32_t data = maniLoadU32(e + 12);
         size_t need = 0;
-        if (maniLoadU16(e) == maniGraphNodeLearned)
+        const maniLearnedModel* m =
+            maniLoadU16(e) == maniGraphNodeLearned ? LearnedModel(binding, data) : NULL;
+        const maniSpringSet* set =
+            maniLoadU16(e) == maniGraphNodeSpring
+                ? maniGraphBoundSpringSet(binding, maniGraphWord(graph, data + maniGraphSpringSet))
+                : NULL;
+        // A node of a kind the bound assets give none of (the bytes
+        // changed since the open) takes no room.
+        if (m != NULL)
         {
-            const maniLearnedModel* m = LearnedModel(binding, data);
-            size_t tail =
-                (size_t)m->outputCount - 9 * (size_t)m->boneCount - 3 * (size_t)m->scaledBoneCount;
-            need = maniLearnedModel_GetScratchSize(m) +
-                   sizeof(float) * ((size_t)m->featureCount + m->latentCount + tail);
+            need = maniGraphLearnedRoom(m);
         }
-        else if (maniLoadU16(e) == maniGraphNodeSpring)
+        else if (set != NULL)
         {
-            uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphSpringSet));
-            need = 4 * (size_t)maniGraphSpringWorkWords(maniGraphBoundSpringSet(binding, slot));
+            need = 4 * (size_t)maniGraphSpringWorkWords(set);
         }
         else if (maniLoadU16(e) == maniGraphNodeBodyXpbd || maniLoadU16(e) == maniGraphNodeBodySdls)
         {
@@ -256,6 +274,15 @@ size_t maniGraphRoom(const maniGraphBinding* binding)
     return (room + 7u) & ~(size_t)7u;
 }
 
+void maniGraphRecordLayout(maniGraphBinding* binding)
+{
+    const maniGraph* graph = &binding->graph;
+    binding->clipNodeCount = ClipNodeCount(graph);
+    binding->poseCount = PosesBefore(graph, graph->parameterCount);
+    binding->room = maniGraphRoom(binding);
+    binding->cacheFloats = Caches(binding);
+}
+
 size_t maniGraphBinding_GetInstanceSize(const maniGraphBinding* binding)
 {
     if (!BindingValid(binding))
@@ -264,9 +291,9 @@ size_t maniGraphBinding_GetInstanceSize(const maniGraphBinding* binding)
     }
     // The caches after a table of their places, one word a node, when any
     // node has one.
-    size_t caches = Caches(binding);
+    size_t caches = binding->cacheFloats;
     size_t table = caches > 0 ? binding->graph.nodeCount : 0u;
-    return RoomAt(binding) + maniGraphRoom(binding) + sizeof(float) * (table + caches);
+    return RoomAt(binding) + binding->room + sizeof(float) * (table + caches);
 }
 
 // The machine node p's view, or none (states 0) for another kind.
@@ -282,59 +309,30 @@ static uint32_t* Blocks(maniGraphInstance* instance)
     return (uint32_t*)((uint8_t*)instance + instance->machinesAt);
 }
 
-// The one-shot, inertialize, motion matching, learned or spring node p's
-// block's first word, or UINT32_MAX for another kind.
+static uint32_t Kind(const maniGraph* graph, uint32_t p)
+{
+    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE);
+}
+
+// The one-shot, inertialize, motion matching, learned, spring or turn
+// limit node p's block's first word, or UINT32_MAX for another kind.
 static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
 {
-    const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
-    maniGraphShot shot = {graph, maniLoadU32(e + 12), 0};
-    if (maniLoadU16(e) == maniGraphNodeInertialize)
+    static const uint32_t kBlockWord[][2] = {{maniGraphNodeOneShot, maniGraphShotBlock},
+                                             {maniGraphNodeInertialize, maniGraphInertiaBlock},
+                                             {maniGraphNodeMatch, maniGraphMatchBlock},
+                                             {maniGraphNodeLearned, maniGraphLearnedBlock},
+                                             {maniGraphNodeSpring, maniGraphSpringBlock},
+                                             {maniGraphNodeTurnLimit, maniGraphTurnBlock}};
+    uint32_t data = maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
+    for (size_t k = 0; k < sizeof kBlockWord / sizeof kBlockWord[0]; ++k)
     {
-        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphInertiaBlock));
+        if (Kind(graph, p) == kBlockWord[k][0])
+        {
+            return maniGraphWord(graph, data + kBlockWord[k][1]);
+        }
     }
-    if (maniLoadU16(e) == maniGraphNodeMatch)
-    {
-        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphMatchBlock));
-    }
-    if (maniLoadU16(e) == maniGraphNodeLearned)
-    {
-        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphLearnedBlock));
-    }
-    if (maniLoadU16(e) == maniGraphNodeSpring)
-    {
-        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphSpringBlock));
-    }
-    if (maniLoadU16(e) == maniGraphNodeTurnLimit)
-    {
-        return maniLoadU32(graph->data + 4 * (size_t)(maniLoadU32(e + 12) + maniGraphTurnBlock));
-    }
-    return maniLoadU16(e) == maniGraphNodeOneShot ? maniGraphShotWord(&shot, maniGraphShotBlock)
-                                                  : UINT32_MAX;
-}
-
-MANI_NODISCARD static bool Inertial(const maniGraph* graph, uint32_t p)
-{
-    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeInertialize;
-}
-
-MANI_NODISCARD static bool Matching(const maniGraph* graph, uint32_t p)
-{
-    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeMatch;
-}
-
-MANI_NODISCARD static bool Learning(const maniGraph* graph, uint32_t p)
-{
-    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeLearned;
-}
-
-MANI_NODISCARD static bool Springing(const maniGraph* graph, uint32_t p)
-{
-    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeSpring;
-}
-
-MANI_NODISCARD static bool Turning(const maniGraph* graph, uint32_t p)
-{
-    return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeTurnLimit;
+    return UINT32_MAX;
 }
 
 static uint32_t DataOf(const maniGraph* graph, uint32_t p)
@@ -349,44 +347,78 @@ static maniGraphInertia InertiaAt(const maniGraph* graph, uint32_t p)
                               maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12));
 }
 
+// Node p's block's first word, or UINT32_MAX for a kind without one.
+static uint32_t BlockFirst(const maniGraph* graph, uint32_t p)
+{
+    maniGraphMachine m = MachineAt(graph, p);
+    return m.states > 0 ? maniGraphMachineBlockAt(&m) : ShotBlockAt(graph, p);
+}
+
+// Node p's block's first word when its block, as its kind and data size
+// it now, fits in the machines' words; UINT32_MAX otherwise.
+static uint32_t FittingBlock(const maniGraph* graph, uint32_t p)
+{
+    const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+    uint32_t first = BlockFirst(graph, p);
+    uint64_t words =
+        maniGraphBlockWords(graph, maniLoadU16(e), maniLoadU32(e + 8), maniLoadU32(e + 12));
+    bool fits = first != UINT32_MAX && first <= graph->machineWords &&
+                words <= (uint64_t)graph->machineWords - first;
+    return fits ? first : UINT32_MAX;
+}
+
+uint32_t* maniGraphNodeBlock(maniGraphInstance* instance, uint32_t p)
+{
+    const maniGraph* graph = &instance->binding->graph;
+    uint32_t first = p < graph->nodeCount ? FittingBlock(graph, p) : UINT32_MAX;
+    return first != UINT32_MAX ? Blocks(instance) + first : NULL;
+}
+
+const uint32_t* maniGraphNodeBlockRead(const maniGraphInstance* instance, uint32_t p)
+{
+    return maniGraphNodeBlock((maniGraphInstance*)instance, p);
+}
+
 static void ResetMachines(maniGraphInstance* instance)
 {
     const maniGraph* graph = &instance->binding->graph;
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
+        uint32_t* block = maniGraphNodeBlock(instance, p);
         maniGraphMachine m = MachineAt(graph, p);
-        uint32_t shot = ShotBlockAt(graph, p);
-        // The opener placed every block within the machines' words.
-        MANI_ASSERT(m.states == 0 || maniGraphMachineBlockAt(&m) < graph->machineWords);
-        MANI_ASSERT(shot == UINT32_MAX || shot < graph->machineWords);
+        uint32_t kind = Kind(graph, p);
+        if (block == NULL)
+        {
+            continue;
+        }
         if (m.states > 0)
         {
-            maniGraphResetMachine(&m, Blocks(instance) + maniGraphMachineBlockAt(&m));
+            maniGraphResetMachine(&m, block);
         }
-        else if (shot != UINT32_MAX && Inertial(graph, p))
+        else if (kind == maniGraphNodeInertialize)
         {
             maniGraphInertia node = InertiaAt(graph, p);
-            maniGraphResetInertia(Blocks(instance) + shot, &node);
+            maniGraphResetInertia(block, &node);
         }
-        else if (shot != UINT32_MAX && Matching(graph, p))
+        else if (kind == maniGraphNodeMatch)
         {
-            maniGraphResetMatch(Blocks(instance) + shot);
+            maniGraphResetMatch(block);
         }
-        else if (shot != UINT32_MAX && Learning(graph, p))
+        else if (kind == maniGraphNodeLearned)
         {
-            maniGraphResetLearned(graph, DataOf(graph, p), Blocks(instance) + shot);
+            maniGraphResetLearned(graph, DataOf(graph, p), block);
         }
-        else if (shot != UINT32_MAX && Springing(graph, p))
+        else if (kind == maniGraphNodeSpring)
         {
-            maniGraphResetSpring(graph, DataOf(graph, p), Blocks(instance) + shot);
+            maniGraphResetSpring(graph, DataOf(graph, p), block);
         }
-        else if (shot != UINT32_MAX && Turning(graph, p))
+        else if (kind == maniGraphNodeTurnLimit)
         {
-            maniGraphResetTurn(Blocks(instance) + shot, graph->skeletonBoneCount);
+            maniGraphResetTurn(block, graph->skeletonBoneCount);
         }
-        else if (shot != UINT32_MAX)
+        else
         {
-            maniGraphResetShot(Blocks(instance) + shot);
+            maniGraphResetShot(block);
         }
     }
 }
@@ -423,14 +455,14 @@ static MANI_NOINLINE maniResult InitGraphInstanceWork(const maniGraphBinding* bi
     maniGraphInstance* instance = memory;
     memset(instance, 0, needed);
     instance->stamp = MANI_GRAPH_INSTANCE_STAMP;
-    instance->clipNodeCount = ClipNodeCount(graph);
+    instance->clipNodeCount = binding->clipNodeCount;
     instance->binding = binding;
     instance->size = needed;
     instance->cursorsAt = CursorsAt(graph);
     instance->machinesAt = MachinesAt(binding);
     instance->posesAt = PosesAt(binding);
     instance->roomAt = RoomAt(binding);
-    instance->cachesAt = instance->roomAt + maniGraphRoom(binding);
+    instance->cachesAt = instance->roomAt + binding->room;
     MANI_ASSERT(instance->cursorsAt <= instance->machinesAt &&
                 instance->machinesAt <= instance->posesAt &&
                 instance->posesAt <= instance->roomAt && instance->roomAt <= instance->cachesAt &&
@@ -487,18 +519,23 @@ maniResult maniGraphInstance_SetParameter(maniGraphInstance* instance, uint32_t 
 void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, maniPose* out)
 {
     MANI_ASSERT(maniPoseMatches(out, instance->binding->skeleton));
+    const float* locals = maniGraphPoseLocalsRead(instance, parameter);
+    if (locals == NULL)
+    {
+        // A pose node whose parameter the bytes no longer give.
+        (void)maniPose_SetRest(out, instance->binding->skeleton);
+        return;
+    }
     maniPoseSetKind(out, false);
-    memcpy(maniPoseLocals(out), maniGraphPoseLocalsRead(instance, parameter),
-           PoseBytes(instance->binding));
+    memcpy(maniPoseLocals(out), locals, PoseBytes(instance->binding));
     maniPoseMarkStale(out);
 }
 
-// A pose parameter of the instance's graph.
+// A pose parameter of the instance's graph, with its place among the
+// poses bind counted.
 MANI_NODISCARD static bool PoseParameter(const maniGraphInstance* instance, uint32_t parameter)
 {
-    const maniGraph* graph = &instance->binding->graph;
-    return parameter < graph->parameterCount &&
-           maniLoadU32(ParameterEntry(graph, parameter)) == maniGraphParameterPose;
+    return PoseSlot(instance->binding, parameter) != UINT32_MAX;
 }
 
 static MANI_NOINLINE maniResult SetGraphPoseWork(maniGraphInstance* instance, uint32_t parameter,
@@ -562,8 +599,8 @@ static size_t StateSize(const maniGraphBinding* binding)
     const maniGraph* graph = &binding->graph;
     size_t cells = (size_t)graph->parameterCount + graph->nodeCount;
     // Each pose parameter's locals, the skeleton's bones' (no padding).
-    size_t poses = (size_t)PosesBefore(graph, graph->parameterCount) *
-                   maniSkeleton_GetBoneCount(binding->skeleton) * MANI_POSE_COMPONENTS * 4;
+    size_t poses = (size_t)binding->poseCount * maniSkeleton_GetBoneCount(binding->skeleton) *
+                   MANI_POSE_COMPONENTS * 4;
     return MANI_GRAPH_STATE_HEADER_SIZE + cells * MANI_GRAPH_VALUE_SIZE +
            4 * (size_t)graph->machineWords + poses;
 }
@@ -576,18 +613,13 @@ static void StoreF32(uint8_t* p, float value)
 }
 
 // Each pose parameter's locals, bone by bone, after the machines'
-// blocks.
+// blocks: the poses bind counted, in parameter order.
 static void SavePoses(const maniGraphInstance* instance, uint8_t* p)
 {
-    const maniGraph* graph = &instance->binding->graph;
     uint32_t bones = maniSkeleton_GetBoneCount(instance->binding->skeleton);
-    for (uint32_t i = 0; i < graph->parameterCount; ++i)
+    for (uint32_t s = 0; s < instance->binding->poseCount; ++s)
     {
-        if (maniLoadU32(ParameterEntry(graph, i)) != maniGraphParameterPose)
-        {
-            continue;
-        }
-        const float* locals = maniGraphPoseLocalsRead(instance, i);
+        const float* locals = (const float*)((const uint8_t*)instance + SlotAt(instance, s));
         for (uint32_t bone = 0; bone < bones; ++bone)
         {
             const float* slot = locals +
@@ -646,7 +678,7 @@ static MANI_NOINLINE maniResult SaveGraphInstanceWork(const maniGraphInstance* i
     }
     // The poses' locals take the rest of the state.
     MANI_ASSERT((size_t)(p - (uint8_t*)out) +
-                    (size_t)PosesBefore(graph, graph->parameterCount) *
+                    (size_t)instance->binding->poseCount *
                         maniSkeleton_GetBoneCount(instance->binding->skeleton) *
                         MANI_POSE_COMPONENTS * 4 ==
                 size);
@@ -720,14 +752,17 @@ static uint32_t SavedMatchValid(const maniGraphBinding* binding, uint32_t p, con
 {
     const maniGraph* graph = &binding->graph;
     uint32_t data = maniLoadU32(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
-    uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphMatchDatabase));
+    uint32_t slot = maniGraphWord(graph, data + maniGraphMatchDatabase);
     uint64_t at = MANI_GRAPH_STATE_HEADER_SIZE +
                   (uint64_t)(graph->parameterCount + p) * MANI_GRAPH_VALUE_SIZE;
     uint64_t bits = maniLoadU64(b + at + 8);
     double time = 0.0;
     memcpy(&time, &bits, sizeof time);
-    return maniGraphSavedMatchValid(block, graph, data, maniGraphBoundDatabase(binding, slot),
-                                    time);
+    const maniMotionDatabase* database = maniGraphBoundDatabase(binding, slot);
+    // A node without a database (the bytes changed since the open) never
+    // reads its block.
+    return database != NULL ? maniGraphSavedMatchValid(block, graph, data, database, time)
+                            : UINT32_MAX;
 }
 
 // A spring node's saved block, against its slot's set.
@@ -735,8 +770,21 @@ static uint32_t SavedSpringValid(const maniGraphBinding* binding, uint32_t p, co
 {
     const maniGraph* graph = &binding->graph;
     uint32_t data = DataOf(graph, p);
-    uint32_t slot = maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphSpringSet));
-    return maniGraphSavedSpringValid(block, maniGraphBoundSpringSet(binding, slot));
+    const maniSpringSet* set =
+        maniGraphBoundSpringSet(binding, maniGraphWord(graph, data + maniGraphSpringSet));
+    return set != NULL ? maniGraphSavedSpringValid(block, set) : UINT32_MAX;
+}
+
+// A learned node's saved block, against its slot's model.
+static uint32_t SavedLearnedValid(const maniGraphBinding* binding, uint32_t p, const uint8_t* block)
+{
+    const maniGraph* graph = &binding->graph;
+    uint32_t data = DataOf(graph, p);
+    const maniLearnedModel* model =
+        maniGraphBoundModel(binding, maniGraphWord(graph, data + maniGraphLearnedModel));
+    // A node without a model (the bytes changed since the open) never
+    // reads its block.
+    return model != NULL ? maniGraphSavedLearnedValid(block, graph, data, model) : UINT32_MAX;
 }
 
 // The first wrong word of node p's saved block, m its machine (none if
@@ -746,19 +794,15 @@ static uint32_t SavedBlockValid(const maniGraphBinding* binding, uint32_t p,
 {
     const maniGraph* graph = &binding->graph;
     maniGraphInertia node = InertiaAt(graph, p);
-    uint32_t data = DataOf(graph, p);
-    const maniLearnedModel* model =
-        Learning(graph, p)
-            ? maniGraphBoundModel(
-                  binding, maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel)))
-            : NULL;
-    return m->states > 0         ? maniGraphSavedBlockValid(m, block)
-           : Inertial(graph, p)  ? maniGraphSavedInertiaValid(block, &node)
-           : Matching(graph, p)  ? SavedMatchValid(binding, p, b, block)
-           : Springing(graph, p) ? SavedSpringValid(binding, p, block)
-           : Turning(graph, p)   ? maniGraphSavedTurnValid(block, graph->skeletonBoneCount)
-           : model != NULL       ? maniGraphSavedLearnedValid(block, graph, data, model)
-                                 : maniGraphSavedShotValid(block);
+    uint32_t kind = Kind(graph, p);
+    return m->states > 0                      ? maniGraphSavedBlockValid(m, block)
+           : kind == maniGraphNodeInertialize ? maniGraphSavedInertiaValid(block, &node)
+           : kind == maniGraphNodeMatch       ? SavedMatchValid(binding, p, b, block)
+           : kind == maniGraphNodeSpring      ? SavedSpringValid(binding, p, block)
+           : kind == maniGraphNodeTurnLimit
+               ? maniGraphSavedTurnValid(block, graph->skeletonBoneCount)
+           : kind == maniGraphNodeLearned ? SavedLearnedValid(binding, p, block)
+                                          : maniGraphSavedShotValid(block);
 }
 
 // Every node's block in a saved state, the blocks starting at at.
@@ -768,13 +812,13 @@ static maniFileResult CheckBlocks(const maniGraphInstance* instance, const uint8
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         maniGraphMachine m = MachineAt(graph, p);
-        uint32_t shot = ShotBlockAt(graph, p);
-        uint32_t first = m.states > 0 ? maniGraphMachineBlockAt(&m) : shot;
+        // A block that does not fit (the bytes changed since the open) is
+        // never read, so its saved words are not checked.
+        uint32_t first = FittingBlock(graph, p);
         if (first == UINT32_MAX)
         {
             continue;
         }
-        MANI_ASSERT(first < graph->machineWords);
         uint64_t block = at + 4 * (uint64_t)first;
         uint32_t wrong = SavedBlockValid(instance->binding, p, &m, b, b + block);
         if (wrong != UINT32_MAX)
@@ -814,8 +858,7 @@ static uint32_t SavedLocalsWrong(const uint8_t* p)
 // Each pose parameter's saved locals, from at.
 static maniFileResult CheckPoses(const maniGraphInstance* instance, const uint8_t* b, uint64_t at)
 {
-    const maniGraph* graph = &instance->binding->graph;
-    uint64_t bones = (uint64_t)PosesBefore(graph, graph->parameterCount) *
+    uint64_t bones = (uint64_t)instance->binding->poseCount *
                      maniSkeleton_GetBoneCount(instance->binding->skeleton);
     for (uint64_t bone = 0; bone < bones; ++bone, at += 4 * MANI_POSE_COMPONENTS)
     {
@@ -872,15 +915,10 @@ static maniFileResult CheckState(const maniGraphInstance* instance, const uint8_
 // Each pose parameter's locals from the saved bytes (checked).
 static void RestorePoses(maniGraphInstance* instance, const uint8_t* p)
 {
-    const maniGraph* graph = &instance->binding->graph;
     uint32_t bones = maniSkeleton_GetBoneCount(instance->binding->skeleton);
-    for (uint32_t i = 0; i < graph->parameterCount; ++i)
+    for (uint32_t s = 0; s < instance->binding->poseCount; ++s)
     {
-        if (maniLoadU32(ParameterEntry(graph, i)) != maniGraphParameterPose)
-        {
-            continue;
-        }
-        float* locals = maniGraphPoseLocals(instance, i);
+        float* locals = (float*)((uint8_t*)instance + SlotAt(instance, s));
         for (uint32_t bone = 0; bone < bones; ++bone)
         {
             float values[MANI_POSE_COMPONENTS];
@@ -927,7 +965,7 @@ static MANI_NOINLINE maniFileResult RestoreGraphInstanceWork(maniGraphInstance* 
         blocks[w] = maniLoadU32(p);
     }
     MANI_ASSERT((size_t)(p - (const uint8_t*)bytes) +
-                    (size_t)PosesBefore(graph, graph->parameterCount) *
+                    (size_t)instance->binding->poseCount *
                         maniSkeleton_GetBoneCount(instance->binding->skeleton) *
                         MANI_POSE_COMPONENTS * 4 ==
                 StateSize(instance->binding));
