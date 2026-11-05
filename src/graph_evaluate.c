@@ -3,7 +3,7 @@
 //
 // Evaluating a graph instance: each weighed node in order
 // writes its slot's pose from its inputs' slots, through a scratch of a
-// pose per slot made once for the binding it last served.
+// pose per slot, made again on every evaluation.
 
 #include "blend_groups.h"
 #include "bytes.h"
@@ -42,18 +42,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#define SCRATCH_STAMP 0x4D475343u
-#define HEADER_SIZE   64u
-
-// The scratch's head: whom its poses were made for.
-typedef struct Head
-{
-    uint32_t stamp;
-    uint32_t slotCount;
-    const maniGraphBinding* binding;
-    uint64_t identity;
-} Head;
-
 static size_t Round(size_t size)
 {
     return (size + MANI_GRAPH_SCRATCH_ALIGNMENT - 1) / MANI_GRAPH_SCRATCH_ALIGNMENT *
@@ -63,7 +51,7 @@ static size_t Round(size_t size)
 static maniGraphEvalParts PartsOf(const maniGraphBinding* binding)
 {
     maniGraphEvalParts parts;
-    parts.layersAt = HEADER_SIZE;
+    parts.layersAt = 0;
     parts.weightsAt = parts.layersAt + Round((size_t)binding->maxInputs * sizeof(maniBlendLayer));
     parts.posesAt =
         parts.weightsAt + Round(2 * (size_t)binding->graph.skeletonBoneCount * sizeof(float));
@@ -87,23 +75,16 @@ size_t maniGraphBinding_GetScratchSize(const maniGraphBinding* binding)
     return PartsOf(binding).size;
 }
 
-// The poses made for this binding, once.
+// The slots' poses' headers, made on every evaluation: the scratch is
+// the caller's memory, and what an earlier evaluation left in it may
+// since have been written over. A node writes its slot's bones before
+// any node reads them.
 static void Prepare(maniGraphEvaluation* e)
 {
-    void* memory = e->scratch;
-    Head* head = memory;
-    if (head->stamp == SCRATCH_STAMP && head->binding == e->binding &&
-        head->identity == e->graph->identity)
-    {
-        return;
-    }
     for (uint32_t slot = 0; slot < e->graph->slotCount; ++slot)
     {
-        maniPose* pose = NULL;
-        (void)maniInitPoseEntered(e->binding->skeleton, maniGraphEvalSlot(e, slot),
-                                  e->parts.poseSize, &pose);
+        (void)maniPoseMakeHeader(e->binding->skeleton, maniGraphEvalSlot(e, slot));
     }
-    *head = (Head){SCRATCH_STAMP, e->graph->slotCount, e->binding, e->graph->identity};
 }
 
 static void Blend(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out,
