@@ -28,13 +28,13 @@
 #define COMPONENTS MANI_POSE_COMPONENTS
 
 // Between 0 and 1 (NaN fails).
-static bool Usable(float w)
+MANI_NODISCARD static bool Usable(float w)
 {
     return w >= 0.0f && w <= 1.0f;
 }
 
-static bool LayerValid(const maniBlendLayer* layer, const maniSkeleton* skeleton,
-                       const maniPose* out, bool difference)
+MANI_NODISCARD static bool LayerValid(const maniBlendLayer* layer, const maniSkeleton* skeleton,
+                                      const maniPose* out, bool difference)
 {
     if (!maniPoseFits(layer->pose, skeleton) || layer->pose == out || !Usable(layer->weight) ||
         maniPose_IsDifference(layer->pose) != difference)
@@ -54,8 +54,9 @@ static bool LayerValid(const maniBlendLayer* layer, const maniSkeleton* skeleton
 // The arguments checked before anything is written; the layers' kind out.
 // A threshold is a normal binary32 so that one over it, or over a total
 // at least as large, is finite.
-static bool Valid(const maniSkeleton* skeleton, const maniBlendLayer* layers, uint32_t count,
-                  float threshold, const maniPose* out, bool* difference)
+MANI_NODISCARD static bool Valid(const maniSkeleton* skeleton, const maniBlendLayer* layers,
+                                 uint32_t count, float threshold, const maniPose* out,
+                                 bool* difference)
 {
     if (!maniPoseMatches(out, skeleton) || (layers == NULL && count > 0) || !Usable(threshold) ||
         !(threshold >= FLT_MIN))
@@ -165,8 +166,9 @@ static void Settle(float* o, const float* total, const maniSkeleton* skeleton, u
 // before any pose is read), the reciprocal the weights' shares take (of
 // the threshold where the total is under it), and the rest's share of
 // the shortfall; whether any bone takes a share.
-static bool Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first, uint32_t lanes,
-                   float threshold, float* total, float* inverse, float* share)
+MANI_NODISCARD static bool Shares(const maniBlendLayer* layers, uint32_t count, uint32_t first,
+                                  uint32_t lanes, float threshold, float* total, float* inverse,
+                                  float* share)
 {
     float w[LANES];
     for (uint32_t k = 0; k < LANES; ++k)

@@ -119,7 +119,7 @@ static maniImportResult RequiredNumber(const Reader* r, uint32_t object, const c
 }
 
 // Within a thousandth of length 1, as the spring builder takes it.
-static bool Unit(float lengthSquared)
+MANI_NODISCARD static bool Unit(float lengthSquared)
 {
     return lengthSquared >= 0.998f && lengthSquared <= 1.002f;
 }
@@ -473,7 +473,7 @@ static maniImportResult ReadGroups(Reader* r, uint32_t extension)
     return result;
 }
 
-static bool IsAncestor(const maniGltf* gltf, uint32_t ancestor, uint32_t node)
+MANI_NODISCARD static bool IsAncestor(const maniGltf* gltf, uint32_t ancestor, uint32_t node)
 {
     for (uint32_t v = gltf->nodeParents[node]; v != MANI_JSON_NONE; v = gltf->nodeParents[v])
     {
@@ -566,7 +566,7 @@ static maniImportResult ReadJoint(const Reader* r, uint32_t value, uint32_t item
 }
 
 // Whether the options change no axis.
-static bool BasisKept(const maniGltfOptions* options)
+MANI_NODISCARD static bool BasisKept(const maniGltfOptions* options)
 {
     return options->axes[0] == maniAxisX && options->axes[1] == maniAxisY &&
            options->axes[2] == maniAxisZ;

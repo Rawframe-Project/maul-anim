@@ -32,7 +32,7 @@ static maniBuildResult Result(maniResult result, maniBuildReason reason, uint32_
 
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);
@@ -242,7 +242,7 @@ typedef struct Work
 } Work;
 
 // count times k elements of size bytes, in a size_t; false past it.
-static bool Fits(uint64_t count, uint64_t k, size_t size)
+MANI_NODISCARD static bool Fits(uint64_t count, uint64_t k, size_t size)
 {
     uint64_t bytes = 0;
     return !ckd_mul(&bytes, count, k) && !ckd_mul(&bytes, bytes, (uint64_t)size) &&
@@ -354,7 +354,7 @@ static void SumAttribute(Work* w, const maniMorphTargetSource* s, uint32_t attri
     }
 }
 
-static bool Merge(Work* w, uint32_t t)
+MANI_NODISCARD static bool Merge(Work* w, uint32_t t)
 {
     const maniMorphTargetSource* s = w->sources[t];
     Merged* m = &w->merged[t];
@@ -403,7 +403,7 @@ static void Release(Work* w)
     maniRelease(a, (void*)w->sources, w->targetCount, sizeof(void*), 8);
 }
 
-static bool Allocate(Work* w)
+MANI_NODISCARD static bool Allocate(Work* w)
 {
     const maniAllocator* a = w->allocator;
     size_t n = (size_t)w->widest + 1;

@@ -43,7 +43,8 @@ maniDracoStatus maniDracoTraverse(maniArena* arena, const maniDracoTable* table,
 // Each point's value (pointToValue, pointCount long) from the faces:
 // false where a corner's vertex is none or a point or value is past the
 // points, as Google's UpdatePointToAttributeIndexMapping refuses.
-bool maniDracoPointValues(const maniDracoTable* table, const maniDracoOrder* order,
-                          const uint32_t* cornerPoint, uint32_t pointCount, uint32_t* pointToValue);
+MANI_NODISCARD bool maniDracoPointValues(const maniDracoTable* table, const maniDracoOrder* order,
+                                         const uint32_t* cornerPoint, uint32_t pointCount,
+                                         uint32_t* pointToValue);
 
 #endif // MAUL_ANIM_SRC_GLTF_DRACO_TRAVERSE_H

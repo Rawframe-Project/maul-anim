@@ -64,13 +64,13 @@ static uint32_t ParameterType(const maniGraph* g, uint32_t parameter)
                : UINT32_MAX;
 }
 
-static bool Finite(float value, float low)
+MANI_NODISCARD static bool Finite(float value, float low)
 {
     return isfinite(value) && value >= low;
 }
 
 // A condition's four words, as the builder writes them.
-static bool ConditionValid(const maniGraph* g, uint32_t at)
+MANI_NODISCARD static bool ConditionValid(const maniGraph* g, uint32_t at)
 {
     uint32_t parameter = Word(g, at + 1);
     uint32_t compare = Word(g, at + 2);
@@ -142,7 +142,7 @@ static uint32_t TransitionValid(const maniGraph* g, uint32_t at, uint32_t states
 
 // Whether transition t's entry matches or a condition of it reads the
 // leading clip.
-static bool Listens(const maniGraph* g, uint32_t at, uint32_t conditions)
+MANI_NODISCARD static bool Listens(const maniGraph* g, uint32_t at, uint32_t conditions)
 {
     bool listens = (Word(g, at + 3) >> 4 & 0xFu) == maniGraphEntryMatch;
     for (uint32_t c = 0; c < Word(g, at + 7) && !listens; ++c)

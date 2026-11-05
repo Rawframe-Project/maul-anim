@@ -21,7 +21,7 @@
 #define MANI_VIEW_COOKIE(kind) (0x8D410000u | (uint32_t)(kind))
 
 // Whether bytes at offset lie within a file of size.
-static inline bool maniViewFits(uint64_t offset, uint64_t bytes, uint64_t size)
+MANI_NODISCARD static inline bool maniViewFits(uint64_t offset, uint64_t bytes, uint64_t size)
 {
     return offset <= size && bytes <= size - offset;
 }

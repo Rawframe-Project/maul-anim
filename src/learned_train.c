@@ -53,8 +53,8 @@ static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
 // Each network's sizes: n 0 the Compressor, 1 the Decompressor, 2 the
 // Stepper, 3 a Projector.
-static bool Shape(const maniLearnedTrainerSource* s, const maniTrainData* d, uint32_t n,
-                  maniTrainNet* net)
+MANI_NODISCARD static bool Shape(const maniLearnedTrainerSource* s, const maniTrainData* d,
+                                 uint32_t n, maniTrainNet* net)
 {
     const maniLearnedTrainerOptions* o = &s->options;
     const uint32_t hidden[4] = {o->compressorLayers, o->decompressorLayers, o->stepperLayers,
@@ -205,7 +205,7 @@ static maniBuildResult CheckShapes(const maniLearnedTrainerSource* s, const mani
     return kOk;
 }
 
-static bool Given(const maniLearnedTrainerSource* s)
+MANI_NODISCARD static bool Given(const maniLearnedTrainerSource* s)
 {
     return maniSkeletonValid(s->skeleton) && s->database != NULL &&
            (s->clips != NULL || s->clipCount == 0) && s->projectors != NULL &&

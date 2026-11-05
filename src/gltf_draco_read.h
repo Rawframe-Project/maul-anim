@@ -30,14 +30,14 @@ typedef struct maniDracoReader
     const uint8_t* end;
 } maniDracoReader;
 
-bool maniDracoU8(maniDracoReader* r, uint8_t* out);
-bool maniDracoU16(maniDracoReader* r, uint16_t* out);
-bool maniDracoU32(maniDracoReader* r, uint32_t* out);
+MANI_NODISCARD bool maniDracoU8(maniDracoReader* r, uint8_t* out);
+MANI_NODISCARD bool maniDracoU16(maniDracoReader* r, uint16_t* out);
+MANI_NODISCARD bool maniDracoU32(maniDracoReader* r, uint32_t* out);
 // A LEB128 value of at most 5 bytes (32 bits) or 10 (64).
-bool maniDracoLeb32(maniDracoReader* r, uint32_t* out);
-bool maniDracoLeb64(maniDracoReader* r, uint64_t* out);
+MANI_NODISCARD bool maniDracoLeb32(maniDracoReader* r, uint32_t* out);
+MANI_NODISCARD bool maniDracoLeb64(maniDracoReader* r, uint64_t* out);
 // size bytes, or false when fewer remain.
-bool maniDracoBytes(maniDracoReader* r, size_t size, const uint8_t** out);
+MANI_NODISCARD bool maniDracoBytes(maniDracoReader* r, size_t size, const uint8_t** out);
 
 static inline size_t maniDracoLeft(const maniDracoReader* r)
 {
@@ -60,7 +60,7 @@ typedef struct maniDracoBits
 } maniDracoBits;
 
 // n bits (at most 32) into out; false past the end.
-bool maniDracoBitsRead(maniDracoBits* b, uint32_t n, uint32_t* out);
+MANI_NODISCARD bool maniDracoBitsRead(maniDracoBits* b, uint32_t n, uint32_t* out);
 
 // rABS: binary decisions of one probability (Google's RAnsBitDecoder): a
 // probability byte, a LEB128 size and that many bytes read from their end.
@@ -72,7 +72,7 @@ typedef struct maniDracoRabs
     uint8_t zero;
 } maniDracoRabs;
 
-bool maniDracoRabsStart(maniDracoReader* r, maniDracoRabs* out);
-bool maniDracoRabsRead(maniDracoRabs* rabs);
+MANI_NODISCARD bool maniDracoRabsStart(maniDracoReader* r, maniDracoRabs* out);
+MANI_NODISCARD bool maniDracoRabsRead(maniDracoRabs* rabs);
 
 #endif // MAUL_ANIM_SRC_GLTF_DRACO_READ_H

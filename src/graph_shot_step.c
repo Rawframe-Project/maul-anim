@@ -63,7 +63,7 @@ static void Begin(const maniGraphShot* s, uint32_t* block, uint32_t phase)
 }
 
 // A trigger the one-shot names, consumed: whether it was set.
-static bool Take(const maniGraphShot* s, maniGraphCell* cells, uint32_t at)
+MANI_NODISCARD static bool Take(const maniGraphShot* s, maniGraphCell* cells, uint32_t at)
 {
     uint32_t parameter = maniGraphShotWord(s, at);
     if (parameter == MANI_NO_PARAMETER)

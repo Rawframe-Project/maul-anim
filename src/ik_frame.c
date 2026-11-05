@@ -121,7 +121,7 @@ maniQuat maniIkRotation(const maniIkFrame* f)
 // Whether a frame mirrors: never without scales. The determinant is a
 // product of three scales, so it is taken in binary64, where no finite
 // frame's overflows or underflows to a zero that hides its sign.
-static bool Mirrored(const maniIkFrame* f)
+MANI_NODISCARD static bool Mirrored(const maniIkFrame* f)
 {
     if (!f->scaled)
     {

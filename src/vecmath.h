@@ -180,6 +180,6 @@ static inline maniAffine maniAffineMul(const maniAffine* a, const maniAffine* b)
 
 // The inverse of a; false, with inverseOut untouched, when a's linear part
 // has a determinant whose magnitude is below 1e-30 or is not finite.
-bool maniAffineInverse(const maniAffine* a, maniAffine* inverseOut);
+MANI_NODISCARD bool maniAffineInverse(const maniAffine* a, maniAffine* inverseOut);
 
 #endif // MAUL_ANIM_SRC_VECMATH_H

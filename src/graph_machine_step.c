@@ -44,7 +44,8 @@ static uint32_t FirstCondition(const maniGraphMachine* m, uint32_t t)
 
 // A parameter condition: its parameter's value compared with the
 // condition's value.
-static bool Compares(const maniGraphMachine* m, const maniGraphCell* cells, uint32_t at)
+MANI_NODISCARD static bool Compares(const maniGraphMachine* m, const maniGraphCell* cells,
+                                    uint32_t at)
 {
     uint32_t parameter = maniGraphMachineWord(m, at + 1);
     uint32_t compare = maniGraphMachineWord(m, at + 2);
@@ -79,7 +80,7 @@ static bool Compares(const maniGraphMachine* m, const maniGraphCell* cells, uint
 // Whether the leading clip passed phase v in the update before: below 1
 // its position, by the whole loops it wrapped and where it was before and
 // after; 1 or more the loops since the state was entered.
-static bool Passed(const uint32_t* block, double v)
+MANI_NODISCARD static bool Passed(const uint32_t* block, double v)
 {
     double before = maniGraphBlockDouble(block, maniGraphBlockBefore) - v;
     double after = maniGraphBlockDouble(block, maniGraphBlockPosition) - v;
@@ -98,8 +99,8 @@ static bool Passed(const uint32_t* block, double v)
     return move < 0.0 && floor(-after) - floor(-before) - wraps > 0.0;
 }
 
-static bool Holds(const maniGraphMachine* m, const maniGraphCell* cells, const uint32_t* block,
-                  uint32_t at, uint32_t c)
+MANI_NODISCARD static bool Holds(const maniGraphMachine* m, const maniGraphCell* cells,
+                                 const uint32_t* block, uint32_t at, uint32_t c)
 {
     switch (maniGraphMachineWord(m, at))
     {
@@ -120,8 +121,8 @@ static bool Holds(const maniGraphMachine* m, const maniGraphCell* cells, const u
 }
 
 // Whether transition t's conditions all hold.
-static bool AllHold(const maniGraphMachine* m, const maniGraphCell* cells, const uint32_t* block,
-                    uint32_t t)
+MANI_NODISCARD static bool AllHold(const maniGraphMachine* m, const maniGraphCell* cells,
+                                   const uint32_t* block, uint32_t t)
 {
     uint32_t first = Transition(m, t, 6);
     bool holds = true;
@@ -134,7 +135,7 @@ static bool AllHold(const maniGraphMachine* m, const maniGraphCell* cells, const
 
 // Whether t may fire now: a candidate of the current state, past its
 // cooldown, allowed by the running transition's interruption.
-static bool Candidate(const maniGraphMachine* m, const uint32_t* block, uint32_t t)
+MANI_NODISCARD static bool Candidate(const maniGraphMachine* m, const uint32_t* block, uint32_t t)
 {
     uint32_t current = block[maniGraphBlockCurrent];
     uint32_t from = Transition(m, t, 0);

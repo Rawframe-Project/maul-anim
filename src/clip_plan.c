@@ -264,8 +264,8 @@ void maniPlanFoldFloat(const maniCompressPlan* p, maniSubTrack* t)
 }
 
 // Whether every sample of a segment plays within the tolerance at a rate.
-static bool Fits(const maniCompressPlan* p, const maniSubTrack* t, uint32_t s, uint32_t rate,
-                 const uint8_t* range)
+MANI_NODISCARD static bool Fits(const maniCompressPlan* p, const maniSubTrack* t, uint32_t s,
+                                uint32_t rate, const uint8_t* range)
 {
     for (uint32_t k = p->firsts[s]; k < p->firsts[s + 1]; ++k)
     {

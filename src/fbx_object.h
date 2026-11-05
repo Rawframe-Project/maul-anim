@@ -45,10 +45,12 @@ uint32_t maniFbxChildConnections(const maniFbx* fbx, uint32_t object, const uint
 uint32_t maniFbxParentConnections(const maniFbx* fbx, uint32_t object, const uint32_t** out);
 
 // Whether an object is of a kind (its node's name: Model, Deformer).
-bool maniFbxObjectKindIs(const maniFbx* fbx, uint32_t object, const char* kind, size_t length);
+MANI_NODISCARD bool maniFbxObjectKindIs(const maniFbx* fbx, uint32_t object, const char* kind,
+                                        size_t length);
 
 // Whether an object's subclass (LimbNode, Skin, Cluster) is the one given.
-bool maniFbxObjectSubclassIs(const maniFbx* fbx, uint32_t object, const char* name, size_t length);
+MANI_NODISCARD bool maniFbxObjectSubclassIs(const maniFbx* fbx, uint32_t object, const char* name,
+                                            size_t length);
 
 // An object's name without its class, decoded as maniFbxStringDecode
 // decodes, into out: the count written, whole characters up to
@@ -85,30 +87,32 @@ uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k);
 // Before 6.0: the rest value of an object's Lcl Translation (0),
 // Rotation (1) or Scaling (2) its channels give; false where
 // none does.
-bool maniFbxLegacyRest(const maniFbx* fbx, uint32_t object, uint32_t which, double out[3]);
+MANI_NODISCARD bool maniFbxLegacyRest(const maniFbx* fbx, uint32_t object, uint32_t which,
+                                      double out[3]);
 
 // Whether a property name is one ufbx keeps on a 6.x model rather than
 // its attribute: the transform, limits, visibility.
-bool maniFbxIsNodeProperty(const uint8_t* name, size_t length);
+MANI_NODISCARD bool maniFbxIsNodeProperty(const uint8_t* name, size_t length);
 
 // Whether an entry is flagged user-defined (U).
-bool maniFbxEntryUserDefined(const maniFbx* fbx, uint32_t entry);
+MANI_NODISCARD bool maniFbxEntryUserDefined(const maniFbx* fbx, uint32_t entry);
 
 // Whether an entry's type is a number or an integer by ufbx's table
 // (Number, double, Real, Float, Intensity; Integer, int, enum, Enum,
 // Visibility, Visibility Inheritance, KTime).
-bool maniFbxEntryNumeric(const maniFbx* fbx, uint32_t entry);
+MANI_NODISCARD bool maniFbxEntryNumeric(const maniFbx* fbx, uint32_t entry);
 
 // Whether a 6.x Model has an attribute ufbx splits off: any but a plain
 // model (no subclass or Model, unless it holds a mesh's Vertices and
 // PolygonVertexIndex).
-bool maniFbxModelHasAttribute(const maniFbx* fbx, uint32_t object);
+MANI_NODISCARD bool maniFbxModelHasAttribute(const maniFbx* fbx, uint32_t object);
 
 // Whether a 6.x Model is a mesh: subclass Mesh, or none with the arrays.
-bool maniFbxModelIsMesh(const maniFbx* fbx, uint32_t object);
+MANI_NODISCARD bool maniFbxModelIsMesh(const maniFbx* fbx, uint32_t object);
 
 // Whether an object is a Deformer of a subclass (Skin, Cluster).
-bool maniFbxDeformerIs(const maniFbx* fbx, uint32_t object, const char* subclass, size_t length);
+MANI_NODISCARD bool maniFbxDeformerIs(const maniFbx* fbx, uint32_t object, const char* subclass,
+                                      size_t length);
 
 // Calls visit with each object an object is the parent of through an
 // `OO` connection, in connection order.

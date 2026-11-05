@@ -60,9 +60,9 @@ typedef struct maniTrainStepper
 // shape's latent count): the network started from the generator, the
 // normalization measured. False when no window fits in an entry, a shape
 // is past a limit or memory runs out, with nothing held.
-bool maniTrainStepperInit(const maniAllocator* allocator, const maniTrainData* data,
-                          const float* latents, const maniTrainSoloShape* shape, maniTrainRandom* r,
-                          maniTrainStepper* t);
+MANI_NODISCARD bool maniTrainStepperInit(const maniAllocator* allocator, const maniTrainData* data,
+                                         const float* latents, const maniTrainSoloShape* shape,
+                                         maniTrainRandom* r, maniTrainStepper* t);
 
 void maniTrainStepperRelease(const maniAllocator* allocator, maniTrainStepper* t);
 

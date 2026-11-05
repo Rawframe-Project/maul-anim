@@ -19,7 +19,7 @@
 #define MANI_FBX_HEADER_SIZE 27u
 
 // Whether the bytes start with the binary form's magic.
-bool maniFbxIsBinary(const uint8_t* bytes, size_t size);
+MANI_NODISCARD bool maniFbxIsBinary(const uint8_t* bytes, size_t size);
 
 // Reads the header and every record into fbx's nodes and properties.
 maniImportResult maniFbxReadBinary(maniFbx* fbx);

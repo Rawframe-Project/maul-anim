@@ -51,18 +51,18 @@ static float LoadF32(const uint8_t* p)
     return v;
 }
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
 }
 
-static bool Share(float v)
+MANI_NODISCARD static bool Share(float v)
 {
     return v >= 0.0f && v <= 1.0f;
 }
 
 // Within a thousandth of length 1, as the builder takes it.
-static bool Unit(float lengthSquared)
+MANI_NODISCARD static bool Unit(float lengthSquared)
 {
     return lengthSquared >= 0.998f && lengthSquared <= 1.002f;
 }

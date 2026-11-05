@@ -90,14 +90,15 @@ maniBuildResult maniCheckGraphDatabases(const maniGraphSource* source, uint64_t*
     return kOk;
 }
 
-static bool ParameterOf(const maniGraphSource* source, uint32_t parameter,
-                        maniGraphParameterType type)
+MANI_NODISCARD static bool ParameterOf(const maniGraphSource* source, uint32_t parameter,
+                                       maniGraphParameterType type)
 {
     return parameter < source->parameterCount && source->parameters[parameter].type == type;
 }
 
 // The query's parameters against the database's channels.
-static bool QueryValid(const maniGraphSource* source, const maniGraphMatchNodeSource* m)
+MANI_NODISCARD static bool QueryValid(const maniGraphSource* source,
+                                      const maniGraphMatchNodeSource* m)
 {
     // maniCheckGraphMatch refused a count past MANI_MAX_MATCH_FEATURES.
     if (m->database >= source->databaseCount || (m->queryCount > 0 && m->query == NULL))
@@ -114,12 +115,12 @@ static bool QueryValid(const maniGraphSource* source, const maniGraphMatchNodeSo
     return maniGraphQueryFits(d, d->channelCount, maniGraphDatabaseChannel, types, m->queryCount);
 }
 
-static bool Seconds(float value)
+MANI_NODISCARD static bool Seconds(float value)
 {
     return isfinite(value) && value >= 0.0f;
 }
 
-static bool TagsValid(const maniGraphSource* source, maniGraphTags tags)
+MANI_NODISCARD static bool TagsValid(const maniGraphSource* source, maniGraphTags tags)
 {
     return tags.parameter == MANI_NO_PARAMETER ||
            (ParameterOf(source, tags.parameter, maniGraphParameterInt) && tags.value == 0);

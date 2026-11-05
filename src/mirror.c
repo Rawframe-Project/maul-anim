@@ -107,7 +107,7 @@ static maniFileResult Header(const Sections* s, maniMirrorMap* m)
 
 // A bone's flags: known bits only, a permutation or the approximate flag
 // alone, the header's first unmatched bone the first flagged unmatched.
-static bool FlagsValid(uint32_t flags, uint32_t bone, uint32_t firstUnmatched)
+MANI_NODISCARD static bool FlagsValid(uint32_t flags, uint32_t bone, uint32_t firstUnmatched)
 {
     uint32_t known =
         MANI_MIRROR_PERMUTATION | MANI_MIRROR_FLAG_APPROXIMATE | MANI_MIRROR_FLAG_UNMATCHED;

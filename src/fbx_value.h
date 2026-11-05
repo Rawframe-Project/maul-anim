@@ -18,13 +18,14 @@
 // Whether a string property (binary or ASCII, quoted or a bare word)
 // holds exactly these bytes, FBX's entities decoded and made valid UTF-8
 // as maniFbxStringDecode makes them.
-bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes, size_t length);
+MANI_NODISCARD bool maniFbxStringEquals(const maniFbx* fbx, uint32_t property, const char* bytes,
+                                        size_t length);
 
 // A string property's bytes when they are its decoded ones (no entity
 // and every byte ASCII but NUL): what maniFbxStringEquals compares;
 // false for any other string, or no string.
-bool maniFbxPlainString(const maniFbx* fbx, uint32_t property, const uint8_t** bytes,
-                        size_t* length);
+MANI_NODISCARD bool maniFbxPlainString(const maniFbx* fbx, uint32_t property, const uint8_t** bytes,
+                                       size_t* length);
 
 // A name's hash: maniHash64 from MANI_HASH_INIT, a byte at a time.
 uint64_t maniFbxNameHash(const void* bytes, size_t length);
@@ -34,7 +35,7 @@ uint64_t maniFbxNameHash(const void* bytes, size_t length);
 uint64_t maniFbxStringHash(const maniFbx* fbx, uint32_t property);
 
 // Whether two string properties hold the same bytes, so compared.
-bool maniFbxSameString(const maniFbx* fbx, uint32_t a, uint32_t b);
+MANI_NODISCARD bool maniFbxSameString(const maniFbx* fbx, uint32_t a, uint32_t b);
 
 // A string property's bytes, entities decoded, then made valid UTF-8 as
 // ufbx makes them: each valid sequence kept, each other byte
@@ -52,20 +53,20 @@ size_t maniFbxStringNameRange(const maniFbx* fbx, uint32_t property, bool binary
 uint32_t maniFbxNodeProperty(const maniFbx* fbx, uint32_t node, uint32_t k);
 
 // A number (any scalar type, finite) as binary64.
-bool maniFbxNumber(const maniFbx* fbx, uint32_t property, double* out);
+MANI_NODISCARD bool maniFbxNumber(const maniFbx* fbx, uint32_t property, double* out);
 
 // A whole number in [minimum, maximum]: an integer type, or a float
 // type holding a whole value.
-bool maniFbxInteger(const maniFbx* fbx, uint32_t property, int64_t minimum, int64_t maximum,
-                    int64_t* out);
+MANI_NODISCARD bool maniFbxInteger(const maniFbx* fbx, uint32_t property, int64_t minimum,
+                                   int64_t maximum, int64_t* out);
 
 // A character code as ufbx reads one: a whole number, or an ASCII bare
 // word's first byte.
-bool maniFbxCharacter(const maniFbx* fbx, uint32_t property, int64_t* out);
+MANI_NODISCARD bool maniFbxCharacter(const maniFbx* fbx, uint32_t property, int64_t* out);
 
 // A string's bytes (raw: FBX's names hold "\x00\x01" separators).
-bool maniFbxString(const maniFbx* fbx, uint32_t property, const uint8_t** bytesOut,
-                   uint32_t* lengthOut);
+MANI_NODISCARD bool maniFbxString(const maniFbx* fbx, uint32_t property, const uint8_t** bytesOut,
+                                  uint32_t* lengthOut);
 
 // An array's element count, or 0 for a property that is no array.
 uint32_t maniFbxArrayCount(const maniFbx* fbx, uint32_t property);

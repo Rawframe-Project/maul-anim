@@ -153,6 +153,6 @@ void maniBodyLimit(maniBodyPart* part, const maniSkeleton* skeleton, const maniB
 // Writes the part's turns (and, stretching, its origins) to the pose's
 // locals by the weight; whether every effector lies within the
 // tolerance at full weight.
-bool maniBodyFinish(maniBodyPart* part, maniPose* pose, const maniBodySolve* solve);
+MANI_NODISCARD bool maniBodyFinish(maniBodyPart* part, maniPose* pose, const maniBodySolve* solve);
 
 #endif // MAUL_ANIM_SRC_BODY_IK_H

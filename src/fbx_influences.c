@@ -55,14 +55,14 @@ static uint32_t ValueCount(const maniFbx* fbx, uint32_t node, const char* name)
 }
 
 // Whether the skin gives per-vertex blend weights.
-static bool GivesBlend(const maniFbx* fbx, uint32_t skin)
+MANI_NODISCARD static bool GivesBlend(const maniFbx* fbx, uint32_t skin)
 {
     uint32_t node = SkinNode(fbx, skin);
     return ValueCount(fbx, node, "Indexes") > 0 && ValueCount(fbx, node, "BlendWeights") > 0;
 }
 
 // SkinningType is this word.
-static bool TypeIs(const maniFbx* fbx, uint32_t skin, const char* word)
+MANI_NODISCARD static bool TypeIs(const maniFbx* fbx, uint32_t skin, const char* word)
 {
     uint32_t child = maniFbxFindChild(fbx, SkinNode(fbx, skin), "SkinningType", 12);
     return child != MANI_FBX_NONE &&

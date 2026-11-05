@@ -106,15 +106,17 @@ maniImportResult maniFbxSortChannels(const maniFbx* fbx, maniFbxAnimation* anima
 
 // A channel's name: whether it is the bytes given; whether two channels
 // share it; it decoded into out (the bytes it may need with out NULL).
-bool maniFbxChannelNameIs(const maniFbx* fbx, const maniFbxChannel* channel, const char* name,
-                          size_t length);
-bool maniFbxSameChannelName(const maniFbx* fbx, const maniFbxChannel* a, const maniFbxChannel* b);
+MANI_NODISCARD bool maniFbxChannelNameIs(const maniFbx* fbx, const maniFbxChannel* channel,
+                                         const char* name, size_t length);
+MANI_NODISCARD bool maniFbxSameChannelName(const maniFbx* fbx, const maniFbxChannel* a,
+                                           const maniFbxChannel* b);
 size_t maniFbxChannelName(const maniFbx* fbx, const maniFbxChannel* channel, uint8_t* out,
                           size_t capacity);
 
 // A Take node's two times under a child name (LocalTime,
 // ReferenceTime), both whole numbers.
-bool maniFbxTakeTimes(const maniFbx* fbx, uint32_t take, const char* name, int64_t* a, int64_t* b);
+MANI_NODISCARD bool maniFbxTakeTimes(const maniFbx* fbx, uint32_t take, const char* name,
+                                     int64_t* a, int64_t* b);
 
 // The first and last key's ticks over every curve, 0 and 0 for none.
 void maniFbxKeySpan(const maniFbxAnimation* animation, int64_t* start, int64_t* stop);
@@ -128,9 +130,9 @@ uint32_t maniFbxAnimatedRun(const maniFbxAnimation* animation, uint32_t object, 
 // composed Lcl Rotation goes through quaternions in the order given, 0
 // to 5, and back). Whether any channel drives it. A 6.x model's attribute's
 // properties are animated through maniFbxAnimateAttribute.
-bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
-                            const char* name, size_t length, double time, uint32_t order,
-                            double value[3]);
+MANI_NODISCARD bool maniFbxAnimateProperty(const maniFbxAnimation* animation, const maniFbx* fbx,
+                                           uint32_t object, const char* name, size_t length,
+                                           double time, uint32_t order, double value[3]);
 // maniFbxAnimateProperty through the object's run already found
 // (maniFbxAnimatedRun), its channels' names already matched: those
 // whose mark (one a channel of the animation) is the one given, the
@@ -143,12 +145,15 @@ uint32_t maniFbxMatchChannels(const maniFbxAnimation* animation, const maniFbx* 
 // maniFbxAnimateProperty through channels already matched
 // (maniFbxMatchChannels) on a property neither Lcl Scaling nor Lcl
 // Rotation.
-bool maniFbxAnimateChannels(const maniFbxAnimation* animation, const maniFbx* fbx,
-                            const uint32_t* channels, uint32_t count, double time, double value[3]);
-bool maniFbxAnimateMarked(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
-                          uint32_t count, const uint8_t* marks, uint8_t mark, bool scale,
-                          bool rotation, double time, uint32_t order, double value[3]);
-bool maniFbxAnimateAttribute(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t model,
-                             const char* name, size_t length, double time, double value[3]);
+MANI_NODISCARD bool maniFbxAnimateChannels(const maniFbxAnimation* animation, const maniFbx* fbx,
+                                           const uint32_t* channels, uint32_t count, double time,
+                                           double value[3]);
+MANI_NODISCARD bool maniFbxAnimateMarked(const maniFbxAnimation* animation, const maniFbx* fbx,
+                                         uint32_t first, uint32_t count, const uint8_t* marks,
+                                         uint8_t mark, bool scale, bool rotation, double time,
+                                         uint32_t order, double value[3]);
+MANI_NODISCARD bool maniFbxAnimateAttribute(const maniFbxAnimation* animation, const maniFbx* fbx,
+                                            uint32_t model, const char* name, size_t length,
+                                            double time, double value[3]);
 
 #endif // MAUL_ANIM_SRC_FBX_ANIM_H

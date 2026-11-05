@@ -65,32 +65,33 @@ typedef struct maniGraphScope
 // The names of count host slot sources (clip, database, model or spring
 // set sources, each its asset, then its name and length, stride bytes
 // apart) in a table; false when the arena fails.
-bool maniGraphJsonHostNames(maniGraphReader* r, const void* items, size_t stride, uint32_t count,
-                            maniNameTable* out);
+MANI_NODISCARD bool maniGraphJsonHostNames(maniGraphReader* r, const void* items, size_t stride,
+                                           uint32_t count, maniNameTable* out);
 
 // Records a fault at a value's first byte; returns false.
-bool maniGraphJsonFault(maniGraphReader* r, uint32_t value, maniGraphForm form);
+MANI_NODISCARD bool maniGraphJsonFault(maniGraphReader* r, uint32_t value, maniGraphForm form);
 
 // Records, as mani_errorVersion, what only a later version of the form
 // writes at a value's first byte; returns false.
-bool maniGraphJsonLater(maniGraphReader* r, uint32_t value, maniGraphForm form);
+MANI_NODISCARD bool maniGraphJsonLater(maniGraphReader* r, uint32_t value, maniGraphForm form);
 
 // A form's version: 1, the one this release reads; another integer is a
 // later (or earlier) form's, mani_errorVersion; anything else a fault.
-bool maniGraphJsonVersion(maniGraphReader* r, uint32_t value);
+MANI_NODISCARD bool maniGraphJsonVersion(maniGraphReader* r, uint32_t value);
 
 // Records the arena failing; returns false.
-bool maniGraphJsonNoMemory(maniGraphReader* r);
+MANI_NODISCARD bool maniGraphJsonNoMemory(maniGraphReader* r);
 
 // An object's members among keys (at most 32): each key's value in
 // found, MANI_JSON_NONE when absent; refuses a value that is no object,
 // a key not among keys (a later form's, mani_errorVersion), a repeat, or
 // one of the required (a bit per key) missing.
-bool maniGraphJsonMembers(maniGraphReader* r, uint32_t object, const char* const* keys,
-                          uint32_t count, uint32_t required, uint32_t* found);
+MANI_NODISCARD bool maniGraphJsonMembers(maniGraphReader* r, uint32_t object,
+                                         const char* const* keys, uint32_t count, uint32_t required,
+                                         uint32_t* found);
 
 // An array's element count; refuses another kind.
-bool maniGraphJsonArray(maniGraphReader* r, uint32_t value, uint32_t* countOut);
+MANI_NODISCARD bool maniGraphJsonArray(maniGraphReader* r, uint32_t value, uint32_t* countOut);
 
 // The element after one, or an array's first when element is the array.
 static inline uint32_t maniGraphJsonNext(const maniJson* json, uint32_t element, bool first)
@@ -99,34 +100,37 @@ static inline uint32_t maniGraphJsonNext(const maniJson* json, uint32_t element,
 }
 
 // A string decoded into the arena.
-bool maniGraphJsonName(maniGraphReader* r, uint32_t value, const char** nameOut, size_t* lengthOut);
+MANI_NODISCARD bool maniGraphJsonName(maniGraphReader* r, uint32_t value, const char** nameOut,
+                                      size_t* lengthOut);
 
 // A table of count names (the arrays kept, not copied).
-bool maniGraphJsonTable(maniGraphReader* r, const char* const* names, const size_t* lengths,
-                        uint32_t count, maniNameTable* tableOut);
+MANI_NODISCARD bool maniGraphJsonTable(maniGraphReader* r, const char* const* names,
+                                       const size_t* lengths, uint32_t count,
+                                       maniNameTable* tableOut);
 
 // The first item of a name, or MANI_JSON_NONE.
 uint32_t maniGraphJsonLookup(const maniNameTable* table, const char* name, size_t length);
 
 // A string naming an item of the table; refuses a name it lacks.
-bool maniGraphJsonRefer(maniGraphReader* r, const maniNameTable* table, uint32_t value,
-                        uint32_t* itemOut);
+MANI_NODISCARD bool maniGraphJsonRefer(maniGraphReader* r, const maniNameTable* table,
+                                       uint32_t value, uint32_t* itemOut);
 
 // The index of a string value among count words, or count.
 uint32_t maniGraphJsonWord(const maniGraphReader* r, uint32_t value, const char* const* words,
                            uint32_t count);
 
-bool maniGraphJsonFloat(maniGraphReader* r, uint32_t value, float* out);
-bool maniGraphJsonBool(maniGraphReader* r, uint32_t value, bool* out);
+MANI_NODISCARD bool maniGraphJsonFloat(maniGraphReader* r, uint32_t value, float* out);
+MANI_NODISCARD bool maniGraphJsonBool(maniGraphReader* r, uint32_t value, bool* out);
 
 // An array of count numbers into out.
-bool maniGraphJsonFloats(maniGraphReader* r, uint32_t value, float* out, uint32_t count);
+MANI_NODISCARD bool maniGraphJsonFloats(maniGraphReader* r, uint32_t value, float* out,
+                                        uint32_t count);
 
 // A whole number from 0 to UINT32_MAX - 1.
-bool maniGraphJsonIndex(maniGraphReader* r, uint32_t value, uint32_t* out);
+MANI_NODISCARD bool maniGraphJsonIndex(maniGraphReader* r, uint32_t value, uint32_t* out);
 
 // A number, or {"parameter": name} for a parameter of the scope.
-bool maniGraphJsonScalar(maniGraphReader* r, const maniGraphScope* scope, uint32_t value,
-                         maniGraphScalar* out);
+MANI_NODISCARD bool maniGraphJsonScalar(maniGraphReader* r, const maniGraphScope* scope,
+                                        uint32_t value, maniGraphScalar* out);
 
 #endif // MAUL_ANIM_SRC_GRAPH_JSON_READ_H

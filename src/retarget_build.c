@@ -45,28 +45,28 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
     return Result(mani_errorInvalid, reason, item, other);
 }
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
 }
 
-static bool FiniteVec(maniVec3 v)
+MANI_NODISCARD static bool FiniteVec(maniVec3 v)
 {
     return Finite(v.x) && Finite(v.y) && Finite(v.z);
 }
 
-static bool Share(float v)
+MANI_NODISCARD static bool Share(float v)
 {
     return v >= 0.0f && v <= 1.0f;
 }
 
-static bool Shares(maniVec3 v)
+MANI_NODISCARD static bool Shares(maniVec3 v)
 {
     return Share(v.x) && Share(v.y) && Share(v.z);
 }
 
 // Within a thousandth of length 1, as exporters' rounding leaves it.
-static bool Unit(float lengthSquared)
+MANI_NODISCARD static bool Unit(float lengthSquared)
 {
     return lengthSquared >= 0.998f && lengthSquared <= 1.002f;
 }
@@ -400,7 +400,7 @@ static void LayBones(const Work* w, uint8_t* source, uint8_t* target, uint8_t* p
     }
 }
 
-static bool SameBits(const maniTransform* a, const maniTransform* b)
+MANI_NODISCARD static bool SameBits(const maniTransform* a, const maniTransform* b)
 {
     static_assert(sizeof *a == 10 * sizeof(uint32_t), "ten words");
     uint32_t x[10];
@@ -483,7 +483,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniRetargetMapSource* 
     return file != NULL ? kOk : Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
 }
 
-static bool SourceUsable(const maniRetargetMapSource* s)
+MANI_NODISCARD static bool SourceUsable(const maniRetargetMapSource* s)
 {
     return s != NULL && maniSkeletonValid(s->source) && maniSkeletonValid(s->target) &&
            (s->pairs != NULL || s->pairCount == 0) && (s->chains != NULL || s->chainCount == 0);

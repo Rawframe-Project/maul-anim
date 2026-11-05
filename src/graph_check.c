@@ -60,7 +60,7 @@ maniBuildResult maniGraphPastLimit(maniBuildReason reason, uint32_t item, uint32
     return (maniBuildResult){mani_errorLimit, reason, item, other};
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     return isfinite(value);
 }
@@ -204,7 +204,7 @@ static maniBuildResult CheckNames(const maniGraphSource* source, uint32_t list,
 }
 
 // A float value and bounds in form; an int's bounds.
-static bool NumberInForm(const maniGraphParameterSource* p)
+MANI_NODISCARD static bool NumberInForm(const maniGraphParameterSource* p)
 {
     if (p->type == maniGraphParameterInt)
     {
@@ -272,7 +272,7 @@ uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity)
 
 // A clip slot's clip and map: a clip of the skeleton, or of the map's
 // source with a map made for the skeleton.
-static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c)
+MANI_NODISCARD static bool ClipFits(const maniGraphSource* source, const maniGraphClipSource* c)
 {
     uint64_t skeleton = maniSkeleton_GetIdentity(source->skeleton);
     const maniRetargetMap* map = c->retargetMap;
@@ -418,8 +418,8 @@ static maniBuildResult CheckWeights(const maniGraphSource* source, const maniGra
     return r;
 }
 
-static bool ParameterOf(const maniGraphSource* source, uint32_t parameter, maniGraphParameterType a,
-                        maniGraphParameterType b)
+MANI_NODISCARD static bool ParameterOf(const maniGraphSource* source, uint32_t parameter,
+                                       maniGraphParameterType a, maniGraphParameterType b)
 {
     return parameter < source->parameterCount &&
            (source->parameters[parameter].type == a || source->parameters[parameter].type == b);
@@ -461,7 +461,7 @@ static maniBuildResult CheckMask(const maniGraphSource* source, const maniGraphM
     return ok ? Outcome(mani_success) : maniGraphRefuse(maniBuildReasonWeight, node, m->chainCount);
 }
 
-static bool Seconds(float value)
+MANI_NODISCARD static bool Seconds(float value)
 {
     return isfinite(value) && value >= 0.0f;
 }
@@ -539,7 +539,8 @@ static maniBuildResult CheckTurn(const maniGraphSource* source, const maniGraphN
 }
 
 // Bones of the skeleton, each an ancestor of the next.
-static bool ChainValid(const maniSkeleton* skeleton, const uint32_t* bones, uint32_t count)
+MANI_NODISCARD static bool ChainValid(const maniSkeleton* skeleton, const uint32_t* bones,
+                                      uint32_t count)
 {
     for (uint32_t k = 0; k < count; ++k)
     {
@@ -552,13 +553,13 @@ static bool ChainValid(const maniSkeleton* skeleton, const uint32_t* bones, uint
     return true;
 }
 
-static bool FiniteVector(maniVec3 v)
+MANI_NODISCARD static bool FiniteVector(maniVec3 v)
 {
     return Finite(v.x) && Finite(v.y) && Finite(v.z);
 }
 
 // A goal a vec3 parameter, a pole one or none.
-static bool GoalValid(const maniGraphSource* source, uint32_t goal, uint32_t pole)
+MANI_NODISCARD static bool GoalValid(const maniGraphSource* source, uint32_t goal, uint32_t pole)
 {
     maniGraphParameterType vec3 = maniGraphParameterVec3;
     return ParameterOf(source, goal, vec3, vec3) &&
@@ -590,7 +591,7 @@ static maniBuildResult CheckTwoBone(const maniGraphSource* source, const maniGra
 
 // Shares at least 0, finite, not all 0 and of a finite sum; NULL for
 // equal ones.
-static bool SharesValid(const float* shares, uint32_t count)
+MANI_NODISCARD static bool SharesValid(const float* shares, uint32_t count)
 {
     if (shares == NULL)
     {
@@ -929,7 +930,7 @@ bool maniGraphListsPast(const maniGraphSource* source)
            source->springSetCount > MANI_MAX_GRAPH_SPRING_SETS;
 }
 
-static bool CountsValid(const maniGraphSource* source)
+MANI_NODISCARD static bool CountsValid(const maniGraphSource* source)
 {
     return source->nodeCount > 0 && source->nodeCount <= MANI_MAX_GRAPH_NODES &&
            source->nodes != NULL && maniGraphListsValid(source);

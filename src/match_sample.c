@@ -33,7 +33,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static bool Mirrored(const maniMatchEntrySource* e)
+MANI_NODISCARD static bool Mirrored(const maniMatchEntrySource* e)
 {
     return (e->flags & maniMatchEntryMirrored) != 0;
 }
@@ -47,8 +47,9 @@ static maniMatchPlace Locate(const maniMatchSampler* s, const maniClip* clip,
     return p;
 }
 
-static bool Model(maniMatchSampler* s, const maniClip* clip, const maniMatchEntrySource* e,
-                  float time, uint32_t bone, maniTransform* out)
+MANI_NODISCARD static bool Model(maniMatchSampler* s, const maniClip* clip,
+                                 const maniMatchEntrySource* e, float time, uint32_t bone,
+                                 maniTransform* out)
 {
     const maniSkeleton* skeleton = s->source->skeleton;
     uint32_t a = 0;
@@ -72,8 +73,9 @@ static bool Model(maniMatchSampler* s, const maniClip* clip, const maniMatchEntr
     return true;
 }
 
-static bool Position(maniMatchSampler* s, const maniClip* clip, const maniMatchEntrySource* e,
-                     maniMatchPlace p, uint32_t bone, maniVec3* out)
+MANI_NODISCARD static bool Position(maniMatchSampler* s, const maniClip* clip,
+                                    const maniMatchEntrySource* e, maniMatchPlace p, uint32_t bone,
+                                    maniVec3* out)
 {
     maniTransform m;
     if (!Model(s, clip, e, p.time, bone, &m))
@@ -84,8 +86,9 @@ static bool Position(maniMatchSampler* s, const maniClip* clip, const maniMatchE
     return true;
 }
 
-static bool Velocity(maniMatchSampler* s, const maniClip* clip, const maniMatchEntrySource* e,
-                     float t, double step, uint32_t bone, maniVec3* out)
+MANI_NODISCARD static bool Velocity(maniMatchSampler* s, const maniClip* clip,
+                                    const maniMatchEntrySource* e, float t, double step,
+                                    uint32_t bone, maniVec3* out)
 {
     double h = 1.0 / (double)s->source->sampleRate;
     maniMatchPlace before = Locate(s, clip, e, t, step - h);
@@ -105,8 +108,9 @@ static bool Velocity(maniMatchSampler* s, const maniClip* clip, const maniMatchE
     return true;
 }
 
-static bool Facing(maniMatchSampler* s, const maniClip* clip, const maniMatchEntrySource* e,
-                   maniMatchPlace p, const maniMatchChannelSource* c, maniVec3* out)
+MANI_NODISCARD static bool Facing(maniMatchSampler* s, const maniClip* clip,
+                                  const maniMatchEntrySource* e, maniMatchPlace p,
+                                  const maniMatchChannelSource* c, maniVec3* out)
 {
     maniTransform m;
     if (!Model(s, clip, e, p.time, c->bone, &m))
@@ -118,7 +122,8 @@ static bool Facing(maniMatchSampler* s, const maniClip* clip, const maniMatchEnt
     return true;
 }
 
-static bool Float(maniMatchSampler* s, const maniClip* clip, float time, uint32_t track, float* out)
+MANI_NODISCARD static bool Float(maniMatchSampler* s, const maniClip* clip, float time,
+                                 uint32_t track, float* out)
 {
     uint32_t count = 0;
     if (maniClip_SampleFloats(clip, time, s->floats, s->floatCapacity, &count) != mani_success)
@@ -130,7 +135,8 @@ static bool Float(maniMatchSampler* s, const maniClip* clip, float time, uint32_
 }
 
 // One channel at one time: its features into out.
-static bool Channel(maniMatchSampler* s, uint32_t e, uint32_t c, float t, float time, float* out)
+MANI_NODISCARD static bool Channel(maniMatchSampler* s, uint32_t e, uint32_t c, float t, float time,
+                                   float* out)
 {
     const maniMotionDatabaseSource* src = s->source;
     const maniMatchEntrySource* entry = &src->entries[e];

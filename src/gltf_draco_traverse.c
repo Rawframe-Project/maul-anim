@@ -40,13 +40,13 @@ typedef struct Walk
     uint32_t* degree;
 } Walk;
 
-static bool FaceSeen(const Walk* w, uint32_t corner)
+MANI_NODISCARD static bool FaceSeen(const Walk* w, uint32_t corner)
 {
     return corner == NONE || w->faceSeen[corner / 3u] != 0;
 }
 
 // Reaches the vertex at corner if it is new; false for a vertex of none.
-static bool Reach(Walk* w, uint32_t corner)
+MANI_NODISCARD static bool Reach(Walk* w, uint32_t corner)
 {
     uint32_t v = maniDracoVertex(w->t, corner);
     if (v >= w->t->vertices)
@@ -64,7 +64,7 @@ static bool Reach(Walk* w, uint32_t corner)
     return true;
 }
 
-static bool OnBoundary(const maniDracoTable* t, uint32_t v)
+MANI_NODISCARD static bool OnBoundary(const maniDracoTable* t, uint32_t v)
 {
     return maniDracoSwingLeft(t, maniDracoLeftMost(t, v)) == NONE;
 }
@@ -81,7 +81,7 @@ static uint32_t LeftCorner(const maniDracoTable* t, uint32_t c)
 
 // One face's step of depth first: false on a vertex of none; *done when
 // the stack's top is finished.
-static bool DepthStep(Walk* w, uint32_t* corner, bool* done)
+MANI_NODISCARD static bool DepthStep(Walk* w, uint32_t* corner, bool* done)
 {
     const maniDracoTable* t = w->t;
     uint32_t c = *corner;
@@ -124,7 +124,7 @@ static bool DepthStep(Walk* w, uint32_t* corner, bool* done)
     return true;
 }
 
-static bool DepthFirst(Walk* w, uint32_t corner)
+MANI_NODISCARD static bool DepthFirst(Walk* w, uint32_t corner)
 {
     if (FaceSeen(w, corner))
     {
@@ -158,7 +158,7 @@ static bool DepthFirst(Walk* w, uint32_t corner)
 
 // A corner's priority: 0 when its tip was reached, else 2 the first time
 // the tip is counted and 1 after; false for a tip of none.
-static bool Priority(Walk* w, uint32_t corner, uint32_t* priority)
+MANI_NODISCARD static bool Priority(Walk* w, uint32_t corner, uint32_t* priority)
 {
     uint32_t v = maniDracoVertex(w->t, corner);
     if (v >= w->t->vertices)
@@ -194,7 +194,7 @@ static uint32_t Pop(Walk* w)
 
 // One face's step by prediction degree: the next face to step to, or none
 // when the step ends.
-static bool DegreeStep(Walk* w, uint32_t* corner)
+MANI_NODISCARD static bool DegreeStep(Walk* w, uint32_t* corner)
 {
     const maniDracoTable* t = w->t;
     uint32_t c = *corner;
@@ -237,7 +237,7 @@ static bool DegreeStep(Walk* w, uint32_t* corner)
     return true;
 }
 
-static bool ByDegree(Walk* w, uint32_t corner)
+MANI_NODISCARD static bool ByDegree(Walk* w, uint32_t corner)
 {
     if (w->t->vertices == 0)
     {
@@ -267,7 +267,7 @@ static bool ByDegree(Walk* w, uint32_t corner)
     return true;
 }
 
-static bool Allocate(maniArena* arena, Walk* w, uint32_t mapSize, uint8_t method)
+MANI_NODISCARD static bool Allocate(maniArena* arena, Walk* w, uint32_t mapSize, uint8_t method)
 {
     const maniDracoTable* t = w->t;
     uint32_t faces = t->corners / 3u;

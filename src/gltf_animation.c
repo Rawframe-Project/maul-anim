@@ -191,24 +191,25 @@ static maniImportResult ReadTarget(const maniGltf* gltf, uint32_t channel, uint3
     return maniImportSuccess();
 }
 
-static bool IsFloat(const maniGltfAccessor* a)
+MANI_NODISCARD static bool IsFloat(const maniGltfAccessor* a)
 {
     return a->component == maniGltfFloat && !a->normalized;
 }
 
-static bool IsNormalizedOrFloat(const maniGltfAccessor* a)
+MANI_NODISCARD static bool IsNormalizedOrFloat(const maniGltfAccessor* a)
 {
     return IsFloat(a) || (a->normalized && a->component <= maniGltfUnsignedShort);
 }
 
-static bool Strided(const maniGltf* gltf, const maniGltfAccessor* a)
+MANI_NODISCARD static bool Strided(const maniGltf* gltf, const maniGltfAccessor* a)
 {
     return !maniGltfPacked(gltf, a);
 }
 
 // The output accessor against the target's row of the specification's
 // table; the key width.
-static bool OutputFits(const maniGltf* gltf, const maniGltfAccessor* a, maniGltfChannel* c)
+MANI_NODISCARD static bool OutputFits(const maniGltf* gltf, const maniGltfAccessor* a,
+                                      maniGltfChannel* c)
 {
     switch (c->target)
     {

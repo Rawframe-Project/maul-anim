@@ -43,7 +43,7 @@ static void FreeWords(const maniFbx* fbx, uint32_t* words, size_t count)
 }
 
 // Whether a connection joins two objects, not properties.
-static bool ObjectToObject(const maniFbxConnection* c)
+MANI_NODISCARD static bool ObjectToObject(const maniFbxConnection* c)
 {
     return c->childProperty == MANI_FBX_NONE && c->parentProperty == MANI_FBX_NONE;
 }

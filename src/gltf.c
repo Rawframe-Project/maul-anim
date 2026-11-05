@@ -110,7 +110,8 @@ static maniImportResult ReadGlb(maniGltf* gltf, const uint8_t* bytes, size_t siz
 }
 
 // "major.minor" into its two numbers; false for anything else.
-static bool ParseVersion(const maniJson* json, uint32_t value, uint32_t* major, uint32_t* minor)
+MANI_NODISCARD static bool ParseVersion(const maniJson* json, uint32_t value, uint32_t* major,
+                                        uint32_t* minor)
 {
     uint8_t text[24];
     if (json->values[value].length >= sizeof text)

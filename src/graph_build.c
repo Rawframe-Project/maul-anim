@@ -231,8 +231,8 @@ typedef struct Layout
     uint32_t maskAt;
 } Layout;
 
-static bool Lay(const maniGraphSource* source, const maniGraphTally* tally, uint32_t bones,
-                const maniAllocator* allocator, Layout* lay)
+MANI_NODISCARD static bool Lay(const maniGraphSource* source, const maniGraphTally* tally,
+                               uint32_t bones, const maniAllocator* allocator, Layout* lay)
 {
     lay->sizes[0] = MANI_GRAPH_HEADER_SIZE;
     lay->sizes[1] = (uint64_t)source->parameterCount * MANI_GRAPH_PARAMETER_SIZE;
@@ -806,7 +806,7 @@ static maniBuildResult Keep(maniBuilder* builder, const Layout* lay)
 }
 
 // Whether a space of the source is to be triangulated.
-static bool Triangulates(const maniGraphSource* source)
+MANI_NODISCARD static bool Triangulates(const maniGraphSource* source)
 {
     for (uint32_t v = 0; v < source->nodeCount; ++v)
     {

@@ -27,7 +27,7 @@ enum
 
 // Whether a view is one an open wrote: its cookie, its counts in range
 // and both sections within the file it names.
-bool maniSkinValid(const maniSkin* s);
+MANI_NODISCARD bool maniSkinValid(const maniSkin* s);
 
 // A section's bytes; the view checked.
 static inline const uint8_t* maniSkinSection(const maniSkin* s, uint32_t section)

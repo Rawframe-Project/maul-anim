@@ -13,7 +13,7 @@
 #include <stddef.h>
 
 // True when the allocator is zeroed or has both functions.
-bool maniAllocatorValid(const maniAllocator* allocator);
+MANI_NODISCARD bool maniAllocatorValid(const maniAllocator* allocator);
 
 // count * size bytes aligned to alignment (at most that of max_align_t
 // for a zeroed allocator), or NULL when the size does not fit or the

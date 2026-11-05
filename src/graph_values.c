@@ -49,8 +49,8 @@ static float Clamp(float v, const uint8_t* entry)
 
 // The float and vector values as kept: finite, a quaternion normalized,
 // a bounded float clamped; false for one out of form.
-static bool CanonicalFloats(maniGraphParameterType type, const uint8_t* entry, bool bounded,
-                            maniGraphValue* v)
+MANI_NODISCARD static bool CanonicalFloats(maniGraphParameterType type, const uint8_t* entry,
+                                           bool bounded, maniGraphValue* v)
 {
     uint32_t n = type == maniGraphParameterFloat  ? 1u
                  : type == maniGraphParameterVec2 ? 2u

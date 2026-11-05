@@ -65,7 +65,7 @@ typedef struct Totals
 
 // Whether a channel passes a bound: more than MANI_MAX_MATCH_TIMES
 // times, or a finite time past MANI_MAX_MATCH_REACH.
-static bool ChannelPast(const maniMatchChannelSource* c)
+MANI_NODISCARD static bool ChannelPast(const maniMatchChannelSource* c)
 {
     if (c->timeCount > MANI_MAX_MATCH_TIMES ||
         (c->kind == maniMatchFloatTrack && maniNamePastLimit(c->trackLength)))
@@ -83,7 +83,8 @@ static bool ChannelPast(const maniMatchChannelSource* c)
 }
 
 // A channel within its bounds (ChannelPast refused the rest).
-static bool ChannelValid(const maniMotionDatabaseSource* s, const maniMatchChannelSource* c)
+MANI_NODISCARD static bool ChannelValid(const maniMotionDatabaseSource* s,
+                                        const maniMatchChannelSource* c)
 {
     uint32_t bones = maniSkeleton_GetBoneCount(s->skeleton);
     bool bone = (uint32_t)c->kind <= maniMatchBoneFacing;
@@ -105,7 +106,8 @@ static bool ChannelValid(const maniMotionDatabaseSource* s, const maniMatchChann
                       maniValidUtf8((const uint8_t*)c->track, c->trackLength));
 }
 
-static bool EntryValid(const maniMotionDatabaseSource* s, const maniMatchEntrySource* e)
+MANI_NODISCARD static bool EntryValid(const maniMotionDatabaseSource* s,
+                                      const maniMatchEntrySource* e)
 {
     if (e->clip >= s->clipCount || e->flags > MANI_MATCH_ENTRY_FLAGS)
     {
@@ -322,7 +324,7 @@ static void Release(Work* w)
                 sizeof(uint32_t), 4);
 }
 
-static bool Allocate(Work* w)
+MANI_NODISCARD static bool Allocate(Work* w)
 {
     const maniMotionDatabaseSource* s = w->source;
     const maniAllocator* a = w->allocator;
@@ -367,7 +369,7 @@ static bool Allocate(Work* w)
 }
 
 // Every frame's raw features, entry by entry.
-static bool Sample(Work* w)
+MANI_NODISCARD static bool Sample(Work* w)
 {
     const maniMotionDatabaseSource* s = w->source;
     maniPose* pose = NULL;
@@ -409,7 +411,7 @@ static bool Sample(Work* w)
 
 // Channel c's features from first, width wide: offset and scale, then
 // normalized in place; false when they never vary.
-static bool Normalize(Work* w, uint32_t first, uint32_t width, float weight)
+MANI_NODISCARD static bool Normalize(Work* w, uint32_t first, uint32_t width, float weight)
 {
     uint32_t n = w->totals.features;
     uint32_t frames = w->totals.frames;
@@ -561,7 +563,7 @@ static void LayEntries(const Work* w, uint8_t* entries, uint8_t* clips, uint8_t*
 }
 
 // Whether an entry is mirrored: the file then keeps the map's identity.
-static bool Mirrors(const maniMotionDatabaseSource* s)
+MANI_NODISCARD static bool Mirrors(const maniMotionDatabaseSource* s)
 {
     for (uint32_t e = 0; e < s->entryCount; ++e)
     {

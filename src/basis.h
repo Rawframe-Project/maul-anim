@@ -25,7 +25,7 @@ typedef struct maniBasis
 } maniBasis;
 
 // Whether each axis is below 6 and x, y and z each appear once.
-bool maniBasisAxesValid(const maniAxis axes[3]);
+MANI_NODISCARD bool maniBasisAxesValid(const maniAxis axes[3]);
 
 // The basis whose output axis i is input axis axes[i] (or its negative).
 maniBasis maniBasisMake(const maniAxis axes[3], float unit);

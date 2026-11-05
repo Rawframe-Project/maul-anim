@@ -14,12 +14,12 @@
 
 // Splits a finite matrix; false, with out untouched, when a component is
 // not finite.
-bool maniDecompose(const maniAffine* matrix, maniTransform* out);
+MANI_NODISCARD bool maniDecompose(const maniAffine* matrix, maniTransform* out);
 
 // Splits a matrix when the parts compose back within 1e-4 of its largest
 // column: false for a shear TRS cannot hold, or a component
 // not finite.
-bool maniDecomposeExact(const maniAffine* matrix, maniTransform* out);
+MANI_NODISCARD bool maniDecomposeExact(const maniAffine* matrix, maniTransform* out);
 
 // A matrix's rigid part, its translation and maniDecompose's rotation:
 // when every two columns are orthogonal within a relative

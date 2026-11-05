@@ -87,7 +87,7 @@ typedef struct Search
     bool lastCandidate;
 } Search;
 
-static bool Candidate(const Search* s, const Entry* e)
+MANI_NODISCARD static bool Candidate(const Search* s, const Entry* e)
 {
     return (e->tags & s->q->requiredTags) == s->q->requiredTags &&
            (e->tags & s->q->excludedTags) == 0;
@@ -124,7 +124,7 @@ static uint32_t FramesApart(const maniMotionDatabase* d, float seconds)
 
 // Excluded: near the continuing frame on its entry, or near an earlier
 // pick on its.
-static bool Excluded(const Search* s, uint32_t entry, const Entry* e, uint32_t frame)
+MANI_NODISCARD static bool Excluded(const Search* s, uint32_t entry, const Entry* e, uint32_t frame)
 {
     const maniMatchQuery* q = s->q;
     uint32_t current = q->current;
@@ -150,7 +150,7 @@ static bool Excluded(const Search* s, uint32_t entry, const Entry* e, uint32_t f
 // Whether a clamped entry's frame m (from its first) is within the end
 // exclusion of its end; once one is, every later one is (each step is
 // monotone).
-static bool NearEnd(const Search* s, const Entry* e, uint32_t m)
+MANI_NODISCARD static bool NearEnd(const Search* s, const Entry* e, uint32_t m)
 {
     double t = (double)e->start + (double)m / (double)s->d->sampleRate;
     return (double)e->end - t < (double)s->q->endExclusion;
@@ -229,7 +229,7 @@ static float Bound(const Search* s, uint32_t node)
 // Whether a node of that bound can hold no better frame: its bound past
 // the best, or equal to it with no frame to win the tie (the best is the
 // continuing frame, or lower than every frame of the node).
-static bool Pruned(const Search* s, uint32_t node, float bound)
+MANI_NODISCARD static bool Pruned(const Search* s, uint32_t node, float bound)
 {
     if (bound != s->bestCost)
     {
@@ -339,7 +339,7 @@ static void Walk(Search* s)
     }
 }
 
-static bool QueryValid(const maniMotionDatabase* d, const maniMatchQuery* q)
+MANI_NODISCARD static bool QueryValid(const maniMotionDatabase* d, const maniMatchQuery* q)
 {
     const float seconds[5] = {q->continuingBias, q->transitionCost, q->jumpThreshold,
                               q->endExclusion, q->historyTime};

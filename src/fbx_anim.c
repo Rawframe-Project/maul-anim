@@ -35,13 +35,13 @@ static const char kInternal[] = "(internal)";
 
 // Whether a stack's source is the root standing for the internal stack
 // (from 7.0 a source is an object, and object 0 is a stack like any).
-static bool IsInternal(const maniFbx* fbx, uint32_t source)
+MANI_NODISCARD static bool IsInternal(const maniFbx* fbx, uint32_t source)
 {
     return fbx->version < 6000 && source == 0;
 }
 
 // Whether a file before 6.0 has a top-level model with channels.
-static bool HasInternal(const maniFbx* fbx)
+MANI_NODISCARD static bool HasInternal(const maniFbx* fbx)
 {
     for (uint32_t m = fbx->version < 6000 ? fbx->nodes[0].firstChild : MANI_FBX_NONE;
          m != MANI_FBX_NONE; m = fbx->nodes[m].next)
@@ -170,8 +170,8 @@ uint32_t maniFbxStackSource(const maniFbx* fbx, uint32_t k)
 
 // A number property of an object, its fallback when absent; false for
 // one present but not a finite number.
-static bool Number(const maniFbx* fbx, uint32_t object, const char* name, size_t length,
-                   double* out)
+MANI_NODISCARD static bool Number(const maniFbx* fbx, uint32_t object, const char* name,
+                                  size_t length, double* out)
 {
     uint32_t entry = maniFbxFindProperty(fbx, object, name, length);
     return entry == MANI_FBX_NONE || maniFbxNumber(fbx, maniFbxPropertyValue(fbx, entry, 0), out);
@@ -219,7 +219,7 @@ static maniFbxLayer ReadLayer(const maniFbx* fbx, uint32_t object)
     return (maniFbxLayer){object, mode, weight, rotation == 0.0, scale == 0.0};
 }
 
-static bool NameIs(const maniFbx* fbx, uint32_t property, const char* name)
+MANI_NODISCARD static bool NameIs(const maniFbx* fbx, uint32_t property, const char* name)
 {
     return maniFbxStringEquals(fbx, property, name, strlen(name));
 }
@@ -460,7 +460,7 @@ static maniImportResult SortChannels(const maniFbx* fbx, maniFbxAnimation* a)
     return r;
 }
 
-static bool SameSlot(const maniFbxChannel* a, const maniFbxChannel* b)
+MANI_NODISCARD static bool SameSlot(const maniFbxChannel* a, const maniFbxChannel* b)
 {
     return a->target == b->target && a->layer == b->layer && a->nameHash == b->nameHash;
 }
@@ -487,8 +487,8 @@ maniImportResult maniFbxSortChannels(const maniFbx* fbx, maniFbxAnimation* a)
 }
 
 // Two integer properties of an object, both present.
-static bool Pair(const maniFbx* fbx, uint32_t object, const char* first, const char* second,
-                 int64_t* a, int64_t* b)
+MANI_NODISCARD static bool Pair(const maniFbx* fbx, uint32_t object, const char* first,
+                                const char* second, int64_t* a, int64_t* b)
 {
     uint32_t x = maniFbxFindProperty(fbx, object, first, strlen(first));
     uint32_t y = maniFbxFindProperty(fbx, object, second, strlen(second));
@@ -798,9 +798,10 @@ static void Apply(const maniFbxAnimation* animation, const maniFbx* fbx, const m
 
 // A property's value through a run of channels of one side: the model's
 // own or (6.x) its attribute's.
-static bool AnimateRun(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t first,
-                       uint32_t count, const char* name, size_t length, uint64_t hash, double time,
-                       uint32_t order, bool attribute, double value[3])
+MANI_NODISCARD static bool AnimateRun(const maniFbxAnimation* animation, const maniFbx* fbx,
+                                      uint32_t first, uint32_t count, const char* name,
+                                      size_t length, uint64_t hash, double time, uint32_t order,
+                                      bool attribute, double value[3])
 {
     bool scale = length == 11 && memcmp(name, "Lcl Scaling", 11) == 0;
     bool rotation = length == 12 && memcmp(name, "Lcl Rotation", 12) == 0;
@@ -819,9 +820,9 @@ static bool AnimateRun(const maniFbxAnimation* animation, const maniFbx* fbx, ui
     return animated;
 }
 
-static bool Animate(const maniFbxAnimation* animation, const maniFbx* fbx, uint32_t object,
-                    const char* name, size_t length, double time, uint32_t order, bool attribute,
-                    double value[3])
+MANI_NODISCARD static bool Animate(const maniFbxAnimation* animation, const maniFbx* fbx,
+                                   uint32_t object, const char* name, size_t length, double time,
+                                   uint32_t order, bool attribute, double value[3])
 {
     uint32_t first = 0;
     uint32_t count = maniFbxAnimatedRun(animation, object, &first);

@@ -26,7 +26,7 @@ static float LoadF32(const uint8_t* p)
     return v;
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);
@@ -35,7 +35,7 @@ static bool Finite(float value)
 
 // The components a stream of the semantic may have: positions and
 // normals 3, tangents 4, texture coordinates 2, colors 3 or 4.
-static bool Components(maniMorphSemantic semantic, uint32_t components)
+MANI_NODISCARD static bool Components(maniMorphSemantic semantic, uint32_t components)
 {
     switch (semantic)
     {
@@ -55,7 +55,7 @@ static bool Components(maniMorphSemantic semantic, uint32_t components)
 
 // A stream the job takes: pointers, a known semantic and set, its
 // components, strides wide enough.
-static bool StreamValid(const maniMorphStream* s)
+MANI_NODISCARD static bool StreamValid(const maniMorphStream* s)
 {
     size_t width = 4 * (size_t)s->components;
     return s->in != NULL && s->out != NULL && Components(s->semantic, s->components) &&
@@ -63,7 +63,7 @@ static bool StreamValid(const maniMorphStream* s)
            s->outStride >= width;
 }
 
-static bool JobValid(const maniMorphJob* job)
+MANI_NODISCARD static bool JobValid(const maniMorphJob* job)
 {
     if (job == NULL || !maniMorphTargetsValid(job->targets) || job->weights == NULL ||
         (job->streams == NULL && job->streamCount > 0) || job->first > job->targets->vertexCount ||

@@ -106,13 +106,15 @@ maniFileResult maniContainerOpenTagged(const void* bytes, size_t size, void* out
 
 // The section with the given tag: its bytes, size and offset in the file.
 // False when the container has none.
-bool maniContainerSection(const maniContainer* container, uint32_t tag, const uint8_t** dataOut,
-                          uint64_t* sizeOut, uint64_t* offsetOut);
+MANI_NODISCARD bool maniContainerSection(const maniContainer* container, uint32_t tag,
+                                         const uint8_t** dataOut, uint64_t* sizeOut,
+                                         uint64_t* offsetOut);
 
 // The size of the container holding these sections, in the order given
 // (tags strictly increasing). False when it does not fit in 64 bits or
 // there are more than MANI_CONTAINER_MAX_SECTIONS.
-bool maniContainerSize(const maniSectionSource* sections, uint32_t count, uint64_t* sizeOut);
+MANI_NODISCARD bool maniContainerSize(const maniSectionSource* sections, uint32_t count,
+                                      uint64_t* sizeOut);
 
 // Writes the container into out, which holds at least maniContainerSize's
 // bytes and is zeroed by the call; the payload hash is computed here.

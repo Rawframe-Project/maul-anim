@@ -29,22 +29,23 @@
 
 #define LN2 0.693147180559945309f
 
-static bool Finite3(maniVec3 v)
+MANI_NODISCARD static bool Finite3(maniVec3 v)
 {
     return isfinite(v.x) && isfinite(v.y) && isfinite(v.z);
 }
 
-static bool Finite4(maniQuat q)
+MANI_NODISCARD static bool Finite4(maniQuat q)
 {
     return isfinite(q.x) && isfinite(q.y) && isfinite(q.z) && isfinite(q.w);
 }
 
-static bool Unit(maniQuat q)
+MANI_NODISCARD static bool Unit(maniQuat q)
 {
     return Finite4(q) && fabsf(maniQuatDot(q, q) - 1.0f) <= 2e-3f;
 }
 
-static bool Valid(const maniTrajectory* t, const maniTrajectoryGoal* g, float seconds)
+MANI_NODISCARD static bool Valid(const maniTrajectory* t, const maniTrajectoryGoal* g,
+                                 float seconds)
 {
     return Finite3(t->position) && Finite3(t->velocity) && Finite3(t->acceleration) &&
            Unit(t->rotation) && Finite3(t->angularVelocity) && Finite3(g->velocity) &&

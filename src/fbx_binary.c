@@ -67,7 +67,7 @@ static maniImportResult Bad(uint64_t at)
 }
 
 // Whether `length` bytes from `at` lie before `limit`.
-static bool Fits(uint64_t at, uint64_t length, uint64_t limit)
+MANI_NODISCARD static bool Fits(uint64_t at, uint64_t length, uint64_t limit)
 {
     return at <= limit && length <= limit - at;
 }
@@ -292,7 +292,7 @@ static maniImportResult ReadNode(Reader* r, Header h, uint64_t* at, uint64_t hea
 
 // A list's end: no end and no name, whatever else the header says, as
 // ufbx reads it.
-static bool IsNull(Header h)
+MANI_NODISCARD static bool IsNull(Header h)
 {
     return h.end == 0 && h.nameLength == 0;
 }

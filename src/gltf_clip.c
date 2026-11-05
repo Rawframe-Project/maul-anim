@@ -93,7 +93,7 @@ static uint32_t RootNode(const Build* b)
     return MANI_JSON_NONE;
 }
 
-static bool IsAncestor(const maniGltf* gltf, uint32_t ancestor, uint32_t node)
+MANI_NODISCARD static bool IsAncestor(const maniGltf* gltf, uint32_t ancestor, uint32_t node)
 {
     for (uint32_t v = gltf->nodeParents[node]; v != MANI_JSON_NONE; v = gltf->nodeParents[v])
     {
@@ -106,7 +106,7 @@ static bool IsAncestor(const maniGltf* gltf, uint32_t ancestor, uint32_t node)
 }
 
 // A node carrying a skin whose joints are all bones of the skeleton.
-static bool SkinsInto(const Build* b, uint32_t node)
+MANI_NODISCARD static bool SkinsInto(const Build* b, uint32_t node)
 {
     int64_t skin = -1;
     uint32_t value = maniJsonFind(&b->gltf->json, b->gltf->nodeValues[node], "skin", 4);
@@ -147,7 +147,7 @@ static void Classify(const Build* b, Bound* x)
     }
 }
 
-static bool Kept(const Build* b, const Bound* x)
+MANI_NODISCARD static bool Kept(const Build* b, const Bound* x)
 {
     switch (x->c.target)
     {
@@ -399,7 +399,7 @@ static maniImportResult FoldRoot(Build* b, uint32_t samples)
 
 // Whether folding changes the root: a channel above it, or the root
 // animated under a placement that is not the identity.
-static bool NeedsFold(const Build* b, const maniAffine* placement)
+MANI_NODISCARD static bool NeedsFold(const Build* b, const maniAffine* placement)
 {
     if (b->options->foldPlacement == 0 || b->rootNode == MANI_JSON_NONE)
     {

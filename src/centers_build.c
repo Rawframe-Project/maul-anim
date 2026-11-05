@@ -288,7 +288,7 @@ static void Release(Work* w, size_t triangles, size_t vertices)
     maniRelease(a, w->centers, 3 * vertices, sizeof(float), 8);
 }
 
-static bool Allocate(Work* w, size_t triangles, size_t vertices)
+MANI_NODISCARD static bool Allocate(Work* w, size_t triangles, size_t vertices)
 {
     maniAllocator* a = w->allocator;
     size_t n = (size_t)w->count + 1;

@@ -80,13 +80,14 @@ bool maniMapJsonWord(maniGraphReader* r, uint32_t value, const char* const* word
 }
 
 // Numbers into out, out as it is when absent.
-static bool Floats(maniGraphReader* r, uint32_t value, float* out, uint32_t count)
+MANI_NODISCARD static bool Floats(maniGraphReader* r, uint32_t value, float* out, uint32_t count)
 {
     return value == ABSENT || maniGraphJsonFloats(r, value, out, count);
 }
 
 // One entry over its bone's rest; seen marks the bones read before.
-static bool Entry(maniGraphReader* r, uint32_t object, maniTransform* pose, uint8_t* seen)
+MANI_NODISCARD static bool Entry(maniGraphReader* r, uint32_t object, maniTransform* pose,
+                                 uint8_t* seen)
 {
     static const char* const kKeys[] = {"bone", "translation", "rotation", "scale"};
     uint32_t f[4];
@@ -200,7 +201,7 @@ static_assert(sizeof(maniTransform) == 10 * sizeof(float), "ten floats");
 
 // Whether a local is its bone's rest bit for bit.
 // Whether count floats have the same bits.
-static bool SameBits(const float* a, const float* b, uint32_t count)
+MANI_NODISCARD static bool SameBits(const float* a, const float* b, uint32_t count)
 {
     uint32_t x = 0;
     uint32_t y = 0;
@@ -215,7 +216,8 @@ static bool SameBits(const float* a, const float* b, uint32_t count)
 }
 
 // Whether a local is its bone's rest bit for bit.
-static bool AtRest(const maniSkeleton* skeleton, uint32_t bone, const maniTransform* t)
+MANI_NODISCARD static bool AtRest(const maniSkeleton* skeleton, uint32_t bone,
+                                  const maniTransform* t)
 {
     maniTransform rest = maniSkeleton_GetRest(skeleton, bone);
     float a[10];

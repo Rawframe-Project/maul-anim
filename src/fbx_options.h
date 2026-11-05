@@ -16,12 +16,12 @@
 #include <stdbool.h>
 
 // Each field in its range.
-bool maniFbxOptionsValid(const maniFbxOptions* options);
+MANI_NODISCARD bool maniFbxOptionsValid(const maniFbxOptions* options);
 
 // The checks every build entry point makes: a NULL builder is refused
 // alone, any other bad argument (inRange false included) is a misuse.
-bool maniFbxUsable(maniBuilder* builder, const maniFbx* fbx, const maniFbxOptions* options,
-                   bool inRange);
+MANI_NODISCARD bool maniFbxUsable(maniBuilder* builder, const maniFbx* fbx,
+                                  const maniFbxOptions* options, bool inRange);
 
 // The output's basis: the file's right, up and front axes turned to the
 // options', translations from the file's unit to the options'.

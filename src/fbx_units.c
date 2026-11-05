@@ -64,7 +64,7 @@ static void VisitCluster(const maniFbx* fbx, uint32_t child, void* context)
     }
 }
 
-static bool LimbClass(const maniFbx* fbx, uint32_t object)
+MANI_NODISCARD static bool LimbClass(const maniFbx* fbx, uint32_t object)
 {
     return maniFbxObjectSubclassIs(fbx, object, "LimbNode", 8) ||
            maniFbxObjectSubclassIs(fbx, object, "Limb", 4) ||
@@ -79,7 +79,7 @@ static void VisitAttribute(const maniFbx* fbx, uint32_t child, void* context)
                   maniFbxObjectKindIs(fbx, child, "NodeAttribute", 13) && LimbClass(fbx, child));
 }
 
-static bool IsLimb(const maniFbx* fbx, uint32_t model)
+MANI_NODISCARD static bool IsLimb(const maniFbx* fbx, uint32_t model)
 {
     uint32_t object = fbx->models[model];
     bool limb = LimbClass(fbx, object);

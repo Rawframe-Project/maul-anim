@@ -64,7 +64,7 @@ typedef struct Progress
 // A checkpoint is state, read only by a release of the ABI version that
 // wrote it (MANI_ABI_VERSION): the whole version before 1.0, the major and
 // minor version from 1.0 on. The container holds the writer's version.
-static bool SameAbi(const uint8_t* b)
+MANI_NODISCARD static bool SameAbi(const uint8_t* b)
 {
     bool release =
         maniLoadU16(b + 16) == MANI_VERSION_MAJOR && maniLoadU16(b + 18) == MANI_VERSION_MINOR;
@@ -184,7 +184,7 @@ static maniFileResult ReadSections(const maniLearnedTrainer* t, const maniContai
 }
 
 // The checked progress made the trainer's; false when memory runs out.
-static bool Apply(maniLearnedTrainer* t, const Progress* p)
+MANI_NODISCARD static bool Apply(maniLearnedTrainer* t, const Progress* p)
 {
     size_t frames = (size_t)t->data.frameCount * t->source.options.latentCount;
     if (p->stage > 0)

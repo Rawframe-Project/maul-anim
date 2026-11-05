@@ -36,7 +36,7 @@ uint32_t maniGraphMachineConditionCount(const maniGraphMachine* m);
 uint32_t maniGraphMachineCondition(const maniGraphMachine* m, uint32_t c);
 // Whether it listens (records its leading clip), and state k's word w:
 // final, nearest machine, list's first, list's count.
-bool maniGraphMachineListening(const maniGraphMachine* m);
+MANI_NODISCARD bool maniGraphMachineListening(const maniGraphMachine* m);
 uint32_t maniGraphMachineState(const maniGraphMachine* m, uint32_t k, uint32_t w);
 // State k's i-th clip node.
 uint32_t maniGraphMachineClip(const maniGraphMachine* m, uint32_t k, uint32_t i);
@@ -77,7 +77,8 @@ void maniGraphSetMachineSince(const maniGraphMachine* m, uint32_t* block, uint32
                               float seconds);
 
 // Condition c's heard bit.
-bool maniGraphMachineHeard(const maniGraphMachine* m, const uint32_t* block, uint32_t c);
+MANI_NODISCARD bool maniGraphMachineHeard(const maniGraphMachine* m, const uint32_t* block,
+                                          uint32_t c);
 void maniGraphSetMachineHeard(const maniGraphMachine* m, uint32_t* block, uint32_t c);
 
 // The record of the update before cleared but the position: no move, no

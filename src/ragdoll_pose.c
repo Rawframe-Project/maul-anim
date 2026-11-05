@@ -66,12 +66,12 @@ static const uint8_t* Record(const maniRagdoll* ragdoll, uint32_t body)
     return ragdoll->bodies + (size_t)body * MANI_RAGDOLL_BODY_SIZE;
 }
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
 }
 
-static bool UnitQuat(maniQuat q)
+MANI_NODISCARD static bool UnitQuat(maniQuat q)
 {
     float l = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
     return l >= 0.998f && l <= 1.002f;
@@ -79,7 +79,7 @@ static bool UnitQuat(maniQuat q)
 
 // A placement's rigid part: the identity for NULL; false when not
 // finite or its rotation not of length 1.
-static bool Placement(const maniTransform* placement, Rigid* out)
+MANI_NODISCARD static bool Placement(const maniTransform* placement, Rigid* out)
 {
     *out = kIdentity;
     if (placement == NULL)
@@ -117,7 +117,7 @@ static maniQuat Shortest(maniQuat q)
     return q.w < 0.0f ? (maniQuat){-q.x, -q.y, -q.z, -q.w} : q;
 }
 
-static bool PoseUsable(const maniRagdoll* ragdoll, const maniPose* pose)
+MANI_NODISCARD static bool PoseUsable(const maniRagdoll* ragdoll, const maniPose* pose)
 {
     return maniPoseOfSkeleton(pose, ragdoll->skeletonIdentity, ragdoll->boneCount) &&
            maniPose_IsModelCurrent(pose);
@@ -225,7 +225,7 @@ maniResult maniRagdoll_ComputeJointTargets(const maniRagdoll* ragdoll,
     return result;
 }
 
-static bool BodiesValid(const maniRagdollBodyState* bodies, uint32_t count)
+MANI_NODISCARD static bool BodiesValid(const maniRagdollBodyState* bodies, uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i)
     {

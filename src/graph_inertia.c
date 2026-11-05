@@ -123,7 +123,7 @@ void maniGraphResetInertia(uint32_t* block, const maniGraphInertia* node)
     maniGraphInertiaSet(block, maniGraphInertiaPending, HUGE_VALF);
 }
 
-static bool Seconds(float value)
+MANI_NODISCARD static bool Seconds(float value)
 {
     return isfinite(value) && value >= 0.0f;
 }
@@ -153,7 +153,7 @@ static uint32_t HeaderValid(const uint8_t* bytes)
 
 // A channel's capture: a direction of length 0 or about 1, the rest
 // finite, its duration not negative.
-static bool CaptureValid(const uint8_t* bytes)
+MANI_NODISCARD static bool CaptureValid(const uint8_t* bytes)
 {
     float v[6];
     for (uint32_t k = 0; k < 6; ++k)

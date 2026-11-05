@@ -83,7 +83,7 @@ maniResult maniInitSpringState(const maniSpringSet* set, const maniSkeleton* ske
     return result;
 }
 
-static bool PlacementValid(const maniTransform* t)
+MANI_NODISCARD static bool PlacementValid(const maniTransform* t)
 {
     const maniVec3 p = t->translation;
     const maniQuat q = t->rotation;
@@ -93,7 +93,7 @@ static bool PlacementValid(const maniTransform* t)
 
 // The pose's model space, composed when stale; false for a pose that
 // does not fit the state.
-static bool ModelReady(const maniSpringState* state, maniPose* pose)
+MANI_NODISCARD static bool ModelReady(const maniSpringState* state, maniPose* pose)
 {
     if (maniPose_GetBoneCount(pose) != state->set->boneCount || maniPose_IsDifference(pose))
     {

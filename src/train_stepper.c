@@ -89,7 +89,8 @@ uint32_t maniTrainWindows(const maniTrainData* d, uint32_t window, uint32_t* sta
 
 // The input's offsets and group deviations over the frames' states; the
 // output's offsets and deviations over the pairs' rates of change.
-static bool Normalize(const maniAllocator* allocator, maniTrainStepper* t, const maniTrainData* d)
+MANI_NODISCARD static bool Normalize(const maniAllocator* allocator, maniTrainStepper* t,
+                                     const maniTrainData* d)
 {
     uint32_t f = d->featureCount;
     uint32_t l = t->latentCount;
@@ -122,7 +123,7 @@ static bool Normalize(const maniAllocator* allocator, maniTrainStepper* t, const
     return true;
 }
 
-static bool Chunks(const maniAllocator* allocator, maniTrainStepper* t)
+MANI_NODISCARD static bool Chunks(const maniAllocator* allocator, maniTrainStepper* t)
 {
     t->chunks = maniAllocate(allocator, t->solo.chunkCount, sizeof(maniTrainStepperChunk), 8);
     if (t->chunks == NULL)

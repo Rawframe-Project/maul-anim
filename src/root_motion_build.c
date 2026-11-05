@@ -203,7 +203,7 @@ static void StoreFloat(uint8_t* p, double value)
     memcpy(p, &f, sizeof f);
 }
 
-static bool InReach(const double t[3])
+MANI_NODISCARD static bool InReach(const double t[3])
 {
     return fabs(t[0]) <= MANI_ROOT_MOTION_REACH && fabs(t[1]) <= MANI_ROOT_MOTION_REACH &&
            fabs(t[2]) <= MANI_ROOT_MOTION_REACH;

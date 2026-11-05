@@ -298,7 +298,8 @@ static maniFileResult CheckSizes(const Sections* s, maniGraph* g)
 
 // A name's offset and length (at entry) inside the names, UTF-8, not
 // empty, with the hash at hashAt.
-static bool NameValid(const maniGraph* g, const uint8_t* entry, const uint8_t* hashAt)
+MANI_NODISCARD static bool NameValid(const maniGraph* g, const uint8_t* entry,
+                                     const uint8_t* hashAt)
 {
     uint64_t offset = maniLoadU32(entry);
     uint64_t length = maniLoadU32(entry + 4);
@@ -311,7 +312,7 @@ static bool NameValid(const maniGraph* g, const uint8_t* entry, const uint8_t* h
            maniHashBytes(MANI_HASH_INIT, name, length) == maniLoadU64(hashAt);
 }
 
-static bool Finite(const uint8_t* p)
+MANI_NODISCARD static bool Finite(const uint8_t* p)
 {
     return (maniLoadU32(p) & 0x7F800000u) != 0x7F800000u;
 }
@@ -327,7 +328,7 @@ static uint32_t UsedWords(uint32_t type)
 }
 
 // A parameter's default and bounds in form, its unused bytes zero.
-static bool ValueValid(uint32_t type, bool bounded, const uint8_t* v)
+MANI_NODISCARD static bool ValueValid(uint32_t type, bool bounded, const uint8_t* v)
 {
     uint32_t used = UsedWords(type);
     for (uint32_t k = used; k < 4; ++k)

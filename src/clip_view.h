@@ -33,7 +33,7 @@ _Static_assert(MANI_CLIP_VIEW_SECTIONS == sizeof((maniClip*)0)->offsets / sizeof
 
 // Whether a view is one an open wrote: its cookie, and its counts and
 // every section within the file it names.
-bool maniClipValid(const maniClip* clip);
+MANI_NODISCARD bool maniClipValid(const maniClip* clip);
 
 // A section of the view by its tag, maniClipTagTracks to
 // maniClipTagRootMotion: its bytes and its size, 0 for one the file
@@ -220,7 +220,8 @@ typedef struct maniBoneList
 } maniBoneList;
 
 // Whether a clip, a skeleton and a pose go together (none NULL).
-bool maniClipFits(const maniClip* clip, const maniSkeleton* skeleton, const maniPose* pose);
+MANI_NODISCARD bool maniClipFits(const maniClip* clip, const maniSkeleton* skeleton,
+                                 const maniPose* pose);
 
 // The two samples a time falls between and the factor; no caches.
 maniClipPair maniClipLocate(const maniClip* clip, float time);
@@ -269,7 +270,7 @@ static inline void maniSlotRest(float* slot, const maniSkeleton* skeleton, uint3
 
 // Whether a list (or none, every bone) takes a bone; next walks the list
 // along increasing bones.
-bool maniBoneListed(const maniBoneList* list, uint32_t bone, uint32_t* next);
+MANI_NODISCARD bool maniBoneListed(const maniBoneList* list, uint32_t bone, uint32_t* next);
 
 // A compressed clip at a pair into a pose: every bone (or only the listed
 // ones, list not NULL) written once, its rest and then its channels; the

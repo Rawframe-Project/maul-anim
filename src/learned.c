@@ -50,7 +50,7 @@ static float LoadF32(const uint8_t* p)
     return v;
 }
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
 }

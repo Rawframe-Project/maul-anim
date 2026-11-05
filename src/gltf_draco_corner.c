@@ -45,7 +45,8 @@ bool maniDracoSeamsInit(maniArena* arena, const maniDracoTable* mesh, maniDracoT
 }
 
 // Marks the vertices at the ends of the edge opposite c.
-static bool MarkEnds(maniDracoTable* attribute, const maniDracoTable* mesh, uint32_t c)
+MANI_NODISCARD static bool MarkEnds(maniDracoTable* attribute, const maniDracoTable* mesh,
+                                    uint32_t c)
 {
     uint32_t a = maniDracoVertex(mesh, maniDracoNext(c));
     uint32_t b = maniDracoVertex(mesh, maniDracoPrevious(c));
@@ -77,7 +78,7 @@ bool maniDracoAddSeam(maniDracoTable* attribute, const maniDracoTable* mesh, uin
 // A seam vertex's first corner: the last one swinging left (over the
 // attribute's opposites) before none; false when the walk returns to c
 // or runs longer than the corners.
-static bool FirstCorner(const maniDracoTable* attribute, uint32_t c, uint32_t* first)
+MANI_NODISCARD static bool FirstCorner(const maniDracoTable* attribute, uint32_t c, uint32_t* first)
 {
     *first = c;
     uint32_t act = maniDracoSwingLeft(attribute, c);

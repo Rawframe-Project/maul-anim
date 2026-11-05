@@ -113,7 +113,7 @@ static int32_t Signed(uint32_t u)
 }
 
 // A metadata name: its length byte and bytes.
-static bool Name(maniDracoReader* r, const uint8_t** name, uint8_t* length)
+MANI_NODISCARD static bool Name(maniDracoReader* r, const uint8_t** name, uint8_t* length)
 {
     return maniDracoU8(r, length) && maniDracoBytes(r, *length, name);
 }
@@ -128,7 +128,7 @@ typedef struct Names
     uint32_t capacity;
 } Names;
 
-static bool AddName(Names* n, uint32_t owner, const uint8_t* name, uint8_t length)
+MANI_NODISCARD static bool AddName(Names* n, uint32_t owner, const uint8_t* name, uint8_t length)
 {
     if (n->count == n->capacity)
     {
@@ -175,7 +175,7 @@ static maniDracoStatus Unique(maniArena* arena, const Names* n)
 
 // One element's entries (names unique) and its count of sub-elements;
 // entries and sub-elements are named apart (owners 2e and 2e + 1).
-static bool Element(maniDracoReader* r, Names* names, uint32_t owner, uint32_t* subs)
+MANI_NODISCARD static bool Element(maniDracoReader* r, Names* names, uint32_t owner, uint32_t* subs)
 {
     uint32_t entries = 0;
     if (!maniDracoLeb32(r, &entries))
@@ -278,7 +278,7 @@ static maniDracoStatus Header(Decoder* d, uint16_t* flags)
 }
 
 // Sequential indices stored in 1, 2, a LEB128 of up to 4, or 4 bytes.
-static bool PlainIndex(maniDracoReader* r, uint32_t points, uint32_t* out)
+MANI_NODISCARD static bool PlainIndex(maniDracoReader* r, uint32_t points, uint32_t* out)
 {
     uint8_t u8 = 0;
     uint16_t u16 = 0;
@@ -354,7 +354,7 @@ static maniDracoStatus EdgebreakerConnectivity(Decoder* d)
 
 // One attribute's description and its sequential decoder's type, as the
 // decoder it names may take it.
-static bool Describe(maniDracoReader* r, maniDracoAttribute* a)
+MANI_NODISCARD static bool Describe(maniDracoReader* r, maniDracoAttribute* a)
 {
     uint8_t normalized = 0;
     bool read = maniDracoU8(r, &a->type) && maniDracoU8(r, &a->dataType) &&
@@ -365,7 +365,7 @@ static bool Describe(maniDracoReader* r, maniDracoAttribute* a)
            maniDracoLeb32(r, &a->uniqueId);
 }
 
-static bool Takes(const Value* v)
+MANI_NODISCARD static bool Takes(const Value* v)
 {
     const maniDracoAttribute* a = v->a;
     switch (v->decoder)
@@ -459,7 +459,7 @@ static maniDracoStatus Integers(Decoder* d, Value* v, uint32_t count)
 
 // The first position as a prediction's parent: decoded before v, of
 // three portable components (Google's SetParentAttribute).
-static bool Parent(const Decoder* d, const Value* v)
+MANI_NODISCARD static bool Parent(const Decoder* d, const Value* v)
 {
     const Value* p = d->position;
     return p != NULL && p != v && p->ready && p->pcomps == 3;
@@ -468,7 +468,8 @@ static bool Parent(const Decoder* d, const Value* v)
 // The schemes the library reads: difference everywhere;
 // over Edgebreaker, the parallelograms and texture coordinates with wrap,
 // geometric normals with the octahedron, each with its transform.
-static bool Accepts(const Decoder* d, const Value* v, const Group* g, uint8_t transform)
+MANI_NODISCARD static bool Accepts(const Decoder* d, const Value* v, const Group* g,
+                                   uint8_t transform)
 {
     bool normals = v->decoder == DecoderNormals;
     if (transform != (normals ? maniDracoOctahedron : maniDracoWrap))
@@ -582,7 +583,7 @@ static maniDracoStatus Portable(Decoder* d, Value* v, const Group* g, uint32_t e
 
 // What the transforms need, after the portable values: a quantization's
 // minimum, range and bits (1 to 30), or a normal's bits (2 to 30).
-static bool TransformNeeds(maniDracoReader* r, Value* v)
+MANI_NODISCARD static bool TransformNeeds(maniDracoReader* r, Value* v)
 {
     if (v->decoder == DecoderQuantization)
     {

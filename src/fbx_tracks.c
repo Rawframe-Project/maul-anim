@@ -32,7 +32,7 @@ static maniImportResult Capacity(void)
 }
 
 // Whether a property is one of the local transform's inputs.
-static bool InChain(const maniFbx* fbx, const maniFbxChannel* channel)
+MANI_NODISCARD static bool InChain(const maniFbx* fbx, const maniFbxChannel* channel)
 {
     for (uint32_t k = 0; k < maniFbxLocalVectors; ++k)
     {
@@ -147,7 +147,7 @@ static maniImportResult PropertyTracks(maniFbxClipState* c, uint32_t b,
 }
 
 // Whether an earlier channel of the run names the same property.
-static bool Seen(const maniFbxClipState* c, uint32_t first, uint32_t i)
+MANI_NODISCARD static bool Seen(const maniFbxClipState* c, uint32_t first, uint32_t i)
 {
     const maniFbxChannel* channels = c->animation.channels;
     for (uint32_t j = first; j < i; ++j)
@@ -217,7 +217,7 @@ static char* ShapeName(maniFbxClipState* c, uint32_t mesh, uint32_t channel, uin
 
 // Whether a mesh model belongs to the skeleton: a bone of it, or carrying
 // a skin within it.
-static bool MeshInSkeleton(const maniFbxClipState* c, uint32_t model)
+MANI_NODISCARD static bool MeshInSkeleton(const maniFbxClipState* c, uint32_t model)
 {
     size_t length = 0;
     const char* name = maniFbxModelName(c->fbx, model, &length);
@@ -296,7 +296,7 @@ static maniImportResult ChannelTracks(maniFbxClipState* c, uint32_t channel)
 
 // Whether a run's channels include its target's DeformPercent: the first
 // of the run's blend shape channel.
-static bool DrivesWeight(const maniFbxClipState* c, uint32_t first, uint32_t count)
+MANI_NODISCARD static bool DrivesWeight(const maniFbxClipState* c, uint32_t first, uint32_t count)
 {
     for (uint32_t i = first; i < first + count; ++i)
     {

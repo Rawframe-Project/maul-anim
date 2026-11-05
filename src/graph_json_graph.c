@@ -39,7 +39,8 @@ typedef maniGraphScope Scope;
 #define ABSENT MANI_JSON_NONE
 
 // A value of a parameter's type.
-static bool Value(Reader* r, maniGraphParameterType type, uint32_t value, maniGraphValue* out)
+MANI_NODISCARD static bool Value(Reader* r, maniGraphParameterType type, uint32_t value,
+                                 maniGraphValue* out)
 {
     *out = (maniGraphValue){{0}};
     if (type == maniGraphParameterBool || type == maniGraphParameterTrigger)
@@ -64,7 +65,7 @@ static bool Value(Reader* r, maniGraphParameterType type, uint32_t value, maniGr
     return maniGraphJsonFloats(r, value, out->f, n);
 }
 
-static bool Parameter(Reader* r, uint32_t object, maniGraphParameterSource* p)
+MANI_NODISCARD static bool Parameter(Reader* r, uint32_t object, maniGraphParameterSource* p)
 {
     static const char* const kKeys[] = {"name", "type", "default", "minimum", "maximum"};
     static const char* const kTypes[] = {"bool", "int",  "float",   "vec2",
@@ -110,7 +111,7 @@ typedef struct List
     size_t* lengths;
 } List;
 
-static bool Begin(Reader* r, uint32_t value, List* list)
+MANI_NODISCARD static bool Begin(Reader* r, uint32_t value, List* list)
 {
     list->count = 0;
     if (value != ABSENT && !maniGraphJsonArray(r, value, &list->count))
@@ -122,7 +123,7 @@ static bool Begin(Reader* r, uint32_t value, List* list)
     return (list->names != NULL && list->lengths != NULL) || maniGraphJsonNoMemory(r);
 }
 
-static bool Parameters(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+MANI_NODISCARD static bool Parameters(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
 {
     List list;
     if (!Begin(r, value, &list))
@@ -154,7 +155,7 @@ static bool Parameters(Reader* r, uint32_t value, maniGraphSource* out, Scope* s
 
 // Clip slots by name, each bound to the host's clip of that name and
 // its map.
-static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+MANI_NODISCARD static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
 {
     List list;
     if (!Begin(r, value, &list))
@@ -191,7 +192,7 @@ static bool Clips(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
 
 // Database slots by name, each bound to the host's database of that
 // name.
-static bool Databases(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+MANI_NODISCARD static bool Databases(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
 {
     List list;
     if (!Begin(r, value, &list))
@@ -230,9 +231,9 @@ static bool Databases(Reader* r, uint32_t value, maniGraphSource* out, Scope* sc
 // Model or spring set slots by name, each the host's slot of that name
 // (stride bytes each, its asset first): the slots in itemsOut, their
 // count in countOut, their names in table.
-static bool HostSlots(Reader* r, uint32_t value, const void* host, size_t stride,
-                      const maniNameTable* hostNames, const void** itemsOut, uint32_t* countOut,
-                      maniNameTable* table)
+MANI_NODISCARD static bool HostSlots(Reader* r, uint32_t value, const void* host, size_t stride,
+                                     const maniNameTable* hostNames, const void** itemsOut,
+                                     uint32_t* countOut, maniNameTable* table)
 {
     List list;
     if (!Begin(r, value, &list))
@@ -264,7 +265,7 @@ static bool HostSlots(Reader* r, uint32_t value, const void* host, size_t stride
     return maniGraphJsonTable(r, list.names, list.lengths, list.count, table);
 }
 
-static bool Models(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+MANI_NODISCARD static bool Models(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
 {
     const void* items = NULL;
     bool ok = HostSlots(r, value, r->hostModels, sizeof(maniGraphModelSource), &r->hostModelNames,
@@ -273,7 +274,7 @@ static bool Models(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope
     return ok;
 }
 
-static bool SpringSets(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+MANI_NODISCARD static bool SpringSets(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
 {
     const void* items = NULL;
     bool ok = HostSlots(r, value, r->hostSpringSets, sizeof(maniGraphSpringSetSource),
@@ -282,7 +283,7 @@ static bool SpringSets(Reader* r, uint32_t value, maniGraphSource* out, Scope* s
     return ok;
 }
 
-static bool SyncGroups(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
+MANI_NODISCARD static bool SyncGroups(Reader* r, uint32_t value, maniGraphSource* out, Scope* scope)
 {
     static const char* const kKeys[] = {"name", "allEvents"};
     List list;
@@ -317,7 +318,7 @@ static bool SyncGroups(Reader* r, uint32_t value, maniGraphSource* out, Scope* s
     return maniGraphJsonTable(r, list.names, list.lengths, list.count, &scope->syncGroups);
 }
 
-static bool Inputs(Reader* r, uint32_t value, maniGraphNodeSource* n)
+MANI_NODISCARD static bool Inputs(Reader* r, uint32_t value, maniGraphNodeSource* n)
 {
     uint32_t count = 0;
     if (!maniGraphJsonArray(r, value, &count))
@@ -344,8 +345,8 @@ static bool Inputs(Reader* r, uint32_t value, maniGraphNodeSource* n)
 }
 
 // count scalars.
-static bool Weights(Reader* r, const Scope* scope, uint32_t value, uint32_t count,
-                    const maniGraphScalar** out)
+MANI_NODISCARD static bool Weights(Reader* r, const Scope* scope, uint32_t value, uint32_t count,
+                                   const maniGraphScalar** out)
 {
     uint32_t n = 0;
     if (!maniGraphJsonArray(r, value, &n))
@@ -374,7 +375,7 @@ static bool Weights(Reader* r, const Scope* scope, uint32_t value, uint32_t coun
     return true;
 }
 
-static bool Chain(Reader* r, uint32_t object, maniMaskChain* chain)
+MANI_NODISCARD static bool Chain(Reader* r, uint32_t object, maniMaskChain* chain)
 {
     static const char* const kKeys[] = {"bone", "weight", "subtree"};
     uint32_t f[3];
@@ -393,7 +394,7 @@ static bool Chain(Reader* r, uint32_t object, maniMaskChain* chain)
     return chain->bone != MANI_NO_BONE || maniGraphJsonFault(r, f[0], maniGraphFormName);
 }
 
-static bool Mask(Reader* r, const uint32_t* f, maniGraphMaskNodeSource* m)
+MANI_NODISCARD static bool Mask(Reader* r, const uint32_t* f, maniGraphMaskNodeSource* m)
 {
     uint32_t count = 0;
     if (f[2] != ABSENT && !maniGraphJsonArray(r, f[2], &count))
@@ -424,7 +425,8 @@ static bool Mask(Reader* r, const uint32_t* f, maniGraphMaskNodeSource* m)
 // name; curve "linear" | "smoothstep"; fadeIn and fadeOut seconds; mask
 // {"chains", "defaultWeight"} as a mask node's (left out: the whole
 // body).
-static bool Shot(Reader* r, const Scope* scope, const uint32_t* f, maniGraphOneShotNodeSource* s)
+MANI_NODISCARD static bool Shot(Reader* r, const Scope* scope, const uint32_t* f,
+                                maniGraphOneShotNodeSource* s)
 {
     static const char* const kCurves[] = {"linear", "smoothstep"};
     static const char* const kMask[] = {"chains", "defaultWeight"};
@@ -455,7 +457,8 @@ static bool Shot(Reader* r, const Scope* scope, const uint32_t* f, maniGraphOneS
 
 // A turn limit node: its speed, its reset trigger by name (none when
 // left out), its mask (every bone at 1 when left out).
-static bool Turn(Reader* r, const Scope* scope, const uint32_t* f, maniGraphTurnLimitNodeSource* s)
+MANI_NODISCARD static bool Turn(Reader* r, const Scope* scope, const uint32_t* f,
+                                maniGraphTurnLimitNodeSource* s)
 {
     static const char* const kMask[] = {"chains", "defaultWeight"};
     *s = (maniGraphTurnLimitNodeSource){{MANI_NO_PARAMETER, 0.0f}, MANI_NO_PARAMETER, NULL};
@@ -480,7 +483,8 @@ static bool Turn(Reader* r, const Scope* scope, const uint32_t* f, maniGraphTurn
 
 // A spring node: its set by its slot's name; its position, rotation,
 // reset and force parameters by name, none when left out.
-static bool Spring(Reader* r, const Scope* scope, const uint32_t* f, maniGraphSpringNodeSource* s)
+MANI_NODISCARD static bool Spring(Reader* r, const Scope* scope, const uint32_t* f,
+                                  maniGraphSpringNodeSource* s)
 {
     uint32_t* parameters[4] = {&s->position, &s->rotation, &s->reset, &s->force};
     if (!maniGraphJsonRefer(r, &scope->springSets, f[2], &s->springSet))
@@ -500,8 +504,8 @@ static bool Spring(Reader* r, const Scope* scope, const uint32_t* f, maniGraphSp
 }
 
 // An inertialize node; dead blending's half-lives default to Holden's.
-static bool Inertialize(Reader* r, const Scope* scope, const uint32_t* f,
-                        maniGraphInertializeNodeSource* s)
+MANI_NODISCARD static bool Inertialize(Reader* r, const Scope* scope, const uint32_t* f,
+                                       maniGraphInertializeNodeSource* s)
 {
     static const char* const kMethods[] = {"inertialization", "deadBlending"};
     *s = (maniGraphInertializeNodeSource){
@@ -521,7 +525,8 @@ static bool Inertialize(Reader* r, const Scope* scope, const uint32_t* f,
            (f[7] == ABSENT || maniGraphJsonFloat(r, f[7], &s->halfLifeMax));
 }
 
-static bool ClipNode(Reader* r, const Scope* scope, const uint32_t* f, maniGraphClipNodeSource* c)
+MANI_NODISCARD static bool ClipNode(Reader* r, const Scope* scope, const uint32_t* f,
+                                    maniGraphClipNodeSource* c)
 {
     static const char* const kLoops[] = {"clip", "clamp", "repeat"};
     bool leader = false;
@@ -540,12 +545,13 @@ static bool ClipNode(Reader* r, const Scope* scope, const uint32_t* f, maniGraph
     return loop < 3u || maniGraphJsonFault(r, f[4], maniGraphFormValue);
 }
 
-static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out, Scope* scope);
+MANI_NODISCARD static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out,
+                                     Scope* scope);
 
 // A subgraph: its graph, and each of its parameters mapped by name to
 // one of the scope's.
-static bool Subgraph(Reader* r, const Scope* scope, uint32_t node, const uint32_t* f,
-                     maniGraphSubgraphNodeSource* s)
+MANI_NODISCARD static bool Subgraph(Reader* r, const Scope* scope, uint32_t node, const uint32_t* f,
+                                    maniGraphSubgraphNodeSource* s)
 {
     maniGraphSource* graph = maniArenaTake(&r->arena, 1, sizeof(maniGraphSource));
     Scope inner;
@@ -710,8 +716,8 @@ static const KindForm kForms[] = {
 #define FORMS (sizeof kForms / sizeof kForms[0])
 
 // A node's fields of its kind (f the members of kForms[form]).
-static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t* f,
-                   maniGraphNodeSource* n)
+MANI_NODISCARD static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t* f,
+                                  maniGraphNodeSource* n)
 {
     bool direct = false;
     switch (n->kind)
@@ -776,7 +782,8 @@ static bool Fields(Reader* r, const Scope* scope, uint32_t node, const uint32_t*
     }
 }
 
-static bool Node(Reader* r, const Scope* scope, uint32_t object, maniGraphNodeSource* n)
+MANI_NODISCARD static bool Node(Reader* r, const Scope* scope, uint32_t object,
+                                maniGraphNodeSource* n)
 {
     uint32_t kind = maniJsonFind(r->json, object, "kind", 4);
     if (r->json->values[object].kind != maniJsonObject || kind == ABSENT)
@@ -809,7 +816,8 @@ static bool Node(Reader* r, const Scope* scope, uint32_t object, maniGraphNodeSo
     return (!takesInputs || Inputs(r, f[1], n)) && Fields(r, scope, object, f, n);
 }
 
-static bool Nodes(Reader* r, uint32_t value, maniGraphSource* out, const Scope* scope)
+MANI_NODISCARD static bool Nodes(Reader* r, uint32_t value, maniGraphSource* out,
+                                 const Scope* scope)
 {
     uint32_t count = 0;
     if (!maniGraphJsonArray(r, value, &count))
@@ -835,7 +843,7 @@ static bool Nodes(Reader* r, uint32_t value, maniGraphSource* out, const Scope* 
     return true;
 }
 
-static bool Header(Reader* r, const uint32_t* f)
+MANI_NODISCARD static bool Header(Reader* r, const uint32_t* f)
 {
     bool format = r->json->values[f[0]].kind == maniJsonString &&
                   maniJsonStringEquals(r->json, f[0], "maul-anim graph", 15);
@@ -846,7 +854,8 @@ static bool Header(Reader* r, const uint32_t* f)
     return maniGraphJsonVersion(r, f[1]);
 }
 
-static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out, Scope* scope)
+MANI_NODISCARD static bool ReadGraph(Reader* r, uint32_t object, bool top, maniGraphSource* out,
+                                     Scope* scope)
 {
     static const char* const kKeys[] = {"format", "version", "parameters", "clips",  "syncGroups",
                                         "nodes",  "output",  "databases",  "models", "springSets"};

@@ -79,7 +79,7 @@ static uint32_t EffectorCount(const maniGraphNodeSource* node)
 
 // A machine's transitions and conditions, when its counts are in range
 // (out of range, the check refuses them, and Remap copies none).
-static bool MachineCopied(const maniGraphNodeSource* node)
+MANI_NODISCARD static bool MachineCopied(const maniGraphNodeSource* node)
 {
     const maniGraphMachineNodeSource* m = &node->machine;
     bool ok = node->kind == maniGraphNodeMachine && m->transitions != NULL &&
@@ -107,7 +107,7 @@ static void Transitions(const maniGraphNodeSource* node, Totals* t)
 
 // A subgraph's sync groups each with a name, the key it joins the
 // graph's groups by.
-static bool GroupsNamed(const maniGraphSource* source)
+MANI_NODISCARD static bool GroupsNamed(const maniGraphSource* source)
 {
     for (uint32_t k = 0; k < source->syncGroupCount; ++k)
     {
@@ -124,7 +124,8 @@ static bool GroupsNamed(const maniGraphSource* source)
 // the check would refuse in the root, with a subgraph's sync group
 // without its name, or with more nodes in all than MANI_MAX_GRAPH_NODES.
 // past is set when a bound refused it: the depth, a list, the nodes.
-static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t, bool* past)
+MANI_NODISCARD static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t,
+                                 bool* past)
 {
     if (depth > MANI_MAX_GRAPH_DEPTH || maniGraphListsPast(source))
     {
@@ -164,7 +165,7 @@ static bool Count(const maniGraphSource* source, uint32_t depth, Totals* t, bool
     return !*past;
 }
 
-static bool HasSubgraph(const maniGraphSource* source)
+MANI_NODISCARD static bool HasSubgraph(const maniGraphSource* source)
 {
     for (uint32_t i = 0; i < source->nodeCount; ++i)
     {
@@ -640,8 +641,8 @@ static void Remap(const Scope* s, Flat* f, maniGraphNodeSource* node)
 
 // The subgraph a node names, of the skeleton, its parameters mapped to
 // this scope's of their types, its output in range, taking no inputs.
-static bool SubgraphValid(const Scope* s, const maniGraphNodeSource* node,
-                          const maniSkeleton* skeleton)
+MANI_NODISCARD static bool SubgraphValid(const Scope* s, const maniGraphNodeSource* node,
+                                         const maniSkeleton* skeleton)
 {
     const maniGraphSource* sub = node->subgraph.graph;
     if (node->inputCount != 0 || !maniSkeletonValid(sub->skeleton) ||
@@ -714,7 +715,7 @@ static maniBuildResult Emit(const Scope* s, Flat* f, const maniSkeleton* skeleto
 }
 
 // The totals within the lists' limits.
-static bool TotalsFit(const Totals* t)
+MANI_NODISCARD static bool TotalsFit(const Totals* t)
 {
     return t->inputs <= UINT32_MAX && t->weights <= UINT32_MAX &&
            t->clips <= MANI_MAX_GRAPH_CLIPS && t->groups <= MANI_MAX_GRAPH_SYNC_GROUPS &&

@@ -32,9 +32,10 @@
 // The stage over data: networks started from the generator, the
 // normalization measured. False when a shape is past a limit or memory
 // runs out, with nothing held.
-bool maniTrainDecompressInit(const maniAllocator* allocator, const maniTrainData* data,
-                             const maniTrainDecompressShape* shape, maniTrainRandom* r,
-                             maniTrainDecompress* t);
+MANI_NODISCARD bool maniTrainDecompressInit(const maniAllocator* allocator,
+                                            const maniTrainData* data,
+                                            const maniTrainDecompressShape* shape,
+                                            maniTrainRandom* r, maniTrainDecompress* t);
 
 void maniTrainDecompressRelease(const maniAllocator* allocator, maniTrainDecompress* t);
 

@@ -16,7 +16,7 @@
 #include <stdint.h>
 
 // Finite and at least 0.
-static bool Usable(float w)
+MANI_NODISCARD static bool Usable(float w)
 {
     return w >= 0.0f && w <= FLT_MAX;
 }

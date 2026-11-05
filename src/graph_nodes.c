@@ -81,7 +81,7 @@ static uint32_t ParameterType(const maniGraph* g, uint32_t parameter)
 
 // A scalar at data word at: a float parameter with a literal of 0 bits,
 // or a finite literal from low to high.
-static bool ScalarValid(const maniGraph* g, uint32_t at, float low, float high)
+MANI_NODISCARD static bool ScalarValid(const maniGraph* g, uint32_t at, float low, float high)
 {
     uint32_t parameter = Word(g, at);
     uint32_t bits = Word(g, at + 1);
@@ -315,7 +315,7 @@ static uint32_t SpaceValid(const maniGraph* g, const Node* n)
 
 // The first wrong data word of a node, or UINT32_MAX.
 // A vec3 parameter at data word at, or none when optional.
-static bool VectorValid(const maniGraph* g, uint32_t at, bool optional)
+MANI_NODISCARD static bool VectorValid(const maniGraph* g, uint32_t at, bool optional)
 {
     uint32_t parameter = Word(g, at);
     return (optional && parameter == MANI_NO_PARAMETER) ||
@@ -490,7 +490,7 @@ static uint32_t Difference(const maniGraph* g, uint32_t p)
 }
 
 // Whether a node gives differences as its inputs (or clip) make it.
-static bool DifferenceValid(const maniGraph* g, const Node* n)
+MANI_NODISCARD static bool DifferenceValid(const maniGraph* g, const Node* n)
 {
     uint32_t own = n->flags & MANI_GRAPH_DIFFERENCE;
     if (n->kind == maniGraphNodeMatch || n->kind == maniGraphNodeLearned ||
@@ -532,7 +532,7 @@ static bool DifferenceValid(const maniGraph* g, const Node* n)
 
 // Whether each input is mirrored as the node is, a mirror node's the
 // other way.
-static bool MirroredValid(const maniGraph* g, const Node* n)
+MANI_NODISCARD static bool MirroredValid(const maniGraph* g, const Node* n)
 {
     uint32_t want = (n->flags & MANI_GRAPH_MIRRORED) ^
                     (n->kind == maniGraphNodeMirror ? MANI_GRAPH_MIRRORED : 0u);
@@ -548,7 +548,7 @@ static bool MirroredValid(const maniGraph* g, const Node* n)
     return true;
 }
 
-static bool KindValid(const maniGraph* g, const Node* n)
+MANI_NODISCARD static bool KindValid(const maniGraph* g, const Node* n)
 {
     return DifferenceValid(g, n) && MirroredValid(g, n);
 }

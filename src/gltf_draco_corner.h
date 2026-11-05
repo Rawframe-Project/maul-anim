@@ -71,18 +71,22 @@ static inline uint32_t maniDracoSwingLeft(const maniDracoTable* t, uint32_t c)
 // A mesh's table of faces faces and room for vertices vertices, every
 // corner without a vertex or an opposite, no vertex yet; false when the
 // arena refuses.
-bool maniDracoTableInit(maniArena* arena, uint32_t faces, uint32_t vertices, maniDracoTable* out);
+MANI_NODISCARD bool maniDracoTableInit(maniArena* arena, uint32_t faces, uint32_t vertices,
+                                       maniDracoTable* out);
 
 // An attribute's table over a mesh's, no seams yet; false when the arena
 // refuses.
-bool maniDracoSeamsInit(maniArena* arena, const maniDracoTable* mesh, maniDracoTable* out);
+MANI_NODISCARD bool maniDracoSeamsInit(maniArena* arena, const maniDracoTable* mesh,
+                                       maniDracoTable* out);
 
 // Marks the edge opposite corner c a seam, and its opposite's (Google's
 // AddSeamEdge); false for a corner whose vertices are none.
-bool maniDracoAddSeam(maniDracoTable* attribute, const maniDracoTable* mesh, uint32_t c);
+MANI_NODISCARD bool maniDracoAddSeam(maniDracoTable* attribute, const maniDracoTable* mesh,
+                                     uint32_t c);
 
 // The attribute's vertices from its seams (Google's RecomputeVertices);
 // false when a seam's walk returns to where it began or the arena refuses.
-bool maniDracoRecompute(maniArena* arena, maniDracoTable* attribute, const maniDracoTable* mesh);
+MANI_NODISCARD bool maniDracoRecompute(maniArena* arena, maniDracoTable* attribute,
+                                       const maniDracoTable* mesh);
 
 #endif // MAUL_ANIM_SRC_GLTF_DRACO_CORNER_H

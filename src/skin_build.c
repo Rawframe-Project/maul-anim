@@ -22,7 +22,7 @@ static maniBuildResult Result(maniResult result, maniBuildReason reason, uint32_
     return (maniBuildResult){result, reason, item, 0};
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);

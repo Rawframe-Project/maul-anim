@@ -61,7 +61,7 @@ bool maniIkChainPathPast(const maniSkeleton* skeleton, uint32_t root, uint32_t e
     return false;
 }
 
-static bool Unit(float v)
+MANI_NODISCARD static bool Unit(float v)
 {
     return v >= 0.0f && v <= 1.0f;
 }

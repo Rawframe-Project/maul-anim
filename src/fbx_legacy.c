@@ -30,7 +30,7 @@ static maniImportResult Refuse(const maniFbx* fbx, uint32_t node)
     return maniFbxFail(maniImportReasonProperty, fbx->nodes[node].nameOffset, 0);
 }
 
-static bool Named(const maniFbx* fbx, uint32_t node)
+MANI_NODISCARD static bool Named(const maniFbx* fbx, uint32_t node)
 {
     const uint8_t* bytes = NULL;
     uint32_t length = 0;
@@ -39,7 +39,7 @@ static bool Named(const maniFbx* fbx, uint32_t node)
 
 // Whether a model's Children list holds strings only (ufbx fails on a
 // list with a bare word, reading it as an array of strings).
-static bool ChildrenNamed(const maniFbx* fbx, uint32_t model)
+MANI_NODISCARD static bool ChildrenNamed(const maniFbx* fbx, uint32_t model)
 {
     uint32_t list = maniFbxFindChild(fbx, model, "Children", 8);
     uint32_t n = list != MANI_FBX_NONE ? fbx->nodes[list].propertyCount : 0;
@@ -55,7 +55,7 @@ static bool ChildrenNamed(const maniFbx* fbx, uint32_t model)
 
 // Whether a model's links are read: a mesh's (with Vertices and
 // PolygonVertexIndex), as ufbx reads them.
-static bool Mesh(const maniFbx* fbx, uint32_t node)
+MANI_NODISCARD static bool Mesh(const maniFbx* fbx, uint32_t node)
 {
     return maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE &&
            maniFbxFindChild(fbx, node, "PolygonVertexIndex", 18) != MANI_FBX_NONE;

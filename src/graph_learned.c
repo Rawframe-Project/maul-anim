@@ -86,7 +86,7 @@ static uint32_t HeadValid(const maniGraph* g, uint32_t data)
 }
 
 // Tags: an int parameter and literal 0, or no parameter and any bits.
-static bool TagsValid(const maniGraph* g, uint32_t at)
+MANI_NODISCARD static bool TagsValid(const maniGraph* g, uint32_t at)
 {
     uint32_t parameter = Word(g, at);
     return parameter == MANI_NO_PARAMETER ||

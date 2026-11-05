@@ -48,12 +48,12 @@ static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t
     return Result(mani_errorLimit, reason, item, other);
 }
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
 }
 
-static bool AllFinite(const float* values, uint64_t count)
+MANI_NODISCARD static bool AllFinite(const float* values, uint64_t count)
 {
     for (uint64_t k = 0; k < count; ++k)
     {
@@ -506,7 +506,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniLearnedModelSource*
 }
 
 // The lists the counts name are given.
-static bool Given(const maniLearnedModelSource* s)
+MANI_NODISCARD static bool Given(const maniLearnedModelSource* s)
 {
     return maniSkeletonValid(s->skeleton) && s->database != NULL && s->decompressor != NULL &&
            s->stepper != NULL && (s->projectors != NULL || s->projectorCount == 0) &&

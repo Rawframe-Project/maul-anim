@@ -45,7 +45,7 @@ maniTaskHooks maniHostTasks(maniHostCode* host);
 // Whether a function of the object is called back in from the host's
 // code: then one misuse is counted and the function refuses. NULL is
 // not.
-bool maniHostCalledBack(maniHostCode* host);
+MANI_NODISCARD bool maniHostCalledBack(maniHostCode* host);
 
 // Marks the object for good as its destroy begins, before the first
 // host call: a function of the object called back in from then on, the
@@ -54,7 +54,7 @@ void maniHostRetire(maniHostCode* host);
 
 // The same for an allocator maniHostAllocator gave (a document's copy of
 // its builder's); false for any other.
-bool maniHostAllocatorCalledBack(const maniAllocator* allocator);
+MANI_NODISCARD bool maniHostAllocatorCalledBack(const maniAllocator* allocator);
 
 static inline void maniHostCountMisuse(maniHostCode* host)
 {

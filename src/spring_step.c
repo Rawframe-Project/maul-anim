@@ -286,7 +286,7 @@ static maniVec3 MoveTail(const Step* s, uint32_t joint, const uint8_t* spring, c
 }
 
 // A spring's center at the step, or none.
-static bool CenterOf(const Step* s, uint32_t spring, maniAffine* centerOut)
+MANI_NODISCARD static bool CenterOf(const Step* s, uint32_t spring, maniAffine* centerOut)
 {
     const uint8_t* e = s->set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE;
     uint32_t center = maniLoadU32(e + 16);

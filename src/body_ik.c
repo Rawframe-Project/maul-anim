@@ -26,12 +26,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-static bool Unit(float v)
+MANI_NODISCARD static bool Unit(float v)
 {
     return v >= 0.0f && v <= 1.0f;
 }
 
-static bool FiniteVec(maniVec3 v)
+MANI_NODISCARD static bool FiniteVec(maniVec3 v)
 {
     return isfinite(v.x) && isfinite(v.y) && isfinite(v.z);
 }
@@ -57,7 +57,7 @@ static uint32_t Find(const uint32_t* list, uint32_t count, uint32_t bone)
 }
 
 // Adds bone to the sorted list if absent; false when the list is full.
-static bool Add(uint32_t* list, uint32_t* count, uint32_t bone)
+MANI_NODISCARD static bool Add(uint32_t* list, uint32_t* count, uint32_t bone)
 {
     if (Find(list, *count, bone) < *count)
     {
@@ -132,7 +132,7 @@ static maniVec3 Axis(const maniSkeleton* skeleton, const uint32_t* list, uint32_
                : maniVec3Normalize(maniSkeletonRestOf(skeleton, child).translation, zero);
 }
 
-static bool EffectorValid(const maniBodyEffector* e)
+MANI_NODISCARD static bool EffectorValid(const maniBodyEffector* e)
 {
     maniQuat q = e->rotation;
     float length = sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
@@ -140,8 +140,8 @@ static bool EffectorValid(const maniBodyEffector* e)
            Unit(e->rotationWeight) && Unit(e->strength) && Unit(e->pullChain);
 }
 
-static bool SettingValid(const maniSkeleton* skeleton, const uint32_t* list, uint32_t count,
-                         const maniBodyBone* s)
+MANI_NODISCARD static bool SettingValid(const maniSkeleton* skeleton, const uint32_t* list,
+                                        uint32_t count, const maniBodyBone* s)
 {
     uint32_t slot = Find(list, count, s->bone);
     if (slot == count || !maniIkLimitValid(&s->limit) || !FiniteVec(s->preferred) ||
@@ -157,7 +157,7 @@ static bool SettingValid(const maniSkeleton* skeleton, const uint32_t* list, uin
 
 // Whether the counts within their bounds are in range, and the numbers
 // and modes.
-static bool HeaderValid(const maniBodySolve* solve)
+MANI_NODISCARD static bool HeaderValid(const maniBodySolve* solve)
 {
     return solve->effectors != NULL && solve->effectorCount >= 1 &&
            (solve->bones != NULL || solve->boneCount == 0) && solve->iterations >= 1 &&
@@ -490,7 +490,7 @@ static void Preferred(maniBodyPart* part, const maniBodySolve* solve)
 }
 
 // Whether node k turns: not locked, not a held top.
-static bool Turns(const maniBodyPart* part, const maniBodySolve* solve, uint32_t k)
+MANI_NODISCARD static bool Turns(const maniBodyPart* part, const maniBodySolve* solve, uint32_t k)
 {
     const maniBodyBone* s = maniBodySetting(solve, &part->nodes[k]);
     return (k != 0 || solve->topMode == maniBodyTopFree) &&

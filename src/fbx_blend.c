@@ -55,7 +55,7 @@ uint32_t maniFbxBlendChannelModel(const maniFbx* fbx, uint32_t channel)
 // One character of ufbx's version-string match: a space skips blanks,
 // '-' skips past the next '-', '?' takes a run of digits, a letter
 // matches either case and '.' itself.
-static bool Step(char c, const uint8_t* s, uint32_t length, uint32_t* at)
+MANI_NODISCARD static bool Step(char c, const uint8_t* s, uint32_t length, uint32_t* at)
 {
     if (c == ' ')
     {
@@ -90,7 +90,7 @@ static bool Step(char c, const uint8_t* s, uint32_t length, uint32_t* at)
 
 // ufbx's version-string match for its two Blender patterns; a prefix
 // suffices.
-static bool Matches(const char* format, const uint8_t* s, uint32_t length)
+MANI_NODISCARD static bool Matches(const char* format, const uint8_t* s, uint32_t length)
 {
     uint32_t at = 0;
     for (const char* f = format; *f != '\0'; ++f)

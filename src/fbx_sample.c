@@ -142,7 +142,8 @@ maniImportResult maniFbxStartSampler(const maniFbx* fbx, const maniFbxAnimation*
 // Model i's inputs at a time, through its run of channels; false for an
 // animated integer out of range. A model without channels keeps its
 // inputs at rest.
-static bool Animate(const maniFbxSampler* s, uint32_t i, double time, maniFbxLocalInputs* in)
+MANI_NODISCARD static bool Animate(const maniFbxSampler* s, uint32_t i, double time,
+                                   maniFbxLocalInputs* in)
 {
     uint32_t first = s->runs[2 * i];
     uint32_t count = s->runs[2 * i + 1];

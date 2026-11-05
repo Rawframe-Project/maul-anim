@@ -65,7 +65,7 @@ static void PutValue(Writer* w, maniGraphParameterType type, maniGraphValue v)
 
 // Whether a parameter's default is the one the reader gives when it is
 // left out: false, 0, zeros, or the identity rotation.
-static bool DefaultValue(maniGraphParameterType type, maniGraphValue v)
+MANI_NODISCARD static bool DefaultValue(maniGraphParameterType type, maniGraphValue v)
 {
     if (type == maniGraphParameterBool || type == maniGraphParameterTrigger)
     {

@@ -66,12 +66,12 @@ static maniQuat LoadQuat(const uint8_t* p)
 }
 
 // Within a thousandth of length 1, as the builder takes it.
-static bool Unit(float lengthSquared)
+MANI_NODISCARD static bool Unit(float lengthSquared)
 {
     return lengthSquared >= 0.998f && lengthSquared <= 1.002f;
 }
 
-static bool UnitQuat(const uint8_t* p)
+MANI_NODISCARD static bool UnitQuat(const uint8_t* p)
 {
     maniQuat q = LoadQuat(p);
     return Unit(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);

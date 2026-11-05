@@ -85,7 +85,7 @@ void maniGraphRequest(const maniGraphUpdate* u, uint32_t node, float seconds)
     maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending);
 }
 
-static bool Mirrored(const maniGraphUpdate* u, uint32_t node)
+MANI_NODISCARD static bool Mirrored(const maniGraphUpdate* u, uint32_t node)
 {
     return (maniLoadU16(u->graph->nodes + (size_t)node * MANI_GRAPH_NODE_SIZE + 2) &
             MANI_GRAPH_MIRRORED) != 0;

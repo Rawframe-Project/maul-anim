@@ -104,7 +104,7 @@ static void Start(Sweep* s, uint32_t k)
     }
 }
 
-static bool Sees(const Sweep* s, uint32_t i, uint32_t p)
+MANI_NODISCARD static bool Sees(const Sweep* s, uint32_t i, uint32_t p)
 {
     const maniTriangulation* m = s->m;
     uint32_t a = m->hull[i % m->hullCount];

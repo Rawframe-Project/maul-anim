@@ -45,7 +45,8 @@ typedef struct Sides
 } Sides;
 
 // A bone of a skeleton by name.
-static bool BoneOf(Reader* r, const maniSkeleton* skeleton, uint32_t value, uint32_t* out)
+MANI_NODISCARD static bool BoneOf(Reader* r, const maniSkeleton* skeleton, uint32_t value,
+                                  uint32_t* out)
 {
     r->skeleton = skeleton;
     return maniGraphJsonBone(r, value, out);
@@ -55,8 +56,8 @@ static bool BoneOf(Reader* r, const maniSkeleton* skeleton, uint32_t value, uint
 // size bytes in the arena.
 typedef bool (*ReadItem)(Reader* r, const Sides* sides, uint32_t object, void* item);
 
-static bool List(Reader* r, const Sides* sides, uint32_t value, size_t size, ReadItem one,
-                 void** items, uint32_t* countOut)
+MANI_NODISCARD static bool List(Reader* r, const Sides* sides, uint32_t value, size_t size,
+                                ReadItem one, void** items, uint32_t* countOut)
 {
     *items = NULL;
     if (!maniMapJsonCount(r, value, countOut))
@@ -85,7 +86,7 @@ static bool List(Reader* r, const Sides* sides, uint32_t value, size_t size, Rea
     return true;
 }
 
-static bool Pair(Reader* r, const Sides* sides, uint32_t object, void* item)
+MANI_NODISCARD static bool Pair(Reader* r, const Sides* sides, uint32_t object, void* item)
 {
     static const char* const kKeys[] = {"target", "source", "rotationWeight", "translation",
                                         "scale"};
@@ -100,7 +101,7 @@ static bool Pair(Reader* r, const Sides* sides, uint32_t object, void* item)
            (f[4] == ABSENT || maniGraphJsonBool(r, f[4], &p->scale));
 }
 
-static bool Chain(Reader* r, const Sides* sides, uint32_t object, void* item)
+MANI_NODISCARD static bool Chain(Reader* r, const Sides* sides, uint32_t object, void* item)
 {
     static const char* const kKeys[] = {"sourceStart", "sourceEnd",      "targetStart", "targetEnd",
                                         "rotation",    "rotationWeight", "translation", "scale"};
@@ -119,8 +120,8 @@ static bool Chain(Reader* r, const Sides* sides, uint32_t object, void* item)
 }
 
 // The pelvis, NULL when null or absent.
-static bool Pelvis(Reader* r, const Sides* sides, uint32_t object,
-                   const maniRetargetPelvisSource** out)
+MANI_NODISCARD static bool Pelvis(Reader* r, const Sides* sides, uint32_t object,
+                                  const maniRetargetPelvisSource** out)
 {
     static const char* const kKeys[] = {
         "source",        "target",   "up",       "horizontal",
@@ -152,7 +153,7 @@ static bool Pelvis(Reader* r, const Sides* sides, uint32_t object,
     return ok;
 }
 
-static bool ReadMap(Reader* r, const Sides* sides, maniRetargetMapSource* out)
+MANI_NODISCARD static bool ReadMap(Reader* r, const Sides* sides, maniRetargetMapSource* out)
 {
     static const char* const kKeys[] = {"format", "version", "sourceReference", "targetReference",
                                         "pairs",  "chains",  "pelvis",          "matchNames"};

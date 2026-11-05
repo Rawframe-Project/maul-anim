@@ -19,6 +19,7 @@
 #include "elementary_float.h"
 
 #include "generated/math_constants_float.h"
+#include "maul-anim/base.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -251,7 +252,7 @@ float maniCbrtF(float x)
 
 // pow where x or y is 0, 1 or infinite, or x is negative: true, with the
 // result in *resultOut; false for every other pair.
-static bool PowSpecialF(float x, float y, float* resultOut)
+MANI_NODISCARD static bool PowSpecialF(float x, float y, float* resultOut)
 {
     if (y == 0.0f || x == 1.0f)
     {
@@ -533,7 +534,7 @@ static float ArctanPairF(float z, float zLow, float* lowOut)
 
 // The C standard's atan2 where x or y is zero or infinite: true, with the
 // angle in *angleOut; false for every other pair.
-static bool Atan2SpecialF(float y, float x, float* angleOut)
+MANI_NODISCARD static bool Atan2SpecialF(float y, float x, float* angleOut)
 {
     float ax = fabsf(x);
     float ay = fabsf(y);

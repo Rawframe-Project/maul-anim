@@ -51,7 +51,7 @@ int64_t maniFbxNameKey(const maniFbx* fbx, uint32_t property, bool* ok)
 }
 
 // An object's key: its id (7.x) or its name's hash (6.x).
-static bool ObjectKey(const maniFbx* fbx, uint32_t node, int64_t* key)
+MANI_NODISCARD static bool ObjectKey(const maniFbx* fbx, uint32_t node, int64_t* key)
 {
     uint32_t first = maniFbxNodeProperty(fbx, node, 0);
     if (fbx->version >= 7000)
@@ -131,7 +131,7 @@ static uint32_t PropertiesOf(const maniFbx* fbx, uint32_t node)
     return p != MANI_FBX_NONE ? p : maniFbxFindChild(fbx, node, "Properties60", 12);
 }
 
-static bool StringIs(const maniFbx* fbx, uint32_t property, const char* s, size_t n)
+MANI_NODISCARD static bool StringIs(const maniFbx* fbx, uint32_t property, const char* s, size_t n)
 {
     return maniFbxStringEquals(fbx, property, s, n);
 }
@@ -150,7 +150,7 @@ static uint32_t SubclassOf(const maniFbx* fbx, uint32_t node)
 
 // Whether a kind takes any template of its kind, as ufbx's
 // ufbxi_find_template has it.
-static bool AnyTemplate(const maniFbx* fbx, uint32_t node)
+MANI_NODISCARD static bool AnyTemplate(const maniFbx* fbx, uint32_t node)
 {
     return maniFbxNameIs(fbx, node, "Model", 5) || maniFbxNameIs(fbx, node, "Material", 8) ||
            maniFbxNameIs(fbx, node, "AnimationStack", 14) ||
@@ -158,7 +158,7 @@ static bool AnyTemplate(const maniFbx* fbx, uint32_t node)
 }
 
 // Whether a PropertyTemplate's class, without "Fbx", is the subclass.
-static bool ClassIs(const maniFbx* fbx, uint32_t tmpl, uint32_t subclass)
+MANI_NODISCARD static bool ClassIs(const maniFbx* fbx, uint32_t tmpl, uint32_t subclass)
 {
     const uint8_t* text = NULL;
     uint32_t length = 0;
@@ -267,7 +267,7 @@ uint32_t maniFbxReferencedObject(const maniFbx* fbx, uint32_t property)
 
 // One connection entry as child, parent and property names; false to
 // skip it.
-static bool ReadConnection(const maniFbx* fbx, uint32_t node, maniFbxConnection* c)
+MANI_NODISCARD static bool ReadConnection(const maniFbx* fbx, uint32_t node, maniFbxConnection* c)
 {
     uint32_t type = maniFbxNodeProperty(fbx, node, 0);
     bool childProperty = StringIs(fbx, type, "PO", 2) || StringIs(fbx, type, "PP", 2);
@@ -496,8 +496,8 @@ uint32_t maniFbxPropertyValue(const maniFbx* fbx, uint32_t entry, uint32_t k)
 }
 
 // A legacy role's kind and subclass: Deformer, Skin or Cluster.
-static bool RoleIs(uint32_t role, const char* kind, size_t length, const char* name,
-                   size_t nameLength)
+MANI_NODISCARD static bool RoleIs(uint32_t role, const char* kind, size_t length, const char* name,
+                                  size_t nameLength)
 {
     const char* sub = role == maniFbxRoleLegacySkin ? "Skin" : "Cluster";
     return kind != NULL ? length == 8 && memcmp(kind, "Deformer", 8) == 0
@@ -536,8 +536,9 @@ static uint32_t Setting(const maniFbx* fbx, uint32_t properties, const char* nam
 }
 
 // An integer setting in [low, high], its default when absent.
-static bool IntegerSetting(const maniFbx* fbx, uint32_t properties, const char* name, int64_t low,
-                           int64_t high, int64_t* value, uint32_t* where)
+MANI_NODISCARD static bool IntegerSetting(const maniFbx* fbx, uint32_t properties, const char* name,
+                                          int64_t low, int64_t high, int64_t* value,
+                                          uint32_t* where)
 {
     *where = Setting(fbx, properties, name);
     return *where == MANI_FBX_NONE || maniFbxInteger(fbx, *where, low, high, value);
@@ -881,7 +882,8 @@ bool maniFbxEntryUserDefined(const maniFbx* fbx, uint32_t entry)
 // Before 6.0, a model has an attribute when its Type is a
 // LimbNode, Light or Camera or it holds Vertices; it is a mesh with
 // Vertices and PolygonVertexIndex. The subclass is never Model there.
-static bool LegacySubclass(const maniFbx* fbx, uint32_t node, uint32_t* subclassOut, bool* meshOut)
+MANI_NODISCARD static bool LegacySubclass(const maniFbx* fbx, uint32_t node, uint32_t* subclassOut,
+                                          bool* meshOut)
 {
     uint32_t type = SubclassOf(fbx, node);
     bool vertices = maniFbxFindChild(fbx, node, "Vertices", 8) != MANI_FBX_NONE;
@@ -893,8 +895,8 @@ static bool LegacySubclass(const maniFbx* fbx, uint32_t node, uint32_t* subclass
 
 // A 6.x model's subclass as ufbx sees it: its own, or Mesh for none with
 // a mesh's Vertices and PolygonVertexIndex; false for none otherwise.
-static bool EffectiveSubclass(const maniFbx* fbx, uint32_t object, uint32_t* subclassOut,
-                              bool* meshOut)
+MANI_NODISCARD static bool EffectiveSubclass(const maniFbx* fbx, uint32_t object,
+                                             uint32_t* subclassOut, bool* meshOut)
 {
     uint32_t node = fbx->objects[object].node;
     if (fbx->version < 6000)

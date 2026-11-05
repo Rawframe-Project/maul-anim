@@ -253,7 +253,7 @@ static void Project(const Learned* l)
 // the step, the rotation by the angular velocity times the step. False
 // when a product or the rotation's angle passes the float range (finite
 // outputs over a step of a slow model's seconds can).
-static bool RootMove(const Learned* l, double step, maniRootMove* move)
+MANI_NODISCARD static bool RootMove(const Learned* l, double step, maniRootMove* move)
 {
     const float* motion = l->motion;
     float seconds = (float)step;

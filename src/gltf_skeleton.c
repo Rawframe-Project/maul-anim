@@ -164,8 +164,8 @@ static maniImportResult BuildBones(maniBuilder* builder, const maniGltf* gltf, u
 
 // The checks every entry point makes: a NULL builder is refused alone, any
 // other bad argument is a misuse.
-static bool Usable(maniBuilder* builder, const maniGltf* gltf, const maniGltfOptions* options,
-                   bool inRange)
+MANI_NODISCARD static bool Usable(maniBuilder* builder, const maniGltf* gltf,
+                                  const maniGltfOptions* options, bool inRange)
 {
     if (builder == NULL)
     {

@@ -45,23 +45,23 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
 
 #define PI_F 3.14159265358979f
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
 }
 
-static bool FiniteVec(maniVec3 v)
+MANI_NODISCARD static bool FiniteVec(maniVec3 v)
 {
     return Finite(v.x) && Finite(v.y) && Finite(v.z);
 }
 
 // Within a thousandth of length 1, as exporters' rounding leaves it.
-static bool Unit(float lengthSquared)
+MANI_NODISCARD static bool Unit(float lengthSquared)
 {
     return lengthSquared >= 0.998f && lengthSquared <= 1.002f;
 }
 
-static bool UnitQuat(maniQuat q)
+MANI_NODISCARD static bool UnitQuat(maniQuat q)
 {
     return Finite(q.x) && Finite(q.y) && Finite(q.z) && Finite(q.w) && Unit(maniQuatDot(q, q));
 }
@@ -103,7 +103,7 @@ typedef struct Work
 
 // The body's shape, its sizes (a sphere's and a capsule's unused ones 0)
 // and mass.
-static bool ShapeValid(const maniRagdollBodySource* b)
+MANI_NODISCARD static bool ShapeValid(const maniRagdollBodySource* b)
 {
     if ((uint32_t)b->shape > maniRagdollBox)
     {
@@ -122,7 +122,7 @@ static bool ShapeValid(const maniRagdollBodySource* b)
            UnitQuat(b->frameRotation);
 }
 
-static bool JointValid(const maniRagdollJointSource* j)
+MANI_NODISCARD static bool JointValid(const maniRagdollJointSource* j)
 {
     bool drive = j->driveStiffness >= 0.0f && Finite(j->driveStiffness) &&
                  j->driveDamping >= 0.0f && Finite(j->driveDamping) && j->driveMaxTorque >= 0.0f &&

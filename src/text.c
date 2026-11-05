@@ -8,7 +8,7 @@
 
 #include "text.h"
 
-static bool InRange(uint8_t byte, uint8_t low, uint8_t high)
+MANI_NODISCARD static bool InRange(uint8_t byte, uint8_t low, uint8_t high)
 {
     return byte >= low && byte <= high;
 }

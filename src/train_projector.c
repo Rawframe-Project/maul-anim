@@ -94,7 +94,7 @@ static void Normalize(maniTrainProjector* t, const maniTrainData* d)
     maniTrainMeasure(d->features, f, d->frameCount, 0, f, s->inputOffsets, s->inputScales, true);
 }
 
-static bool Chunks(const maniAllocator* allocator, maniTrainProjector* t)
+MANI_NODISCARD static bool Chunks(const maniAllocator* allocator, maniTrainProjector* t)
 {
     t->chunks = maniAllocate(allocator, t->solo.chunkCount, sizeof(maniTrainProjectorChunk), 8);
     if (t->chunks == NULL)

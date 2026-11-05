@@ -18,10 +18,10 @@
 size_t maniUtf8Sequence(const uint8_t* bytes, size_t length);
 
 // True when the bytes are well-formed UTF-8.
-bool maniValidUtf8(const uint8_t* bytes, size_t length);
+MANI_NODISCARD bool maniValidUtf8(const uint8_t* bytes, size_t length);
 
 // True when a name's length passes MANI_MAX_NAME_BYTES.
-static inline bool maniNamePastLimit(size_t length)
+MANI_NODISCARD static inline bool maniNamePastLimit(size_t length)
 {
     return length > MANI_MAX_NAME_BYTES;
 }

@@ -87,7 +87,8 @@ typedef struct maniGraphInertia
 } maniGraphInertia;
 
 // Whether bone b's group is evaluated.
-static inline bool maniGraphInertiaEvaluates(const maniGraphInertia* node, uint32_t b)
+MANI_NODISCARD static inline bool maniGraphInertiaEvaluates(const maniGraphInertia* node,
+                                                            uint32_t b)
 {
     return node->groups == NULL || node->groups[b / MANI_POSE_GROUP_BONES] != 0;
 }

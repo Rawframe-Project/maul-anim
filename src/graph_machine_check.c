@@ -30,15 +30,16 @@ static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t
 
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
-static bool ParameterIs(const maniGraphSource* source, uint32_t parameter,
-                        maniGraphParameterType type)
+MANI_NODISCARD static bool ParameterIs(const maniGraphSource* source, uint32_t parameter,
+                                       maniGraphParameterType type)
 {
     return parameter < source->parameterCount && source->parameters[parameter].type == type;
 }
 
 // A bool compared for equality with 0 or 1; an int any way; a float in
 // order with a finite value.
-static bool ComparisonValid(const maniGraphSource* source, const maniGraphConditionSource* c)
+MANI_NODISCARD static bool ComparisonValid(const maniGraphSource* source,
+                                           const maniGraphConditionSource* c)
 {
     if (ParameterIs(source, c->parameter, maniGraphParameterBool))
     {
@@ -53,7 +54,8 @@ static bool ComparisonValid(const maniGraphSource* source, const maniGraphCondit
            (uint32_t)c->compare <= maniGraphCompareAtLeast && isfinite(c->value.f[0]);
 }
 
-static bool ConditionValid(const maniGraphSource* source, const maniGraphConditionSource* c)
+MANI_NODISCARD static bool ConditionValid(const maniGraphSource* source,
+                                          const maniGraphConditionSource* c)
 {
     switch (c->kind)
     {
@@ -73,8 +75,8 @@ static bool ConditionValid(const maniGraphSource* source, const maniGraphConditi
     }
 }
 
-static bool TransitionValid(const maniGraphSource* source, const maniGraphTransitionSource* t,
-                            uint32_t states)
+MANI_NODISCARD static bool TransitionValid(const maniGraphSource* source,
+                                           const maniGraphTransitionSource* t, uint32_t states)
 {
     bool ok = (t->from < states || t->from == MANI_GRAPH_ANY_STATE) && t->to < states &&
               t->from != t->to && (uint32_t)t->interruption <= maniGraphInterruptionAny &&
@@ -90,7 +92,7 @@ static bool TransitionValid(const maniGraphSource* source, const maniGraphTransi
 }
 
 // Whether a condition names an event past MANI_MAX_NAME_BYTES.
-static bool EventPast(const maniGraphTransitionSource* t)
+MANI_NODISCARD static bool EventPast(const maniGraphTransitionSource* t)
 {
     for (uint32_t k = 0; t->conditions != NULL && k < t->conditionCount; ++k)
     {
@@ -105,7 +107,8 @@ static bool EventPast(const maniGraphTransitionSource* t)
 
 // Whether two transitions are ever candidates together: from one state,
 // or either from any state.
-static bool Rivals(const maniGraphTransitionSource* a, const maniGraphTransitionSource* b)
+MANI_NODISCARD static bool Rivals(const maniGraphTransitionSource* a,
+                                  const maniGraphTransitionSource* b)
 {
     return a->from == b->from || a->from == MANI_GRAPH_ANY_STATE || b->from == MANI_GRAPH_ANY_STATE;
 }

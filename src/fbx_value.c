@@ -28,7 +28,7 @@ uint32_t maniFbxNodeProperty(const maniFbx* fbx, uint32_t node, uint32_t k)
     return k < n->propertyCount ? n->firstProperty + k : MANI_FBX_NONE;
 }
 
-static bool Finite(double v)
+MANI_NODISCARD static bool Finite(double v)
 {
     uint64_t bits = 0;
     memcpy(&bits, &v, sizeof bits);
@@ -149,7 +149,7 @@ bool maniFbxInteger(const maniFbx* fbx, uint32_t property, int64_t minimum, int6
     return true;
 }
 
-static bool IsText(uint8_t type)
+MANI_NODISCARD static bool IsText(uint8_t type)
 {
     return type == 'S' || type == 'R' || type == 'W';
 }
@@ -197,7 +197,7 @@ typedef struct Reader
     bool entities;
 } Reader;
 
-static bool Open(const maniFbx* fbx, uint32_t property, Reader* r)
+MANI_NODISCARD static bool Open(const maniFbx* fbx, uint32_t property, Reader* r)
 {
     r->at = 0;
     r->entities = false;
@@ -211,7 +211,7 @@ static bool Open(const maniFbx* fbx, uint32_t property, Reader* r)
 
 // A string whose decoded bytes are its raw ones: no entities to read and
 // every byte ASCII but NUL, so none is replaced.
-static bool Plain(const Reader* r)
+MANI_NODISCARD static bool Plain(const Reader* r)
 {
     for (uint32_t k = 0; !r->entities && k < r->raw; ++k)
     {
@@ -272,7 +272,8 @@ typedef struct Text
     uint32_t held;
 } Text;
 
-static bool OpenText(const maniFbx* fbx, uint32_t property, uint64_t from, uint64_t to, Text* t)
+MANI_NODISCARD static bool OpenText(const maniFbx* fbx, uint32_t property, uint64_t from,
+                                    uint64_t to, Text* t)
 {
     t->decoded = 0;
     t->end = to;
@@ -605,7 +606,7 @@ static maniImportResult Store(const maniFbx* fbx, const maniFbxProperty* p, cons
 
 // StoreAll's numbers: every element as a binary64; false for a type
 // it does not take or a value not finite.
-static bool StoreDoubles(const maniFbxProperty* p, const uint8_t* b, void* out)
+MANI_NODISCARD static bool StoreDoubles(const maniFbxProperty* p, const uint8_t* b, void* out)
 {
     size_t n = p->count;
     if (p->type == 'i')
@@ -650,7 +651,8 @@ static bool StoreDoubles(const maniFbxProperty* p, const uint8_t* b, void* out)
 // Every element of a little-endian array at once, a loop a type: false
 // for a type it does not take, or a value not finite (left for Store to
 // find and refuse at its place).
-static bool StoreAll(const maniFbxProperty* p, const Elements* e, Want want, void* out)
+MANI_NODISCARD static bool StoreAll(const maniFbxProperty* p, const Elements* e, Want want,
+                                    void* out)
 {
     const uint8_t* b = e->bytes;
     size_t n = p->count;
@@ -687,7 +689,8 @@ static bool StoreAll(const maniFbxProperty* p, const Elements* e, Want want, voi
 // A text number as binary32 bits: from 7.2 on, the bits written as an
 // integer (FBX's KeyAttrDataFloat packs integers into floats); before,
 // a float's value.
-static bool TextBits(const maniFbx* fbx, uint64_t start, uint64_t length, uint32_t* out)
+MANI_NODISCARD static bool TextBits(const maniFbx* fbx, uint64_t start, uint64_t length,
+                                    uint32_t* out)
 {
     if (fbx->version >= 7200)
     {
@@ -784,7 +787,7 @@ bool maniFbxCharacter(const maniFbx* fbx, uint32_t property, int64_t* out)
 
 // Whether a word is one ufbx reads as infinite or not a number: inf,
 // infinity or nan in any case, with an optional sign.
-static bool NonFiniteWord(const uint8_t* bytes, uint64_t length)
+MANI_NODISCARD static bool NonFiniteWord(const uint8_t* bytes, uint64_t length)
 {
     static const char* const kWords[3] = {"inf", "infinity", "nan"};
     for (uint32_t w = 0; w < 3; ++w)

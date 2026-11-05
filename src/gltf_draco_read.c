@@ -79,7 +79,7 @@ bool maniDracoU32(maniDracoReader* r, uint32_t* out)
     return true;
 }
 
-static bool Leb(maniDracoReader* r, uint32_t bytes, uint64_t* out)
+MANI_NODISCARD static bool Leb(maniDracoReader* r, uint32_t bytes, uint64_t* out)
 {
     uint64_t v = 0;
     for (uint32_t i = 0; i < bytes; ++i)
@@ -127,7 +127,7 @@ bool maniDracoBytes(maniDracoReader* r, size_t size, const uint8_t** out)
 }
 
 // One table entry: a probability of 6 to 30 bits, or a run of zeros.
-static bool Entry(maniDracoReader* r, uint32_t* probability, uint32_t* zeros)
+MANI_NODISCARD static bool Entry(maniDracoReader* r, uint32_t* probability, uint32_t* zeros)
 {
     uint8_t b = 0;
     if (!maniDracoU8(r, &b))
@@ -152,7 +152,8 @@ static bool Entry(maniDracoReader* r, uint32_t* probability, uint32_t* zeros)
 
 // A search's buckets (MAX_BUCKETS at most, about one a symbol) over a
 // table's count symbols of non-zero probability.
-static bool Buckets(maniArena* arena, const uint32_t* cumulative, uint32_t count, Rans* rans)
+MANI_NODISCARD static bool Buckets(maniArena* arena, const uint32_t* cumulative, uint32_t count,
+                                   Rans* rans)
 {
     uint32_t log = 0;
     while ((1u << log) < count && (1u << log) < MAX_BUCKETS)
@@ -240,7 +241,7 @@ static maniDracoStatus RansTable(maniDracoReader* r, maniArena* arena, uint32_t 
 }
 
 // Starts reading size bytes, which the reader then skips.
-static bool RansStart(maniDracoReader* r, Rans* rans)
+MANI_NODISCARD static bool RansStart(maniDracoReader* r, Rans* rans)
 {
     uint64_t size = 0;
     const uint8_t* bytes = NULL;

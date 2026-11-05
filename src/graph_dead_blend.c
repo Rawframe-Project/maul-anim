@@ -37,7 +37,7 @@ enum
 };
 
 // A scale axis's logarithm, or none (0, false) when not positive.
-static bool LogScale(float s, float* out)
+MANI_NODISCARD static bool LogScale(float s, float* out)
 {
     *out = s > 0.0f ? maniLogF(s) : 0.0f;
     return s > 0.0f;

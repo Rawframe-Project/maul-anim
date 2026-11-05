@@ -37,7 +37,7 @@ static float LoadF32(const uint8_t* p)
     return value;
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);

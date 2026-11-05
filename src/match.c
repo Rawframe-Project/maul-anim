@@ -38,7 +38,7 @@ float maniMatchFrameTime(float start, uint32_t k, float rate)
     return (float)((double)start + (double)k / (double)rate);
 }
 
-static bool Within(float time, float end, bool loop)
+MANI_NODISCARD static bool Within(float time, float end, bool loop)
 {
     return loop ? time < end : time <= end;
 }
@@ -282,7 +282,7 @@ static maniFileResult CheckSizes(const Sections* s, maniMotionDatabase* d)
 
 // A float track's name in the names section, UTF-8; any other kind's
 // offset and length 0.
-static bool NameValid(const maniMotionDatabase* d, uint32_t kind, const uint8_t* e)
+MANI_NODISCARD static bool NameValid(const maniMotionDatabase* d, uint32_t kind, const uint8_t* e)
 {
     uint32_t offset = maniLoadU32(e + 32);
     uint32_t length = maniLoadU32(e + 36);

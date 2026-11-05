@@ -46,13 +46,13 @@ typedef struct Reader
 } Reader;
 
 // Whether a node holds a component: a Key or a Default.
-static bool Holds(const maniFbx* fbx, uint32_t node)
+MANI_NODISCARD static bool Holds(const maniFbx* fbx, uint32_t node)
 {
     return maniFbxFindChild(fbx, node, "Key", 3) != MANI_FBX_NONE ||
            maniFbxFindChild(fbx, node, "Default", 7) != MANI_FBX_NONE;
 }
 
-static bool Named(const maniFbx* fbx, uint32_t node)
+MANI_NODISCARD static bool Named(const maniFbx* fbx, uint32_t node)
 {
     const uint8_t* bytes = NULL;
     uint32_t length = 0;
@@ -92,7 +92,7 @@ double maniFbxChannelDefault(const maniFbx* fbx, uint32_t component)
 
 // Whether a channel drives the target's attribute: a 6.x model with one,
 // on a property not among the node properties nor user-defined on it.
-static bool OnAttribute(const maniFbx* fbx, const maniFbxChannel* channel)
+MANI_NODISCARD static bool OnAttribute(const maniFbx* fbx, const maniFbxChannel* channel)
 {
     uint32_t model = channel->target;
     if (!maniFbxObjectKindIs(fbx, model, "Model", 5) || !maniFbxModelHasAttribute(fbx, model))

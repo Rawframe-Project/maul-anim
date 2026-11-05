@@ -31,7 +31,7 @@ enum
 // and every section within the file it names, the joints and weights
 // holding every vertex's slots, a present optional section every
 // vertex's value.
-bool maniInfluencesValid(const maniInfluences* v);
+MANI_NODISCARD bool maniInfluencesValid(const maniInfluences* v);
 
 // A section's bytes, and whether the file has it; the view checked.
 static inline const uint8_t* maniInfluencesSection(const maniInfluences* v, uint32_t section)
@@ -39,7 +39,7 @@ static inline const uint8_t* maniInfluencesSection(const maniInfluences* v, uint
     return v->base + v->offsets[section];
 }
 
-static inline bool maniInfluencesHas(const maniInfluences* v, uint32_t section)
+MANI_NODISCARD static inline bool maniInfluencesHas(const maniInfluences* v, uint32_t section)
 {
     return v->sizes[section] != 0;
 }

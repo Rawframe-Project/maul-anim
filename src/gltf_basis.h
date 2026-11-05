@@ -15,7 +15,7 @@
 #include <stddef.h>
 
 // Axes each below 6 and a permutation of x, y and z; foldPlacement 0 or 1.
-bool maniGltfOptionsValid(const maniGltfOptions* options);
+MANI_NODISCARD bool maniGltfOptionsValid(const maniGltfOptions* options);
 
 maniAffine maniGltfIdentityAffine(void);
 

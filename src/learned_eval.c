@@ -199,7 +199,7 @@ uint32_t maniLearnedHiddenCount(const maniLearnedModel* model)
     return w.layerCount > 1 ? LayerSize(model, w.firstLayer + w.layerCount - 1, 0) : 0u;
 }
 
-static bool AllFinite(const float* values, uint32_t count)
+MANI_NODISCARD static bool AllFinite(const float* values, uint32_t count)
 {
     for (uint32_t k = 0; k < count; ++k)
     {
@@ -231,7 +231,7 @@ size_t maniLearnedModel_GetScratchSize(const maniLearnedModel* model)
     return model != NULL ? 2 * sizeof(float) * (size_t)model->widest : 0;
 }
 
-static bool ScratchFits(const maniLearnedModel* m, const void* scratch, size_t size)
+MANI_NODISCARD static bool ScratchFits(const maniLearnedModel* m, const void* scratch, size_t size)
 {
     return scratch != NULL && (uintptr_t)scratch % sizeof(float) == 0 &&
            size >= maniLearnedModel_GetScratchSize(m);

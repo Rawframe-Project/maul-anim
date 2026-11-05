@@ -78,12 +78,12 @@ typedef struct State
     uint32_t invalidCount;
 } State;
 
-static bool ValidVertex(const State* s, uint32_t v)
+MANI_NODISCARD static bool ValidVertex(const State* s, uint32_t v)
 {
     return v < s->t->vertices;
 }
 
-static bool AddVertex(State* s, uint32_t* out)
+MANI_NODISCARD static bool AddVertex(State* s, uint32_t* out)
 {
     if (s->t->vertices >= s->vertexMax)
     {
@@ -268,7 +268,7 @@ static uint32_t NextSymbol(State* s)
 
 // Valence: the vertices of the new active corner gain the valence its
 // symbol adds; the context is the next vertex's, clamped to 2 to 7.
-static bool ActiveCorner(State* s, uint32_t corner)
+MANI_NODISCARD static bool ActiveCorner(State* s, uint32_t corner)
 {
     if (s->method != Valence)
     {
@@ -296,7 +296,7 @@ static bool ActiveCorner(State* s, uint32_t corner)
 
 // C: closes the active corner's gap with the next vertex's left-most
 // corner's next.
-static bool SymbolCFace(State* s, uint32_t corner)
+MANI_NODISCARD static bool SymbolCFace(State* s, uint32_t corner)
 {
     if (s->top == 0)
     {
@@ -329,7 +329,7 @@ static bool SymbolCFace(State* s, uint32_t corner)
 }
 
 // R and L: a new vertex opposite the active corner's edge.
-static bool SymbolRLFace(State* s, uint32_t corner, uint32_t symbol)
+MANI_NODISCARD static bool SymbolRLFace(State* s, uint32_t corner, uint32_t symbol)
 {
     if (s->top == 0)
     {
@@ -363,7 +363,7 @@ static bool SymbolRLFace(State* s, uint32_t corner, uint32_t symbol)
 
 // S: joins the active corner with the one below it on the stack (or the
 // corner a split left for this symbol), merging two vertices.
-static bool SymbolSFace(State* s, uint32_t corner, uint32_t symbol)
+MANI_NODISCARD static bool SymbolSFace(State* s, uint32_t corner, uint32_t symbol)
 {
     maniDracoTable* t = s->t;
     if (s->top == 0)
@@ -424,7 +424,7 @@ static bool SymbolSFace(State* s, uint32_t corner, uint32_t symbol)
 }
 
 // E: a new face of three new vertices, a new active corner.
-static bool SymbolEFace(State* s, uint32_t corner)
+MANI_NODISCARD static bool SymbolEFace(State* s, uint32_t corner)
 {
     maniDracoTable* t = s->t;
     uint32_t v[3] = {0};
@@ -444,7 +444,7 @@ static bool SymbolEFace(State* s, uint32_t corner)
 
 // The splits whose source is this symbol: each leaves a corner active for
 // its split symbol; a source past it is invalid.
-static bool Splits(State* s, uint32_t symbol)
+MANI_NODISCARD static bool Splits(State* s, uint32_t symbol)
 {
     uint32_t encoder = s->symbols - symbol - 1u;
     while (s->splitCount > 0)
@@ -466,7 +466,7 @@ static bool Splits(State* s, uint32_t symbol)
     return true;
 }
 
-static bool Face(State* s, uint32_t symbol)
+MANI_NODISCARD static bool Face(State* s, uint32_t symbol)
 {
     uint32_t corner = 3u * s->face++;
     uint32_t kind = NextSymbol(s);
@@ -481,7 +481,7 @@ static bool Face(State* s, uint32_t symbol)
 
 // The faces the stack's corners close: per corner a start-face decision,
 // an interior face joining it with its two neighbours' gaps.
-static bool StartFaces(State* s)
+MANI_NODISCARD static bool StartFaces(State* s)
 {
     maniDracoTable* t = s->t;
     while (s->top > 0)
@@ -519,7 +519,7 @@ static bool StartFaces(State* s)
 
 // Without attribute data, the vertices S merged away are filled from the
 // end of the table; the vertices that remain.
-static bool RemoveMerged(State* s, uint32_t* remaining)
+MANI_NODISCARD static bool RemoveMerged(State* s, uint32_t* remaining)
 {
     maniDracoTable* t = s->t;
     uint32_t count = t->vertices;
@@ -571,7 +571,7 @@ static bool RemoveMerged(State* s, uint32_t* remaining)
 // Each face's three edges: an open one is a seam for every attribute
 // data; an edge shared with a later face (or this one) reads one rABS
 // bit per data; one shared with an earlier face was read there.
-static bool Seams(State* s, maniDracoTable* data)
+MANI_NODISCARD static bool Seams(State* s, maniDracoTable* data)
 {
     const maniDracoTable* t = s->t;
     for (uint32_t f = 0; f < s->faces; ++f)
@@ -600,8 +600,8 @@ static bool Seams(State* s, maniDracoTable* data)
 // A vertex's first point corner: its left-most corner, or for an
 // interior vertex on a seam, the first corner swinging right where the
 // seam's attribute vertex changes.
-static bool FirstPointCorner(const State* s, const maniDracoTable* data, uint32_t v,
-                             uint32_t* first)
+MANI_NODISCARD static bool FirstPointCorner(const State* s, const maniDracoTable* data, uint32_t v,
+                                            uint32_t* first)
 {
     const maniDracoTable* t = s->t;
     uint32_t c = t->leftMost[v];
@@ -635,7 +635,8 @@ static bool FirstPointCorner(const State* s, const maniDracoTable* data, uint32_
     return true;
 }
 
-static bool SameAttributeVertex(const State* s, const maniDracoTable* data, uint32_t a, uint32_t b)
+MANI_NODISCARD static bool SameAttributeVertex(const State* s, const maniDracoTable* data,
+                                               uint32_t a, uint32_t b)
 {
     for (uint32_t i = 0; i < s->dataCount; ++i)
     {
@@ -651,7 +652,7 @@ static bool SameAttributeVertex(const State* s, const maniDracoTable* data, uint
 // is its vertex; with it, a vertex's corners swinging right share a point
 // until an attribute vertex changes. A corner no walk reaches keeps point
 // 0, as in Google's decoder.
-static bool AssignPoints(State* s, maniDracoEdgebreaker* out, uint32_t vertices)
+MANI_NODISCARD static bool AssignPoints(State* s, maniDracoEdgebreaker* out, uint32_t vertices)
 {
     const maniDracoTable* t = s->t;
     out->cornerPoint = maniArenaTake(s->arena, t->corners, sizeof(uint32_t));

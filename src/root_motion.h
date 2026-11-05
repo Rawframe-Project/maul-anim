@@ -15,7 +15,7 @@
 #include <stdint.h>
 
 // The source's fields in range and a channel chosen.
-bool maniRootMotionSourceValid(const maniRootMotionSource* source);
+MANI_NODISCARD bool maniRootMotionSourceValid(const maniRootMotionSource* source);
 
 // Checks section 16 (size 0 for none) against the clip's header and
 // tracks and sets clip->rootMotion; entry is where its size is in the
