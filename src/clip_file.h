@@ -11,6 +11,8 @@
 #ifndef MAUL_ANIM_SRC_CLIP_FILE_H
 #define MAUL_ANIM_SRC_CLIP_FILE_H
 
+#include "maul-anim/base.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -195,7 +197,7 @@ static inline uint32_t maniChannelFloats(uint32_t mask)
 // 0: 1 for a duration of 0, else ceil(duration * rate) + 1 in binary32,
 // the product snapped to a whole number within 2^-22 of it.
 // False when it would pass MANI_MAX_SAMPLES.
-bool maniClipSampleCountFor(float duration, float rate, uint32_t* countOut);
+MANI_NODISCARD bool maniClipSampleCountFor(float duration, float rate, uint32_t* countOut);
 
 // The identity: maniHash64 over the sections in tag order, each
 // continuing the last.

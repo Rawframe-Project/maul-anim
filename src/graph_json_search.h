@@ -19,13 +19,13 @@
 // query, period, jumpThreshold, endExclusion, historyTime,
 // continuingBias, transitionCost, historyCount, requiredTags,
 // excludedTags, duration).
-bool maniGraphJsonMatch(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
-                        maniGraphMatchNodeSource* out);
+MANI_NODISCARD bool maniGraphJsonMatch(maniGraphReader* r, const maniGraphScope* scope,
+                                       const uint32_t* members, maniGraphMatchNodeSource* out);
 
 // A learned node (members its form's: kind, model, trigger, query,
 // period, transitionCost, requiredTags, excludedTags, duration).
-bool maniGraphJsonLearned(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
-                          maniGraphLearnedNodeSource* out);
+MANI_NODISCARD bool maniGraphJsonLearned(maniGraphReader* r, const maniGraphScope* scope,
+                                         const uint32_t* members, maniGraphLearnedNodeSource* out);
 
 // A matching node's members after its kind, each optional one only off
 // its default.

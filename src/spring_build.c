@@ -46,18 +46,18 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
     return Result(mani_errorInvalid, reason, item, other);
 }
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
 }
 
-static bool FiniteVec(maniVec3 v)
+MANI_NODISCARD static bool FiniteVec(maniVec3 v)
 {
     return Finite(v.x) && Finite(v.y) && Finite(v.z);
 }
 
 // Within a thousandth of length 1, as exporters' rounding leaves it.
-static bool Unit(float lengthSquared)
+MANI_NODISCARD static bool Unit(float lengthSquared)
 {
     return lengthSquared >= 0.998f && lengthSquared <= 1.002f;
 }
@@ -103,7 +103,7 @@ static maniBuildResult CheckGroups(const maniSpringSetSource* s)
 }
 
 // Whether ancestor is a strict ancestor of bone.
-static bool Above(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone)
+MANI_NODISCARD static bool Above(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone)
 {
     uint32_t b = maniSkeleton_GetParent(skeleton, bone);
     for (uint32_t depth = 0; b != MANI_NO_BONE && depth < skeleton->boneCount; ++depth)
@@ -118,7 +118,7 @@ static bool Above(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone
 }
 
 // A joint's values in their ranges; its limit only before the last.
-static bool JointValid(const maniSpringJointSource* j, bool last)
+MANI_NODISCARD static bool JointValid(const maniSpringJointSource* j, bool last)
 {
     bool values = Finite(j->hitRadius) && j->hitRadius >= 0.0f && Finite(j->stiffness) &&
                   j->stiffness >= 0.0f && Finite(j->gravityPower) && j->gravityPower >= 0.0f &&
@@ -461,7 +461,7 @@ static maniBuildResult Write(maniBuilder* builder, const maniSpringSetSource* s,
 }
 
 // The lists the counts name are given.
-static bool Given(const maniSpringSetSource* s)
+MANI_NODISCARD static bool Given(const maniSpringSetSource* s)
 {
     return maniSkeletonValid(s->skeleton) && (s->colliders != NULL || s->colliderCount == 0) &&
            (s->colliderGroups != NULL || s->colliderGroupCount == 0) &&

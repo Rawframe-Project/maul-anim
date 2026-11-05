@@ -54,13 +54,13 @@ typedef struct Modes
     bool autoSlope;
 } Modes;
 
-static bool Has(const Parser* p, uint32_t n)
+MANI_NODISCARD static bool Has(const Parser* p, uint32_t n)
 {
     return p->end - p->at >= n;
 }
 
 // One weight mode; false for one unknown or values missing.
-static bool WeightMode(Parser* p, Modes* m)
+MANI_NODISCARD static bool WeightMode(Parser* p, Modes* m)
 {
     if (!Has(p, 1))
     {
@@ -87,7 +87,8 @@ static bool WeightMode(Parser* p, Modes* m)
 // A slope mode's values to skip and weight modes to read after it, by
 // KeyVer; false for a mode ufbx does not know. Modes s and b hold two
 // slopes (read by the caller); the others are auto.
-static bool SlopeCounts(char mode, int64_t version, uint32_t* skip, uint32_t* weights)
+MANI_NODISCARD static bool SlopeCounts(char mode, int64_t version, uint32_t* skip,
+                                       uint32_t* weights)
 {
     bool old = version <= 4004;
     switch (mode)
@@ -120,7 +121,7 @@ static bool SlopeCounts(char mode, int64_t version, uint32_t* skip, uint32_t* we
 }
 
 // A cubic key's slope mode and its weight modes.
-static bool Cubic(Parser* p, Modes* m)
+MANI_NODISCARD static bool Cubic(Parser* p, Modes* m)
 {
     if (!Has(p, 1))
     {
@@ -154,7 +155,7 @@ static bool Cubic(Parser* p, Modes* m)
 }
 
 // A key's mode and its values; false for what ufbx fails on.
-static bool Mode(Parser* p, maniFbxKey* key, Modes* m)
+MANI_NODISCARD static bool Mode(Parser* p, maniFbxKey* key, Modes* m)
 {
     char mode = Letter(p->data[p->at - 1]);
     if (mode == 'U')
@@ -185,7 +186,7 @@ static bool Mode(Parser* p, maniFbxKey* key, Modes* m)
 }
 
 // A time in ticks as seconds; false unless whole and in range.
-static bool Ticks(double ticks, int64_t* out)
+MANI_NODISCARD static bool Ticks(double ticks, int64_t* out)
 {
     if (!(ticks >= -0x1p63 && ticks < 0x1p63) || ticks != (double)(int64_t)ticks)
     {
@@ -218,7 +219,7 @@ static void Handles(Parser* p, maniFbxKey* key, const Modes* m, double nextTime)
 }
 
 // Key i (keys[i - 1] read before it); false for what ufbx fails on.
-static bool Key(Parser* p, maniFbxKey* keys, uint32_t i, uint32_t count)
+MANI_NODISCARD static bool Key(Parser* p, maniFbxKey* keys, uint32_t i, uint32_t count)
 {
     maniFbxKey* key = &keys[i];
     memset(key, 0, sizeof *key);
@@ -267,7 +268,7 @@ static bool Key(Parser* p, maniFbxKey* keys, uint32_t i, uint32_t count)
 }
 
 // The keys of a parsed list, their end ticks and order checked.
-static bool Parse(Parser* p, maniFbxCurve* out)
+MANI_NODISCARD static bool Parse(Parser* p, maniFbxCurve* out)
 {
     // A key at all means three values at least (the count's bound).
     p->nextTicks = out->count > 0 ? p->data[0] : 0.0;

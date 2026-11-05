@@ -66,11 +66,11 @@ maniDracoStatus maniDracoPredictData(maniDracoReader* r, maniArena* arena, maniD
                                      uint32_t values);
 
 // The geometric normal's flip bits, after the transform's data.
-bool maniDracoPredictFlips(maniDracoReader* r, maniDracoPredictor* p);
+MANI_NODISCARD bool maniDracoPredictFlips(maniDracoReader* r, maniDracoPredictor* p);
 
 // Reverts the prediction over data (entries values, each of the
 // predictor's components), corrections in place; false where Google's
 // decoder fails or would index outside the tables.
-bool maniDracoPredictRevert(maniDracoPredictor* p, uint32_t* data, uint32_t entries);
+MANI_NODISCARD bool maniDracoPredictRevert(maniDracoPredictor* p, uint32_t* data, uint32_t entries);
 
 #endif // MAUL_ANIM_SRC_GLTF_DRACO_PREDICT_H

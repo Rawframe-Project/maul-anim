@@ -210,7 +210,8 @@ static inline maniImportResult maniFbxFail(maniImportReason reason, uint64_t off
 uint32_t maniFbxFindChild(const maniFbx* fbx, uint32_t node, const char* name, size_t length);
 
 // Whether a node has the name given.
-bool maniFbxNameIs(const maniFbx* fbx, uint32_t node, const char* name, size_t length);
+MANI_NODISCARD bool maniFbxNameIs(const maniFbx* fbx, uint32_t node, const char* name,
+                                  size_t length);
 
 // maniOpenFbx refusing a file of more than propertyLimit properties. For
 // tests: no file of MANI_FBX_MAX_PROPERTIES fits in one.

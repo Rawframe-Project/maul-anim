@@ -17,7 +17,7 @@
 
 // The machine's members entry, chainLimit, transitions and finals (values in
 // members, MANI_JSON_NONE when absent) into n.
-bool maniGraphJsonMachine(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
-                          maniGraphNodeSource* n);
+MANI_NODISCARD bool maniGraphJsonMachine(maniGraphReader* r, const maniGraphScope* scope,
+                                         const uint32_t* members, maniGraphNodeSource* n);
 
 #endif // MAUL_ANIM_SRC_GRAPH_JSON_MACHINE_H

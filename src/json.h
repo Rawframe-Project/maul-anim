@@ -92,7 +92,8 @@ void maniReleaseJson(const maniAllocator* allocator, maniJson* json);
 uint32_t maniJsonFind(const maniJson* json, uint32_t object, const char* name, size_t length);
 
 // Whether a string value decodes to these bytes.
-bool maniJsonStringEquals(const maniJson* json, uint32_t string, const char* bytes, size_t length);
+MANI_NODISCARD bool maniJsonStringEquals(const maniJson* json, uint32_t string, const char* bytes,
+                                         size_t length);
 
 // Decodes a string value into out, at most capacity bytes; returns the
 // decoded length, which is at most the value's length.
@@ -100,12 +101,12 @@ size_t maniJsonStringDecode(const maniJson* json, uint32_t string, uint8_t* out,
 
 // A number value in a binary format; false for another kind or a value
 // past the format's range.
-bool maniJsonBinary(const maniJson* json, uint32_t number, maniBinaryFormat format,
-                    uint64_t* bitsOut);
+MANI_NODISCARD bool maniJsonBinary(const maniJson* json, uint32_t number, maniBinaryFormat format,
+                                   uint64_t* bitsOut);
 
 // A number value as a whole number in [minimum, maximum]; false for
 // another kind, a fraction or a value out of range.
-bool maniJsonInteger(const maniJson* json, uint32_t number, int64_t minimum, int64_t maximum,
-                     int64_t* valueOut);
+MANI_NODISCARD bool maniJsonInteger(const maniJson* json, uint32_t number, int64_t minimum,
+                                    int64_t maximum, int64_t* valueOut);
 
 #endif // MAUL_ANIM_SRC_JSON_H

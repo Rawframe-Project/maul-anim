@@ -99,7 +99,7 @@ static void Give(const Update* u, uint32_t input, Share share)
 }
 
 // Whether a parent reached a node this update.
-static bool Reached(const maniGraphNodeState* s)
+MANI_NODISCARD static bool Reached(const maniGraphNodeState* s)
 {
     return (s->flags & MANI_GRAPH_REACHED) != 0;
 }
@@ -359,7 +359,7 @@ static void ShareOne(const Update* u, const uint8_t* record, maniGraphNodeState*
 }
 
 // Whether a reset trigger fired; a fired one is cleared.
-static bool Consumed(const Update* u, uint32_t reset)
+MANI_NODISCARD static bool Consumed(const Update* u, uint32_t reset)
 {
     bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0;
     if (fired)

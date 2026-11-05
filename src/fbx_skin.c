@@ -251,7 +251,7 @@ static maniImportResult ReadMatrix(const maniFbx* fbx, uint32_t node, const char
     return maniFbxSuccess();
 }
 
-static bool AllZero(const maniFbxMatrix* m)
+MANI_NODISCARD static bool AllZero(const maniFbxMatrix* m)
 {
     for (uint32_t i = 0; i < 12; ++i)
     {

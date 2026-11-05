@@ -72,7 +72,7 @@ struct maniLearnedTrainer
 
 // Whether a call that changes the trainer is refused: called back in
 // from its own code, or while a build reads it; one misuse counted.
-static inline bool maniLearnedTrainerBusy(maniLearnedTrainer* t)
+MANI_NODISCARD static inline bool maniLearnedTrainerBusy(maniLearnedTrainer* t)
 {
     if (maniHostCalledBack(&t->host))
     {
@@ -88,7 +88,8 @@ static inline bool maniLearnedTrainerBusy(maniLearnedTrainer* t)
 
 // Network n's shape: 0 the Compressor, 1 the Decompressor, 2 the
 // Stepper, 3 a Projector; false past a limit.
-bool maniLearnedTrainerShape(const maniLearnedTrainer* t, uint32_t n, maniTrainNet* net);
+MANI_NODISCARD bool maniLearnedTrainerShape(const maniLearnedTrainer* t, uint32_t n,
+                                            maniTrainNet* net);
 
 // A checkpoint's format version, and the size of its progress section.
 #define MANI_CHECKPOINT_FORMAT_VERSION 2u
@@ -100,7 +101,8 @@ uint64_t maniLearnedTrainerSignature(const maniLearnedTrainerSource* source);
 
 // Room for network n's parameters and normalization, of shape net; false
 // when memory runs out.
-bool maniLearnedTrainerKeep(maniLearnedTrainer* t, uint32_t n, const maniTrainNet* net);
+MANI_NODISCARD bool maniLearnedTrainerKeep(maniLearnedTrainer* t, uint32_t n,
+                                           const maniTrainNet* net);
 
 // The current stage begun: its generator seeded by the seed plus the
 // stage, its network started, its normalization measured.

@@ -65,7 +65,7 @@ static maniAffine FromColumns(const float m[16])
     return a;
 }
 
-static bool Affine(const float m[16])
+MANI_NODISCARD static bool Affine(const float m[16])
 {
     return fabsf(m[3]) <= 1e-5f && fabsf(m[7]) <= 1e-5f && fabsf(m[11]) <= 1e-5f &&
            fabsf(m[15] - 1.0f) <= 1e-5f;

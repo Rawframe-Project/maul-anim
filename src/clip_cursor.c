@@ -105,7 +105,7 @@ maniResult maniInitClipCursor(void* memory, size_t size, maniClipCursor** cursor
 // The cursor bound to the clip: false when it is too small for it. The
 // shape is compared too, so even a crafted clip whose identity collides
 // at the same address cannot make it read past its memory.
-static bool Bind(maniClipCursor* cursor, const maniClip* clip)
+MANI_NODISCARD static bool Bind(maniClipCursor* cursor, const maniClip* clip)
 {
     size_t floats = CacheFloats(clip);
     if (cursor->clip == clip && cursor->identity == clip->identity && cursor->floats == floats &&
@@ -168,7 +168,7 @@ static void Load(maniClipCursor* cursor, const maniClip* clip, maniClipPair* pai
     pair->cacheB = Slot(cursor, b, floats);
 }
 
-static bool Valid(const maniClipCursor* cursor)
+MANI_NODISCARD static bool Valid(const maniClipCursor* cursor)
 {
     return cursor != NULL && cursor->tag == CURSOR_TAG;
 }

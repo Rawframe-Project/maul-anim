@@ -44,7 +44,8 @@ static int64_t Max64(int64_t a, int64_t b)
 }
 
 // A table vertex's value; false for a vertex of none.
-static bool VertexValue(const maniDracoPredictor* p, uint32_t corner, uint32_t* value)
+MANI_NODISCARD static bool VertexValue(const maniDracoPredictor* p, uint32_t corner,
+                                       uint32_t* value)
 {
     uint32_t v = maniDracoVertex(p->table, corner);
     if (v >= p->order->vertexCount)
@@ -95,7 +96,7 @@ static void Revert(const maniDracoPredictor* p, uint32_t* data, uint32_t id, con
                  data + (size_t)id * n);
 }
 
-static bool Single(const maniDracoPredictor* p, uint32_t* data)
+MANI_NODISCARD static bool Single(const maniDracoPredictor* p, uint32_t* data)
 {
     uint32_t pred[MAX_COMPONENTS];
     for (uint32_t id = 1; id < p->order->count; ++id)
@@ -112,7 +113,7 @@ static bool Single(const maniDracoPredictor* p, uint32_t* data)
 
 // Swinging right around a value's vertex from its corner: every
 // parallelogram's prediction, averaged.
-static bool Multi(const maniDracoPredictor* p, uint32_t* data)
+MANI_NODISCARD static bool Multi(const maniDracoPredictor* p, uint32_t* data)
 {
     uint32_t n = p->components;
     uint32_t pred[MAX_COMPONENTS];
@@ -149,8 +150,8 @@ static bool Multi(const maniDracoPredictor* p, uint32_t* data)
 
 // Constrained: up to four parallelograms, left then right of the value's
 // corner.
-static bool Around(const maniDracoPredictor* p, uint32_t id, const uint32_t* data,
-                   uint32_t preds[][MAX_COMPONENTS], uint32_t* count)
+MANI_NODISCARD static bool Around(const maniDracoPredictor* p, uint32_t id, const uint32_t* data,
+                                  uint32_t preds[][MAX_COMPONENTS], uint32_t* count)
 {
     uint32_t start = p->order->valueCorner[id];
     uint32_t c = start;
@@ -182,7 +183,7 @@ static bool Around(const maniDracoPredictor* p, uint32_t id, const uint32_t* dat
     return true;
 }
 
-static bool Constrained(const maniDracoPredictor* p, uint32_t* data)
+MANI_NODISCARD static bool Constrained(const maniDracoPredictor* p, uint32_t* data)
 {
     uint32_t n = p->components;
     uint32_t preds[maniDracoCreaseContexts][MAX_COMPONENTS];
@@ -221,7 +222,7 @@ static bool Constrained(const maniDracoPredictor* p, uint32_t* data)
 }
 
 // A value's position: the parent's portable value at the value's point.
-static bool Position(const maniDracoPredictor* p, uint32_t id, int64_t out[3])
+MANI_NODISCARD static bool Position(const maniDracoPredictor* p, uint32_t id, int64_t out[3])
 {
     if (id >= p->order->count)
     {
@@ -333,7 +334,8 @@ static int TexFromPositions(maniDracoPredictor* p, const uint32_t* data, uint32_
 
 // Google's portable texture coordinate predictor at a value's corner;
 // without both neighbours' values, a neighbour's or the previous value.
-static bool TexPredict(maniDracoPredictor* p, const uint32_t* data, uint32_t id, uint32_t pred[2])
+MANI_NODISCARD static bool TexPredict(maniDracoPredictor* p, const uint32_t* data, uint32_t id,
+                                      uint32_t pred[2])
 {
     uint32_t corner = p->order->valueCorner[id];
     uint32_t next = 0;
@@ -356,7 +358,7 @@ static bool TexPredict(maniDracoPredictor* p, const uint32_t* data, uint32_t id,
     return true;
 }
 
-static bool TexCoords(maniDracoPredictor* p, uint32_t* data)
+MANI_NODISCARD static bool TexCoords(maniDracoPredictor* p, uint32_t* data)
 {
     uint32_t pred[2];
     if (p->components != 2)
@@ -374,7 +376,8 @@ static bool TexCoords(maniDracoPredictor* p, uint32_t* data)
     return true;
 }
 
-static bool CornerPosition(const maniDracoPredictor* p, uint32_t corner, int64_t out[3])
+MANI_NODISCARD static bool CornerPosition(const maniDracoPredictor* p, uint32_t corner,
+                                          int64_t out[3])
 {
     uint32_t id = 0;
     return VertexValue(p, corner, &id) && Position(p, id, out);
@@ -382,7 +385,7 @@ static bool CornerPosition(const maniDracoPredictor* p, uint32_t corner, int64_t
 
 // Google's area-weighted normal: the cross products of the faces around
 // the corner's vertex summed, scaled to a sum of at most 2^29.
-static bool AreaNormal(const maniDracoPredictor* p, uint32_t corner, int32_t out[3])
+MANI_NODISCARD static bool AreaNormal(const maniDracoPredictor* p, uint32_t corner, int32_t out[3])
 {
     const maniDracoTable* t = p->table;
     int64_t center[3];
@@ -486,7 +489,7 @@ static void Octahedral(const int32_t v[3], int32_t max, int32_t center, uint32_t
     out[1] = (uint32_t)t;
 }
 
-static bool Normals(maniDracoPredictor* p, uint32_t* data)
+MANI_NODISCARD static bool Normals(maniDracoPredictor* p, uint32_t* data)
 {
     // The tool box's largest value is one under the transform's.
     int32_t max = p->octahedronMax - 1;

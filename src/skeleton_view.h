@@ -33,7 +33,7 @@ enum
 
 // Whether a view is one an open wrote: its cookie, a bone count in range
 // and every section within the file it names.
-bool maniSkeletonValid(const maniSkeleton* s);
+MANI_NODISCARD bool maniSkeletonValid(const maniSkeleton* s);
 
 // A section's bytes; the view checked.
 static inline const uint8_t* maniSkeletonSection(const maniSkeleton* s, uint32_t section)

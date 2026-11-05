@@ -60,7 +60,7 @@ typedef struct Reader
     bool firstComment;
 } Reader;
 
-static bool WellFormed(const uint8_t* p, uint64_t length);
+MANI_NODISCARD static bool WellFormed(const uint8_t* p, uint64_t length);
 
 // The text's sign handled for the decimal conversion, which reads JSON's
 // numbers: a leading '+' dropped.
@@ -106,22 +106,22 @@ static maniImportResult Bad(uint64_t at)
     return maniFbxFail(maniImportReasonSyntax, at, 0);
 }
 
-static bool IsSpace(uint8_t c)
+MANI_NODISCARD static bool IsSpace(uint8_t c)
 {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
-static bool IsDigit(uint8_t c)
+MANI_NODISCARD static bool IsDigit(uint8_t c)
 {
     return c >= '0' && c <= '9';
 }
 
-static bool IsWordStart(uint8_t c)
+MANI_NODISCARD static bool IsWordStart(uint8_t c)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_';
 }
 
-static bool IsWord(uint8_t c)
+MANI_NODISCARD static bool IsWord(uint8_t c)
 {
     return IsWordStart(c) || IsDigit(c) || c == '-' || c == '(' || c == ')';
 }
@@ -167,7 +167,7 @@ static void SkipSpace(Reader* r)
 
 // A number: [+-]? (D+ (. D*)? | . D+) ([eE] [+-]? D+)?, as the decimal
 // conversion reads it once a '+' is dropped.
-static bool WellFormed(const uint8_t* p, uint64_t length)
+MANI_NODISCARD static bool WellFormed(const uint8_t* p, uint64_t length)
 {
     uint64_t i = p[0] == '+' || p[0] == '-' ? 1 : 0;
     uint64_t digits = 0;
@@ -207,7 +207,7 @@ static bool WellFormed(const uint8_t* p, uint64_t length)
 }
 
 // Whether p, n bytes on, begins with a word in any case.
-static bool Spells(const uint8_t* p, const uint8_t* end, const char* word)
+MANI_NODISCARD static bool Spells(const uint8_t* p, const uint8_t* end, const char* word)
 {
     size_t n = strlen(word);
     bool same = (size_t)(end - p) >= n;
@@ -218,7 +218,7 @@ static bool Spells(const uint8_t* p, const uint8_t* end, const char* word)
     return same;
 }
 
-static bool IsAlphanumeric(uint8_t c)
+MANI_NODISCARD static bool IsAlphanumeric(uint8_t c)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || IsDigit(c);
 }
@@ -226,7 +226,7 @@ static bool IsAlphanumeric(uint8_t c)
 // An old writer's form after the sign, whole: a digit, '.', '#', then
 // inf, nan, ind, or qnan or snan (which MSVC writes too and ufbx
 // misses), then digits ("1.#INF", "-1.#IND").
-static bool OldInfNan(const uint8_t* p, const uint8_t* end)
+MANI_NODISCARD static bool OldInfNan(const uint8_t* p, const uint8_t* end)
 {
     p += 3;
     bool quiet = Spells(p, end, "qnan") || Spells(p, end, "snan");
@@ -244,7 +244,7 @@ static bool OldInfNan(const uint8_t* p, const uint8_t* end)
 // Whether a number's text is an infinity or NaN, whole, as ufbx spells
 // them: a sign, then nan (or nan and letters and digits in parentheses),
 // inf or infinity, or an old writer's form.
-static bool InfNan(const uint8_t* p, uint64_t length)
+MANI_NODISCARD static bool InfNan(const uint8_t* p, uint64_t length)
 {
     const uint8_t* end = p + length;
     p += p != end && (*p == '+' || *p == '-') ? 1 : 0;
@@ -450,7 +450,7 @@ static maniImportResult ReadArray(Reader* r, uint64_t star)
     return maniFbxSuccess();
 }
 
-static bool IsValue(TokenKind kind)
+MANI_NODISCARD static bool IsValue(TokenKind kind)
 {
     return kind == TokenString || kind == TokenNumber || kind == TokenNotNumber ||
            kind == TokenWord;

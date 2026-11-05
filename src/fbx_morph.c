@@ -42,14 +42,14 @@ static maniImportResult Capacity(void)
     return (maniImportResult){mani_errorCapacity, maniImportReasonNone, 0, 0};
 }
 
-static bool IsBlendShape(const maniFbx* fbx, uint32_t object)
+MANI_NODISCARD static bool IsBlendShape(const maniFbx* fbx, uint32_t object)
 {
     return maniFbxDeformerIs(fbx, object, "BlendShape", 10);
 }
 
 // Whether an owner's child node is a shape ufbx reads: a Shape with
 // Indexes and Vertices.
-static bool IsShapeNode(const maniFbx* fbx, uint32_t node)
+MANI_NODISCARD static bool IsShapeNode(const maniFbx* fbx, uint32_t node)
 {
     return maniFbxNameIs(fbx, node, "Shape", 5) &&
            maniFbxFindChild(fbx, node, "Indexes", 7) != MANI_FBX_NONE &&
@@ -70,7 +70,7 @@ static uint32_t ShapeChildren(const maniFbx* fbx, uint32_t owner)
 
 // A shape owner with shapes; not a legacy skin, which shares its mesh
 // model's node.
-static bool IsOwner(const maniFbx* fbx, uint32_t object)
+MANI_NODISCARD static bool IsOwner(const maniFbx* fbx, uint32_t object)
 {
     return fbx->objects[object].role == maniFbxRoleNone && maniFbxIsShapeOwner(fbx, object) &&
            ShapeChildren(fbx, object) > 0;
@@ -169,7 +169,7 @@ static maniImportResult ReadShapes(const maniFbx* fbx, maniArena* arena, uint32_
 
 // Whether the k-th of sorted shapes is a target: the first of its
 // target weight.
-static bool Kept(const maniFbxBlendShape* shapes, uint32_t k)
+MANI_NODISCARD static bool Kept(const maniFbxBlendShape* shapes, uint32_t k)
 {
     return k == 0 || shapes[k].target != shapes[k - 1].target;
 }
@@ -543,7 +543,8 @@ static maniImportResult ReadOwner(Morph* m)
 }
 
 // Whether channels a and b have the same name.
-static bool SameName(const maniMorphChannelSource* a, const maniMorphChannelSource* b)
+MANI_NODISCARD static bool SameName(const maniMorphChannelSource* a,
+                                    const maniMorphChannelSource* b)
 {
     return a->nameLength == b->nameLength && memcmp(a->name, b->name, a->nameLength) == 0;
 }
@@ -729,7 +730,8 @@ static maniImportResult BlendRestWeights(const maniFbx* fbx, maniArena* arena, u
 
 // The set's target count written, and whether the weights' array holds
 // it.
-static bool Holds(uint32_t total, const float* weightsOut, uint32_t capacity, uint32_t* countOut)
+MANI_NODISCARD static bool Holds(uint32_t total, const float* weightsOut, uint32_t capacity,
+                                 uint32_t* countOut)
 {
     if (countOut != NULL)
     {

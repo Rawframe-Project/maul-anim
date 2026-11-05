@@ -219,7 +219,7 @@ void maniGraphResetMachine(const maniGraphMachine* m, uint32_t* block)
     }
 }
 
-static bool UnitWeight(uint32_t bits)
+MANI_NODISCARD static bool UnitWeight(uint32_t bits)
 {
     float value = FloatOf(bits);
     return isfinite(value) && value >= 0.0f && value <= 1.0f;
@@ -230,7 +230,7 @@ static double SavedDouble(const uint8_t* bytes, uint32_t at)
     return DoubleOf(maniLoadU32(bytes + 4 * at), maniLoadU32(bytes + 4 * at + 4));
 }
 
-static bool Unit(double value)
+MANI_NODISCARD static bool Unit(double value)
 {
     return value >= 0.0 && value <= 1.0;
 }

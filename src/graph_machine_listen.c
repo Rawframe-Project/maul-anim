@@ -64,13 +64,13 @@ static maniClip ClipOf(const Listen* l, uint32_t p)
     return clip;
 }
 
-static bool Repeats(const maniClip* clip)
+MANI_NODISCARD static bool Repeats(const maniClip* clip)
 {
     return clip->loop == maniLoopRepeat && clip->duration > 0.0f;
 }
 
 // Whether an event of the name lies in one stretch the playhead passed.
-static bool InRange(const maniClip* clip, double from, double to, uint64_t hash)
+MANI_NODISCARD static bool InRange(const maniClip* clip, double from, double to, uint64_t hash)
 {
     uint32_t first = 0;
     uint32_t count = 0;
@@ -85,7 +85,7 @@ static bool InRange(const maniClip* clip, double from, double to, uint64_t hash)
 
 // Whether the playhead from t0 over step passed an event of the name,
 // across wraps (a whole loop passes every event).
-static bool Heard(const maniClip* clip, double t0, double step, uint64_t hash)
+MANI_NODISCARD static bool Heard(const maniClip* clip, double t0, double step, uint64_t hash)
 {
     double t1 = t0 + step;
     double d = (double)clip->duration;
@@ -141,7 +141,8 @@ static void Move(const Listen* l, uint32_t clip, uint32_t* block)
 // Whether the current state finished: its nearest machine final and
 // settled, or with none its leading clip, not repeating, at the end it
 // moves toward (its end when still).
-static bool Finished(const Listen* l, const maniGraphMachine* m, uint32_t k, uint32_t leading)
+MANI_NODISCARD static bool Finished(const Listen* l, const maniGraphMachine* m, uint32_t k,
+                                    uint32_t leading)
 {
     uint32_t nearest = maniGraphMachineState(m, k, 1);
     if (nearest != MANI_GRAPH_NO_NODE)

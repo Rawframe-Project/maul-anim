@@ -36,8 +36,8 @@ float maniSpringLargestScale(maniVec3 s);
 
 // Whether a tail of the joint's radius overlaps the shape; if so the
 // direction to push it back along (unit) and the overlap (negative).
-bool maniSpringCollide(const maniSpringShape* s, maniVec3 tail, float jointRadius,
-                       maniVec3* directionOut, float* distanceOut);
+MANI_NODISCARD bool maniSpringCollide(const maniSpringShape* s, maniVec3 tail, float jointRadius,
+                                      maniVec3* directionOut, float* distanceOut);
 
 // A unit direction in the limit's frame kept within the limit.
 maniVec3 maniSpringLimitDirection(uint32_t limit, float angle, float yaw, maniVec3 direction);

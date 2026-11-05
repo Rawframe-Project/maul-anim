@@ -22,8 +22,8 @@
 #include <stdint.h>
 #include <string.h>
 
-static bool Networks(const maniTrainData* d, const maniTrainDecompressShape* s,
-                     maniTrainDecompress* t)
+MANI_NODISCARD static bool Networks(const maniTrainData* d, const maniTrainDecompressShape* s,
+                                    maniTrainDecompress* t)
 {
     uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1];
     if (s->compressorLayers >= MANI_MAX_LEARNED_LAYERS ||
@@ -52,7 +52,7 @@ static bool Networks(const maniTrainData* d, const maniTrainDecompressShape* s,
 }
 
 // The arrays of one chunk, or of every chunk with all set.
-static bool ChunkArrays(const maniAllocator* a, maniTrainDecompress* t, bool release)
+MANI_NODISCARD static bool ChunkArrays(const maniAllocator* a, maniTrainDecompress* t, bool release)
 {
     bool ok = true;
     size_t chunk = MANI_TRAIN_CHUNK;

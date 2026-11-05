@@ -75,7 +75,8 @@ static const maniClip* Find(const maniGraphBinding* binding, uint32_t slot,
 
 // Whether a database takes the slot: its clips the slot's, in order, and
 // the query of every node searching the slot.
-static bool DatabaseFits(const maniGraph* graph, uint32_t slot, const maniMotionDatabase* d)
+MANI_NODISCARD static bool DatabaseFits(const maniGraph* graph, uint32_t slot,
+                                        const maniMotionDatabase* d)
 {
     const uint8_t* e = graph->databases + (size_t)slot * MANI_GRAPH_DATABASE_SIZE;
     uint32_t first = maniLoadU32(e + 24);
@@ -151,7 +152,7 @@ static size_t CursorSize(const maniGraphBinding* binding)
 // The one bone the clips' root motion names (a mapped clip's, the target
 // bone following its own alone), into the binding; false when two clips
 // name different bones or a mapped clip's has no follower.
-static bool RootMotionBone(maniGraphBinding* binding)
+MANI_NODISCARD static bool RootMotionBone(maniGraphBinding* binding)
 {
     binding->rootMotionBone = MANI_NO_BONE;
     for (uint32_t s = 0; s < binding->graph.clipCount; ++s)
@@ -213,7 +214,8 @@ static const maniSkeleton* FindSource(const maniRetargetMap* map, const maniGrap
 
 // Each map slot bound to its map and the map's source skeleton, the
 // scratch for carrying poses sized; false with the first left unbound.
-static bool BindMaps(maniGraphBinding* binding, const maniGraphAssets* assets, uint32_t* unboundOut)
+MANI_NODISCARD static bool BindMaps(maniGraphBinding* binding, const maniGraphAssets* assets,
+                                    uint32_t* unboundOut)
 {
     const maniGraph* graph = &binding->graph;
     maniGraphBoundMapPair* pairs = (maniGraphBoundMapPair*)maniGraphBoundMap(binding, 0);
@@ -243,8 +245,9 @@ static bool BindMaps(maniGraphBinding* binding, const maniGraphAssets* assets, u
 }
 
 // Each database slot bound; false with the first left unbound.
-static bool BindDatabases(maniGraphBinding* binding, const maniMotionDatabase* const* databases,
-                          uint32_t count, uint32_t* unboundOut)
+MANI_NODISCARD static bool BindDatabases(maniGraphBinding* binding,
+                                         const maniMotionDatabase* const* databases, uint32_t count,
+                                         uint32_t* unboundOut)
 {
     const maniGraph* graph = &binding->graph;
     const maniMotionDatabase** slots = maniGraphBoundDatabases(binding);
@@ -265,7 +268,8 @@ static bool BindDatabases(maniGraphBinding* binding, const maniMotionDatabase* c
 
 // Whether a model takes the slot: of the graph's skeleton, and taking
 // every learned node playing the slot.
-static bool ModelFits(const maniGraph* graph, uint32_t slot, const maniLearnedModel* m)
+MANI_NODISCARD static bool ModelFits(const maniGraph* graph, uint32_t slot,
+                                     const maniLearnedModel* m)
 {
     if (maniLearnedModel_GetSkeletonIdentity(m) != graph->skeletonIdentity)
     {
@@ -287,8 +291,8 @@ static bool ModelFits(const maniGraph* graph, uint32_t slot, const maniLearnedMo
 
 // Each model slot bound to the model of its identity that takes it;
 // false with the first left unbound.
-static bool BindModels(maniGraphBinding* binding, const maniGraphAssets* assets,
-                       uint32_t* unboundOut)
+MANI_NODISCARD static bool BindModels(maniGraphBinding* binding, const maniGraphAssets* assets,
+                                      uint32_t* unboundOut)
 {
     const maniGraph* graph = &binding->graph;
     const maniLearnedModel** slots = maniGraphBoundModels(binding);
@@ -317,7 +321,8 @@ static bool BindModels(maniGraphBinding* binding, const maniGraphAssets* assets,
 
 // Whether a set takes the slot: of the graph's skeleton, and its state
 // the words of every spring node over the slot.
-static bool SpringSetFits(const maniGraph* graph, uint32_t slot, const maniSpringSet* set)
+MANI_NODISCARD static bool SpringSetFits(const maniGraph* graph, uint32_t slot,
+                                         const maniSpringSet* set)
 {
     if (maniSpringSet_GetSkeletonIdentity(set) != graph->skeletonIdentity)
     {
@@ -339,8 +344,8 @@ static bool SpringSetFits(const maniGraph* graph, uint32_t slot, const maniSprin
 
 // Each spring set slot bound to the set of its identity that takes it;
 // false with the first left unbound.
-static bool BindSpringSets(maniGraphBinding* binding, const maniGraphAssets* assets,
-                           uint32_t* unboundOut)
+MANI_NODISCARD static bool BindSpringSets(maniGraphBinding* binding, const maniGraphAssets* assets,
+                                          uint32_t* unboundOut)
 {
     const maniGraph* graph = &binding->graph;
     const maniSpringSet** slots = maniGraphBoundSpringSets(binding);
@@ -369,7 +374,8 @@ static bool BindSpringSets(maniGraphBinding* binding, const maniGraphAssets* ass
 
 // The mirror map the graph names, of its identity and the graph's
 // skeleton; false with it unbound.
-static bool BindMirror(maniGraphBinding* binding, const maniMirrorMap* map, uint32_t* unboundOut)
+MANI_NODISCARD static bool BindMirror(maniGraphBinding* binding, const maniMirrorMap* map,
+                                      uint32_t* unboundOut)
 {
     const maniGraph* graph = &binding->graph;
     binding->mirrorMap = NULL;
@@ -392,7 +398,7 @@ static bool BindMirror(maniGraphBinding* binding, const maniMirrorMap* map, uint
     return false;
 }
 
-static bool AssetsValid(const maniGraph* graph, const maniGraphAssets* a)
+MANI_NODISCARD static bool AssetsValid(const maniGraph* graph, const maniGraphAssets* a)
 {
     return a != NULL && maniSkeletonValid(a->skeleton) && (a->clips != NULL || a->clipCount == 0) &&
            (a->databases != NULL || a->databaseCount == 0) &&

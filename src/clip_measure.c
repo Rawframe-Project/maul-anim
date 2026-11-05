@@ -74,7 +74,7 @@ static double Angle(const float* played, const double* source)
     return 2.0 * maniAtan2Double(sqrt(minus), sqrt(plus));
 }
 
-static bool Has(const maniChannelSource* c)
+MANI_NODISCARD static bool Has(const maniChannelSource* c)
 {
     return c->keyCount > 0;
 }
@@ -199,7 +199,7 @@ static maniResult Run(Measure* m)
 }
 
 // The clip must be the source's: its skeleton, grid and float tracks.
-static bool Matches(Measure* m)
+MANI_NODISCARD static bool Matches(Measure* m)
 {
     const maniClipTiming* g = &m->timing;
     if (maniClip_GetSkeletonIdentity(m->clip) != maniSkeleton_GetIdentity(m->source->skeleton) ||

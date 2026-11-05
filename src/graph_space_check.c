@@ -23,7 +23,7 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
 
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
-static bool ScalarValid(const maniGraphSource* source, maniGraphScalar s)
+MANI_NODISCARD static bool ScalarValid(const maniGraphSource* source, maniGraphScalar s)
 {
     return s.parameter == MANI_NO_PARAMETER
                ? isfinite(s.value)
@@ -109,7 +109,7 @@ static maniBuildResult CheckBands(const maniGraphBandsNodeSource* s, uint32_t co
 }
 
 // Whether every corner of b lies on or right of one of a's edges.
-static bool SeparatedBy(const float* points, const uint32_t* a, const uint32_t* b)
+MANI_NODISCARD static bool SeparatedBy(const float* points, const uint32_t* a, const uint32_t* b)
 {
     for (uint32_t i = 0; i < 3; ++i)
     {
@@ -130,7 +130,7 @@ static bool SeparatedBy(const float* points, const uint32_t* a, const uint32_t* 
 
 // Whether the interiors of two anticlockwise triangles meet: apart in x
 // or y, or apart across an edge of either (the separating axis test).
-static bool Overlap(const float* points, const uint32_t* a, const uint32_t* b)
+MANI_NODISCARD static bool Overlap(const float* points, const uint32_t* a, const uint32_t* b)
 {
     for (uint32_t axis = 0; axis < 2; ++axis)
     {

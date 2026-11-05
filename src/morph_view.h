@@ -23,7 +23,7 @@
 // Whether a view is one an open wrote: its cookie, its counts in range
 // and every section within the file it names, the fixed ones holding
 // their counts' entries.
-bool maniMorphTargetsValid(const maniMorphTargets* m);
+MANI_NODISCARD bool maniMorphTargetsValid(const maniMorphTargets* m);
 
 // A section by its tag, maniMorphTagAttributes to maniMorphTagNames: its
 // bytes and size. The view checked.

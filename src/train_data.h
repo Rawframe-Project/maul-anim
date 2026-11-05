@@ -91,8 +91,8 @@ typedef struct maniTrainData
 // The data of a source whose clips and names are the database's (checked
 // by the caller). False when memory runs out or sampling fails, with
 // nothing held.
-bool maniTrainDataBuild(const maniAllocator* allocator, const maniTrainDataSource* source,
-                        maniTrainData* dataOut);
+MANI_NODISCARD bool maniTrainDataBuild(const maniAllocator* allocator,
+                                       const maniTrainDataSource* source, maniTrainData* dataOut);
 
 // Releases what maniTrainDataBuild allocated.
 void maniTrainDataRelease(const maniAllocator* allocator, maniTrainData* data);

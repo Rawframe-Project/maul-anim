@@ -117,7 +117,7 @@ static void Events(const Match* m, uint32_t slot, const maniClip* clip, const ma
 
 // The playhead moved through its entry; whether a clamped entry reached
 // its end.
-static bool Play(const Match* m, double step)
+MANI_NODISCARD static bool Play(const Match* m, double step)
 {
     maniGraphNodeState* s = m->s;
     s->from = s->time;

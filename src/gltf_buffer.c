@@ -22,7 +22,7 @@ static uint8_t Lower(uint8_t c)
     return c >= 'A' && c <= 'Z' ? (uint8_t)(c + 32) : c;
 }
 
-static bool StartsWithFolded(const uint8_t* text, size_t length, const char* prefix)
+MANI_NODISCARD static bool StartsWithFolded(const uint8_t* text, size_t length, const char* prefix)
 {
     size_t n = strlen(prefix);
     if (length < n)
@@ -39,7 +39,7 @@ static bool StartsWithFolded(const uint8_t* text, size_t length, const char* pre
     return true;
 }
 
-static bool EqualsFolded(const uint8_t* text, size_t length, const char* word)
+MANI_NODISCARD static bool EqualsFolded(const uint8_t* text, size_t length, const char* word)
 {
     return length == strlen(word) && StartsWithFolded(text, length, word);
 }
@@ -170,7 +170,7 @@ static size_t DecodePercent(const uint8_t* text, size_t length, uint8_t* out, si
 
 // The header between "data:" and the comma: the media type, one of the
 // two glTF allows, then parameters; whether the last is ";base64".
-static bool ReadHeader(const uint8_t* header, size_t length, bool* base64Out)
+MANI_NODISCARD static bool ReadHeader(const uint8_t* header, size_t length, bool* base64Out)
 {
     size_t end = 0;
     while (end < length && header[end] != ';')

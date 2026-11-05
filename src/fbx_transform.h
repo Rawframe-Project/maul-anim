@@ -72,7 +72,7 @@ maniFbxMatrix maniFbxTrsMatrix(const maniFbxTrs* t);
 maniFbxMatrix maniFbxMatrixMul(const maniFbxMatrix* a, const maniFbxMatrix* b);
 
 // The inverse; false when the matrix is singular or not finite.
-bool maniFbxMatrixInverse(const maniFbxMatrix* a, maniFbxMatrix* out);
+MANI_NODISCARD bool maniFbxMatrixInverse(const maniFbxMatrix* a, maniFbxMatrix* out);
 
 // The matrix rounded to binary32.
 maniAffine maniFbxMatrixAffine(const maniFbxMatrix* a);

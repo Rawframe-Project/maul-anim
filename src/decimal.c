@@ -51,7 +51,7 @@ static void Trim(Decimal* d)
     }
 }
 
-static bool IsDigit(char c)
+MANI_NODISCARD static bool IsDigit(char c)
 {
     return c >= '0' && c <= '9';
 }
@@ -224,7 +224,7 @@ static void Shift(Decimal* d, int32_t k)
 // Whether rounding to the first `at` digits goes up: past halfway, or
 // exactly halfway (a last digit 5) to an odd digit, or halfway with
 // digits dropped, which is really past it.
-static bool RoundsUp(const Decimal* d, int32_t at)
+MANI_NODISCARD static bool RoundsUp(const Decimal* d, int32_t at)
 {
     if (at < 0 || (uint32_t)at >= d->count)
     {
@@ -309,7 +309,7 @@ static void ParseLong(const char* text, size_t length, size_t at, Short* s)
 
 // Whether eight bytes are all ASCII digits: each byte's high half 3, and
 // adding 6 leaves it 3 only from '0' to '9'.
-static bool EightDigits(uint64_t v)
+MANI_NODISCARD static bool EightDigits(uint64_t v)
 {
     return ((v & 0xF0F0F0F0F0F0F0F0u) | (((v + 0x0606060606060606u) & 0xF0F0F0F0F0F0F0F0u) >> 4)) ==
            0x3333333333333333u;
@@ -515,8 +515,8 @@ static void Compute(const Format* f, uint64_t w, int64_t q, uint64_t* mantissaOu
 
 // The fast path's answer, or false when the exact method must decide (a
 // value past 19 digits whose neighbours round apart).
-static bool Fast(const char* text, size_t length, maniBinaryFormat format, bool* fitsOut,
-                 uint64_t* bitsOut)
+MANI_NODISCARD static bool Fast(const char* text, size_t length, maniBinaryFormat format,
+                                bool* fitsOut, uint64_t* bitsOut)
 {
     const Format* f = &kFormats[format == maniBinary32 ? 0 : 1];
     Short s = ParseShort(text, length);
@@ -556,7 +556,8 @@ static bool Fast(const char* text, size_t length, maniBinaryFormat format, bool*
 }
 
 // The multiprecision method, for what the fast one leaves open.
-static bool Exact(const char* text, size_t length, maniBinaryFormat format, uint64_t* bitsOut)
+MANI_NODISCARD static bool Exact(const char* text, size_t length, maniBinaryFormat format,
+                                 uint64_t* bitsOut)
 {
     const int32_t mantissaBits = format == maniBinary32 ? 23 : 52;
     const int32_t exponentBits = format == maniBinary32 ? 8 : 11;

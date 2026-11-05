@@ -79,7 +79,8 @@ maniResult maniGraphModelChannel(const void* model, uint32_t channel, maniMatchC
 // Whether channelCount channels take a node's query: per trajectory and
 // float time in channel order, a parameter of the type given (vec2 or
 // float). types holds the query's parameters' types.
-bool maniGraphQueryFits(const void* owner, uint32_t channelCount, maniGraphChannelFn* channel,
-                        const uint32_t* types, uint32_t count);
+MANI_NODISCARD bool maniGraphQueryFits(const void* owner, uint32_t channelCount,
+                                       maniGraphChannelFn* channel, const uint32_t* types,
+                                       uint32_t count);
 
 #endif // MAUL_ANIM_SRC_GRAPH_MATCH_H

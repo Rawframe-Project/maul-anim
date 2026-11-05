@@ -50,7 +50,7 @@ static float Scalar(const Update* u, uint32_t at)
 }
 
 // Whether a parent reached a node this update.
-static bool Reached(const maniGraphNodeState* s)
+MANI_NODISCARD static bool Reached(const maniGraphNodeState* s)
 {
     return (s->flags & MANI_GRAPH_REACHED) != 0;
 }
@@ -80,7 +80,7 @@ static maniClip ClipOf(const Update* u, uint32_t data)
     return clip;
 }
 
-static bool Repeats(const maniClip* clip)
+MANI_NODISCARD static bool Repeats(const maniClip* clip)
 {
     return clip->loop == maniLoopRepeat && clip->duration > 0.0f;
 }
@@ -182,7 +182,7 @@ static uint64_t MarkerName(const Update* u, uint32_t p, const maniClip* clip, ui
 }
 
 // Whether every member's clip has a marker of the name.
-static bool InAll(const Update* u, uint32_t g, uint64_t hash)
+MANI_NODISCARD static bool InAll(const Update* u, uint32_t g, uint64_t hash)
 {
     for (uint32_t p = NextMember(u, g, 0); p != UINT32_MAX; p = NextMember(u, g, p + 1))
     {
@@ -200,14 +200,16 @@ static bool InAll(const Update* u, uint32_t g, uint64_t hash)
     return true;
 }
 
-static bool Common(const Update* u, uint32_t g, uint32_t p, const maniClip* clip, uint32_t k)
+MANI_NODISCARD static bool Common(const Update* u, uint32_t g, uint32_t p, const maniClip* clip,
+                                  uint32_t k)
 {
     return InAll(u, g, MarkerName(u, p, clip, k));
 }
 
 // A group syncs by markers when every member repeats and the leader has
 // a marker every member has.
-static bool ByMarkers(const Update* u, uint32_t g, uint32_t lead, const maniClip* leader)
+MANI_NODISCARD static bool ByMarkers(const Update* u, uint32_t g, uint32_t lead,
+                                     const maniClip* leader)
 {
     for (uint32_t p = NextMember(u, g, 0); p != UINT32_MAX; p = NextMember(u, g, p + 1))
     {

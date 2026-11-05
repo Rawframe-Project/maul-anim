@@ -45,8 +45,8 @@ bool maniFbxCompensate(const maniFbxWorld* worlds, uint32_t child, uint32_t pare
 // The children still exact (their parents without a helper) at the
 // worlds given: those that are not get their parents' helpers. Whether
 // any is left to check.
-static bool CheckAt(const maniFbx* fbx, const maniFbxWorld* worlds, const uint32_t* children,
-                    uint32_t count, uint8_t* helper)
+MANI_NODISCARD static bool CheckAt(const maniFbx* fbx, const maniFbxWorld* worlds,
+                                   const uint32_t* children, uint32_t count, uint8_t* helper)
 {
     bool left = false;
     for (uint32_t i = 0; i < count; ++i)
@@ -63,7 +63,7 @@ static bool CheckAt(const maniFbx* fbx, const maniFbxWorld* worlds, const uint32
     return left;
 }
 
-static bool SameKey(const maniFbxKey* a, const maniFbxKey* b)
+MANI_NODISCARD static bool SameKey(const maniFbxKey* a, const maniFbxKey* b)
 {
     return a->time == b->time && a->value == b->value && a->leftDx == b->leftDx &&
            a->leftDy == b->leftDy && a->rightDx == b->rightDx && a->rightDy == b->rightDy &&
@@ -72,7 +72,7 @@ static bool SameKey(const maniFbxKey* a, const maniFbxKey* b)
 
 // Whether two components evaluate alike at every time: no curve and the
 // same static value, or the same curve key for key.
-static bool SameComponent(const maniFbxChannel* c, uint32_t i, uint32_t j)
+MANI_NODISCARD static bool SameComponent(const maniFbxChannel* c, uint32_t i, uint32_t j)
 {
     const maniFbxCurve* a = &c->curves[i];
     const maniFbxCurve* b = &c->curves[j];
@@ -101,8 +101,8 @@ static bool SameComponent(const maniFbxChannel* c, uint32_t i, uint32_t j)
 // property scales: offsets and pivots translate, rotations turn,
 // geometric transforms are not inherited, and an inherit type only
 // chooses which scales above reach a model, uniform when all are.
-static bool MayScale(const maniFbx* fbx, const maniFbxAnimation* animation, uint32_t object,
-                     const maniFbxLocalInputs* rest)
+MANI_NODISCARD static bool MayScale(const maniFbx* fbx, const maniFbxAnimation* animation,
+                                    uint32_t object, const maniFbxLocalInputs* rest)
 {
     const double* s = rest->vectors[maniFbxLocalScaling];
     if (s[0] != s[1] || s[1] != s[2])

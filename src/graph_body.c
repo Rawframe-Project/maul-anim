@@ -36,7 +36,7 @@ static float WordFloat(const maniGraph* g, uint32_t at)
     return value;
 }
 
-static bool UnitAt(const maniGraph* g, uint32_t at)
+MANI_NODISCARD static bool UnitAt(const maniGraph* g, uint32_t at)
 {
     float v = WordFloat(g, at);
     return v >= 0.0f && v <= 1.0f;

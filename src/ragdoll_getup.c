@@ -17,26 +17,26 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-static bool Finite3(maniVec3 v)
+MANI_NODISCARD static bool Finite3(maniVec3 v)
 {
     return fabsf(v.x) < HUGE_VALF && fabsf(v.y) < HUGE_VALF && fabsf(v.z) < HUGE_VALF;
 }
 
 // Of length 1 within a thousandth (its square within 0.002 of 1).
-static bool Unit(maniVec3 v)
+MANI_NODISCARD static bool Unit(maniVec3 v)
 {
     float l = maniVec3Dot(v, v);
     return l >= 0.998f && l <= 1.002f;
 }
 
-static bool GroundValid(const maniRagdollGround* g)
+MANI_NODISCARD static bool GroundValid(const maniRagdollGround* g)
 {
     return Finite3(g->point) && Finite3(g->normal) && Finite3(g->forward) && Finite3(g->up) &&
            Unit(g->normal) && Unit(g->forward) && Unit(g->up) &&
            fabsf(maniVec3Dot(g->forward, g->up)) <= 1e-3f;
 }
 
-static bool BodyValid(const maniRagdollBodyState* body)
+MANI_NODISCARD static bool BodyValid(const maniRagdollBodyState* body)
 {
     maniQuat r = body->rotation;
     float l = r.x * r.x + r.y * r.y + r.z * r.z + r.w * r.w;

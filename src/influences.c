@@ -34,7 +34,7 @@ static float LoadF32(const uint8_t* p)
 }
 
 // Finite (the exponent not all ones).
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);
@@ -42,7 +42,7 @@ static bool Finite(float value)
 }
 
 // From 0 to 1 (NaN fails).
-static bool Unit(float value)
+MANI_NODISCARD static bool Unit(float value)
 {
     return value >= 0.0f && value <= 1.0f;
 }

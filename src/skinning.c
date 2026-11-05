@@ -37,7 +37,7 @@ static float LoadF32(const uint8_t* p)
     return v;
 }
 
-static bool StreamValid(const maniSkinStream* s)
+MANI_NODISCARD static bool StreamValid(const maniSkinStream* s)
 {
     size_t width = s->kind == maniStreamTangent ? 16 : 12;
     return s->in != NULL && s->out != NULL && (uint32_t)s->kind <= maniStreamTangent &&
@@ -46,7 +46,7 @@ static bool StreamValid(const maniSkinStream* s)
 
 // The job's arguments checked before anything is written; the palettes
 // the method reads given.
-static bool JobValid(const maniSkinJob* job, bool linear, bool dual)
+MANI_NODISCARD static bool JobValid(const maniSkinJob* job, bool linear, bool dual)
 {
     if (job == NULL || !maniInfluencesValid(job->influences) || (linear && job->palette == NULL) ||
         (dual && job->dualQuaternions == NULL) || (job->streams == NULL && job->streamCount > 0) ||
@@ -68,7 +68,7 @@ static bool JobValid(const maniSkinJob* job, bool linear, bool dual)
 
 // A vertex's matrix: its influences' palette matrices at their weights;
 // false (m untouched) for a vertex without weight.
-static bool Blend(const maniSkinJob* job, uint32_t vertex, float m[12])
+MANI_NODISCARD static bool Blend(const maniSkinJob* job, uint32_t vertex, float m[12])
 {
     const maniInfluences* v = job->influences;
     uint32_t per = v->groupCount * MANI_INFLUENCE_GROUP;
@@ -118,7 +118,7 @@ static void RotateScale(const maniAffine* r, const float scale[12], float m[12])
 // A vertex's dual quaternion matrix: S summed at the weights, the dual
 // quaternions summed in the first's hemisphere, normalized, as [R S | t];
 // false (m untouched) for a vertex without weight.
-static bool DualMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
+MANI_NODISCARD static bool DualMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
 {
     const maniInfluences* v = job->influences;
     uint32_t per = v->groupCount * MANI_INFLUENCE_GROUP;
@@ -176,7 +176,7 @@ static bool DualMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
 // A vertex's matrix about its center of rotation: R S, and the
 // translation sum w_j (R_j S c + t_j) - R S c; false for a vertex without
 // weight.
-static bool CenterMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
+MANI_NODISCARD static bool CenterMatrix(const maniSkinJob* job, uint32_t vertex, float m[12])
 {
     const maniInfluences* v = job->influences;
     uint32_t per = v->groupCount * MANI_INFLUENCE_GROUP;
@@ -348,7 +348,8 @@ typedef enum Method
 } Method;
 
 // A vertex's matrix by the method; false for a vertex without weight.
-static bool VertexMatrix(const maniSkinJob* job, Method method, uint32_t vertex, float m[12])
+MANI_NODISCARD static bool VertexMatrix(const maniSkinJob* job, Method method, uint32_t vertex,
+                                        float m[12])
 {
     if (method == kLinear)
     {
@@ -463,7 +464,7 @@ maniResult maniSkinCenters(const maniSkinJob* job)
 
 // One matrix's dual quaternion entry: the polar rotation R, the dual part
 // half (t, 0) times R's quaternion, S = R^T A in binary64 then rounded.
-static bool DualEntry(const maniAffine* a, float* out)
+MANI_NODISCARD static bool DualEntry(const maniAffine* a, float* out)
 {
     maniTransform split;
     if (!maniDecompose(a, &split))

@@ -35,6 +35,7 @@ typedef struct maniMatchSampler
 
 // Writes the raw features of entry e's frame at clip time t, channel by
 // channel, each time in order. False when sampling a clip fails.
-bool maniMatchSampleFrame(maniMatchSampler* sampler, uint32_t e, float t, float* out);
+MANI_NODISCARD bool maniMatchSampleFrame(maniMatchSampler* sampler, uint32_t e, float t,
+                                         float* out);
 
 #endif // MAUL_ANIM_SRC_MATCH_SAMPLE_H

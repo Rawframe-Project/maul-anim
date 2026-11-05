@@ -28,7 +28,7 @@ typedef maniGraphWriter Writer;
 #define ABSENT MANI_JSON_NONE
 
 // Tags: a whole number from 0 to 2^32 - 1, or {"parameter": name}.
-static bool Tags(Reader* r, const Scope* scope, uint32_t value, maniGraphTags* out)
+MANI_NODISCARD static bool Tags(Reader* r, const Scope* scope, uint32_t value, maniGraphTags* out)
 {
     *out = (maniGraphTags){MANI_NO_PARAMETER, 0};
     if (r->json->values[value].kind == maniJsonNumber)
@@ -45,8 +45,8 @@ static bool Tags(Reader* r, const Scope* scope, uint32_t value, maniGraphTags* o
 }
 
 // A query: an array of parameters by name.
-static bool Query(Reader* r, const Scope* scope, uint32_t value, const uint32_t** queryOut,
-                  uint32_t* countOut)
+MANI_NODISCARD static bool Query(Reader* r, const Scope* scope, uint32_t value,
+                                 const uint32_t** queryOut, uint32_t* countOut)
 {
     if (!maniGraphJsonArray(r, value, countOut))
     {

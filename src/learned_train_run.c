@@ -153,7 +153,7 @@ maniResult maniLearnedTrainerBegin(maniLearnedTrainer* t)
 
 // The Decompressor kept (its inputs as they are) and every frame's latent
 // values from the Compressor.
-static bool EndFirst(maniLearnedTrainer* t)
+MANI_NODISCARD static bool EndFirst(maniLearnedTrainer* t)
 {
     const maniTrainDecompress* s = &t->decompress;
     size_t count = (size_t)t->data.frameCount * t->source.options.latentCount + 1;
@@ -180,7 +180,7 @@ static bool EndFirst(maniLearnedTrainer* t)
     return true;
 }
 
-static bool EndSolo(maniLearnedTrainer* t, const maniTrainSolo* s)
+MANI_NODISCARD static bool EndSolo(maniLearnedTrainer* t, const maniTrainSolo* s)
 {
     if (!maniLearnedTrainerKeep(t, t->stage, &s->net))
     {

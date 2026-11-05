@@ -46,7 +46,7 @@ typedef struct Work
     uint8_t* repeated;
 } Work;
 
-static bool SameName(const Work* w, uint32_t a, uint32_t b)
+MANI_NODISCARD static bool SameName(const Work* w, uint32_t a, uint32_t b)
 {
     uint32_t lengthA = w->spans[a + 1] - w->spans[a];
     uint32_t lengthB = w->spans[b + 1] - w->spans[b];

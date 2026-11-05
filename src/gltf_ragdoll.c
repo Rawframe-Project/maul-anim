@@ -352,7 +352,7 @@ static maniImportResult ReadShape(const maniGltfRagdollReader* r, uint32_t shape
 }
 
 // The same scale on the three axes within a thousandth, positive.
-static bool Even(maniVec3 s)
+MANI_NODISCARD static bool Even(maniVec3 s)
 {
     float most = Larger(s.x, Larger(s.y, s.z));
     float least = Smaller(s.x, Smaller(s.y, s.z));
@@ -547,7 +547,7 @@ static maniImportResult Read(maniGltfRagdollReader* r, uint32_t* own)
     return result.result == mani_success ? maniGltfReadRagdollJoints(r) : result;
 }
 
-static bool AxesValid(maniVec3 facing, maniVec3 up)
+MANI_NODISCARD static bool AxesValid(maniVec3 facing, maniVec3 up)
 {
     float f = maniVec3Dot(facing, facing);
     float u = maniVec3Dot(up, up);

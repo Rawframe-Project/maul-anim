@@ -20,8 +20,8 @@
 
 // A model's rest under its parent's world, decomposed; false when that
 // shears or the parent's world has no inverse.
-bool maniFbxCompensate(const maniFbxWorld* worlds, uint32_t child, uint32_t parent,
-                       maniTransform* out);
+MANI_NODISCARD bool maniFbxCompensate(const maniFbxWorld* worlds, uint32_t child, uint32_t parent,
+                                      maniTransform* out);
 
 // Marks in helper (a byte per model) the parent of each child given
 // whose compensation is not exact at a sample of some stack: each

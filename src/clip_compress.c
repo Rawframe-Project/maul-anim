@@ -552,12 +552,13 @@ static void Report(const maniClip* full, const maniClip* packed, const maniSkele
     }
 }
 
-static bool Positive(float value)
+MANI_NODISCARD static bool Positive(float value)
 {
     return value > 0.0f && value <= FLT_MAX;
 }
 
-static bool OptionsValid(const maniCompressOptions* o, uint32_t bones, uint32_t floats)
+MANI_NODISCARD static bool OptionsValid(const maniCompressOptions* o, uint32_t bones,
+                                        uint32_t floats)
 {
     bool valid =
         Positive(o->precision) && Positive(o->shellDistance) && Positive(o->floatPrecision);

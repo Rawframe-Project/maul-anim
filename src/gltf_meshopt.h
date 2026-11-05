@@ -9,6 +9,8 @@
 #ifndef MAUL_ANIM_SRC_GLTF_MESHOPT_H
 #define MAUL_ANIM_SRC_GLTF_MESHOPT_H
 
+#include "maul-anim/base.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -39,8 +41,9 @@ typedef enum maniMeshoptFilter
 // header, too short or too long, a FIFO entry never written, a channel
 // mode above 2, a malformed code table or LEB128 value); out is then
 // partly written.
-bool maniMeshoptDecode(uint8_t* out, uint32_t count, uint32_t stride, maniMeshoptMode mode, bool v1,
-                       const uint8_t* in, size_t size);
+MANI_NODISCARD bool maniMeshoptDecode(uint8_t* out, uint32_t count, uint32_t stride,
+                                      maniMeshoptMode mode, bool v1, const uint8_t* in,
+                                      size_t size);
 
 // Applies a filter in place to count elements of stride bytes, the
 // specification's formulas in binary32 in their order (rounding halfway

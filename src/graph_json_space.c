@@ -16,8 +16,8 @@
 
 // A blend space's position: {"vector": name}, or {"x": number, "y":
 // number} with y 0 when left out.
-static bool Position(maniGraphReader* r, const maniGraphScope* scope, uint32_t value, bool plane,
-                     maniGraphPosition* p)
+MANI_NODISCARD static bool Position(maniGraphReader* r, const maniGraphScope* scope, uint32_t value,
+                                    bool plane, maniGraphPosition* p)
 {
     static const char* const kKeys[] = {"vector", "x", "y"};
     uint32_t f[3] = {MANI_JSON_NONE, MANI_JSON_NONE, MANI_JSON_NONE};
@@ -42,8 +42,8 @@ static bool Position(maniGraphReader* r, const maniGraphScope* scope, uint32_t v
 }
 
 // A blend space's points: count numbers, or count [x, y] pairs.
-static bool Points(maniGraphReader* r, uint32_t value, uint32_t count, bool pairs,
-                   const float** out)
+MANI_NODISCARD static bool Points(maniGraphReader* r, uint32_t value, uint32_t count, bool pairs,
+                                  const float** out)
 {
     uint32_t n = 0;
     if (!maniGraphJsonArray(r, value, &n))
@@ -75,7 +75,8 @@ static bool Points(maniGraphReader* r, uint32_t value, uint32_t count, bool pair
 }
 
 // Authored triangles: a list (not empty) of three inputs each.
-static bool Triangles(maniGraphReader* r, uint32_t value, maniGraphTrianglesNodeSource* s)
+MANI_NODISCARD static bool Triangles(maniGraphReader* r, uint32_t value,
+                                     maniGraphTrianglesNodeSource* s)
 {
     uint32_t count = 0;
     if (!maniGraphJsonArray(r, value, &count))

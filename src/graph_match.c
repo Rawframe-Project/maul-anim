@@ -73,7 +73,7 @@ static uint32_t NumbersValid(const maniGraph* g, uint32_t data)
 }
 
 // Tags: an int parameter and literal 0, or no parameter and any bits.
-static bool TagsValid(const maniGraph* g, uint32_t at)
+MANI_NODISCARD static bool TagsValid(const maniGraph* g, uint32_t at)
 {
     uint32_t parameter = Word(g, at);
     return parameter == MANI_NO_PARAMETER ||
@@ -146,7 +146,8 @@ void maniGraphResetMatch(uint32_t* block)
 }
 
 // The playhead within the entry's span.
-static bool TimeValid(const maniMotionDatabase* database, uint32_t entry, double time)
+MANI_NODISCARD static bool TimeValid(const maniMotionDatabase* database, uint32_t entry,
+                                     double time)
 {
     maniMatchEntry e;
     return maniMotionDatabase_GetEntry(database, entry, &e) == mani_success &&

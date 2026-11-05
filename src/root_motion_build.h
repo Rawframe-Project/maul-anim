@@ -38,7 +38,7 @@ void maniRootMotionBake(const maniRootMotionWork* work, uint32_t k, double t[3],
 
 // The section's bytes (maniRootMotionSize of the sample count); false
 // when a translation component falls outside MANI_ROOT_MOTION_REACH.
-bool maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out);
+MANI_NODISCARD bool maniRootMotionWrite(const maniRootMotionWork* work, uint8_t* out);
 
 void maniRootMotionRelease(maniRootMotionWork* work, const maniAllocator* allocator);
 

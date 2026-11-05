@@ -47,7 +47,7 @@ static maniBuildResult Outcome(maniResult result)
     return (maniBuildResult){result, maniBuildReasonNone, 0, 0};
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);
@@ -329,7 +329,7 @@ static void WriteTimed(const maniEventSource* items, uint32_t count, const Work*
 }
 
 // Section sizes and the total names; false when they do not fit.
-static bool Measure(const maniClipSource* source, uint32_t samples, Sizes* s)
+MANI_NODISCARD static bool Measure(const maniClipSource* source, uint32_t samples, Sizes* s)
 {
     uint64_t keys = 0;
     for (uint32_t i = 0; i < source->discreteTrackCount; ++i)

@@ -17,7 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-static bool Mark(maniHostCode* host)
+MANI_NODISCARD static bool Mark(maniHostCode* host)
 {
     return atomic_exchange_explicit(&host->running, true, memory_order_relaxed);
 }

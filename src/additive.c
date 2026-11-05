@@ -26,12 +26,12 @@
 #define LANES MANI_POSE_GROUP_BONES
 
 // Between 0 and 1 (NaN fails).
-static bool Usable(float w)
+MANI_NODISCARD static bool Usable(float w)
 {
     return w >= 0.0f && w <= 1.0f;
 }
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return v >= -FLT_MAX && v <= FLT_MAX;
 }
@@ -65,7 +65,7 @@ static void Write(float* locals, uint32_t bone, const maniTransform* t)
     maniPoseSlotPut(maniPoseSlot(locals, bone), 0, values, MANI_POSE_COMPONENTS);
 }
 
-static bool IsPose(const maniPose* pose, const maniSkeleton* skeleton)
+MANI_NODISCARD static bool IsPose(const maniPose* pose, const maniSkeleton* skeleton)
 {
     return maniPoseMatches(pose, skeleton) && !maniPose_IsDifference(pose);
 }
@@ -82,7 +82,7 @@ static maniTransform Difference(const float* p, const float* b, uint32_t bone)
     };
 }
 
-static bool DifferenceFinite(const maniTransform* d)
+MANI_NODISCARD static bool DifferenceFinite(const maniTransform* d)
 {
     return Finite(d->translation.x) && Finite(d->translation.y) && Finite(d->translation.z) &&
            Finite(d->scale.x) && Finite(d->scale.y) && Finite(d->scale.z);
@@ -129,8 +129,8 @@ maniResult maniSkeleton_ComputePoseDifference(const maniSkeleton* skeleton, cons
     return result;
 }
 
-static bool AdditiveValid(const maniSkeleton* skeleton, const maniPose* pose,
-                          const maniBlendLayer* layers, uint32_t count)
+MANI_NODISCARD static bool AdditiveValid(const maniSkeleton* skeleton, const maniPose* pose,
+                                         const maniBlendLayer* layers, uint32_t count)
 {
     if (!IsPose(pose, skeleton) || (layers == NULL && count > 0))
     {

@@ -124,7 +124,7 @@ static size_t Scientific(const char* digits, uint32_t n, int32_t power, char* ou
 }
 
 // Whether digits times 10^power reads back to bits.
-static bool ReadsBack(const char* digits, uint32_t n, int32_t power, uint32_t bits)
+MANI_NODISCARD static bool ReadsBack(const char* digits, uint32_t n, int32_t power, uint32_t bits)
 {
     char text[64];
     size_t length = Scientific(digits, n, power, text);
@@ -172,8 +172,8 @@ static int Half(const char* digits, uint32_t total, uint32_t n)
 // The n-digit candidate nearer the exact digits (the even one of a tie)
 // of those that read back, into best with its power of ten in *power;
 // false when neither does.
-static bool Candidate(const char* digits, uint32_t total, uint32_t n, uint32_t bits, char* best,
-                      int32_t* power)
+MANI_NODISCARD static bool Candidate(const char* digits, uint32_t total, uint32_t n, uint32_t bits,
+                                     char* best, int32_t* power)
 {
     int32_t shift = *power + (int32_t)(total - n);
     char up[16];

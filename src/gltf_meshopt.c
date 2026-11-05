@@ -59,7 +59,7 @@ static inline const uint8_t* Unpack(const uint8_t* p, const uint8_t* extra, int 
 
 // One group of 16 byte deltas at bits each (0, 1, 2, 4 or 8), a delta of
 // all ones taking the next byte after the packed ones.
-static bool Group(Reader* r, int bits, uint8_t* out)
+MANI_NODISCARD static bool Group(Reader* r, int bits, uint8_t* out)
 {
     if (bits == 0)
     {
@@ -113,7 +113,7 @@ static bool Group(Reader* r, int bits, uint8_t* out)
 
 // A byte position's data block: 2 header bits a group choosing from the
 // bit lengths, then the groups.
-static bool Bytes(Reader* r, uint32_t groups, const int* lengths, uint8_t* out)
+MANI_NODISCARD static bool Bytes(Reader* r, uint32_t groups, const int* lengths, uint8_t* out)
 {
     size_t header = (groups + 3u) / 4u;
     if ((size_t)(r->end - r->at) < header)
@@ -193,8 +193,8 @@ static void Channel(const uint8_t (*deltas)[MAX_BLOCK], uint32_t n, uint32_t str
 }
 
 // One attribute block of n elements into out.
-static bool Block(Reader* r, uint32_t n, uint32_t stride, int version, const uint8_t* modes,
-                  uint8_t* last, uint8_t* out)
+MANI_NODISCARD static bool Block(Reader* r, uint32_t n, uint32_t stride, int version,
+                                 const uint8_t* modes, uint8_t* last, uint8_t* out)
 {
     static const int kV0[4] = {0, 2, 4, 8};
     static const int kV1[2][4] = {{0, 1, 2, 4}, {1, 2, 4, 8}};
@@ -242,8 +242,8 @@ static bool Block(Reader* r, uint32_t n, uint32_t stride, int version, const uin
     return true;
 }
 
-static bool Attributes(uint8_t* out, uint32_t count, uint32_t stride, bool v1, const uint8_t* in,
-                       size_t size)
+MANI_NODISCARD static bool Attributes(uint8_t* out, uint32_t count, uint32_t stride, bool v1,
+                                      const uint8_t* in, size_t size)
 {
     int version = in[0] == 0xA0u ? 0 : (in[0] == 0xA1u && v1 ? 1 : -1);
     if (version < 0)
@@ -290,7 +290,7 @@ static bool Attributes(uint8_t* out, uint32_t count, uint32_t stride, bool v1, c
 // first byte within the bounds, the rest read from the stream's tail
 // after them if need be (4 bytes at least in both readers), the value
 // then refused if it ended past them.
-static inline bool Leb(Reader* r, uint32_t* out)
+MANI_NODISCARD static inline bool Leb(Reader* r, uint32_t* out)
 {
     const uint8_t* p = r->at;
     if (p >= r->end)
@@ -360,7 +360,7 @@ static void PushVertex(Triangles* t, uint32_t v)
 }
 
 // Vertex FIFO entry k (0 the most recent).
-static bool Vertex(const Triangles* t, uint32_t k, uint32_t* out)
+MANI_NODISCARD static bool Vertex(const Triangles* t, uint32_t k, uint32_t* out)
 {
     if (k >= t->vertexAt)
     {
@@ -371,7 +371,7 @@ static bool Vertex(const Triangles* t, uint32_t k, uint32_t* out)
 }
 
 // An index as a zigzag delta from last.
-static inline bool Index(Reader* r, Triangles* t, uint32_t* out)
+MANI_NODISCARD static inline bool Index(Reader* r, Triangles* t, uint32_t* out)
 {
     uint32_t v = 0;
     if (!Leb(r, &v))
@@ -389,7 +389,8 @@ static inline bool Index(Reader* r, Triangles* t, uint32_t* out)
 // that slot being entry 15, which no code reads (13 at most). Once both
 // FIFOs are full (16 written each), no entry a code names (edge 14,
 // vertex 12 at most) can be unwritten, so full skips the checks.
-static inline bool EdgeCode(Reader* r, Triangles* t, uint8_t code, bool full, uint32_t* tri)
+MANI_NODISCARD static inline bool EdgeCode(Reader* r, Triangles* t, uint8_t code, bool full,
+                                           uint32_t* tri)
 {
     uint32_t x = code >> 4;
     uint32_t y = code & 15u;
@@ -438,7 +439,7 @@ static inline bool EdgeCode(Reader* r, Triangles* t, uint8_t code, bool full, ui
 
 // An index of a code 0xfY or 0xfe/0xff by its nibble: 0 the next new
 // index, 0xf (explicit codes only) an encoded one, else the vertex FIFO.
-static bool Third(Reader* r, Triangles* t, uint32_t nibble, uint32_t* out)
+MANI_NODISCARD static bool Third(Reader* r, Triangles* t, uint32_t nibble, uint32_t* out)
 {
     if (nibble == 0u)
     {
@@ -450,7 +451,8 @@ static bool Third(Reader* r, Triangles* t, uint32_t nibble, uint32_t* out)
 
 // A code 0xfY (Y below 0xe, through the table) or 0xfe/0xff (a byte of
 // data, 0 restarting next).
-static bool FreeCode(Reader* r, Triangles* t, uint8_t code, const uint8_t* table, uint32_t* tri)
+MANI_NODISCARD static bool FreeCode(Reader* r, Triangles* t, uint8_t code, const uint8_t* table,
+                                    uint32_t* tri)
 {
     uint32_t zw = 0;
     if (code < 0xFEu)
@@ -495,8 +497,8 @@ static bool FreeCode(Reader* r, Triangles* t, uint8_t code, const uint8_t* table
     return true;
 }
 
-static inline bool TriangleList(uint8_t* out, uint32_t count, uint32_t stride, const uint8_t* in,
-                                size_t size)
+MANI_NODISCARD static inline bool TriangleList(uint8_t* out, uint32_t count, uint32_t stride,
+                                               const uint8_t* in, size_t size)
 {
     size_t codes = count / 3u;
     if (in[0] != 0xE1u || size < 1u + codes + 16u)
@@ -533,8 +535,8 @@ static inline bool TriangleList(uint8_t* out, uint32_t count, uint32_t stride, c
     return ok && r.at == r.end;
 }
 
-static inline bool IndexList(uint8_t* out, uint32_t count, uint32_t stride, const uint8_t* in,
-                             size_t size)
+MANI_NODISCARD static inline bool IndexList(uint8_t* out, uint32_t count, uint32_t stride,
+                                            const uint8_t* in, size_t size)
 {
     if (in[0] != 0xD1u || size < 1u + 4u)
     {

@@ -72,7 +72,8 @@ uint32_t maniGraphLearnedBlockWords(const maniGraph* g, uint32_t data);
 
 // Whether a model takes the node: its counts the node's, and its
 // database's channels the node's query.
-bool maniGraphLearnedFits(const maniGraph* g, uint32_t data, const maniLearnedModel* model);
+MANI_NODISCARD bool maniGraphLearnedFits(const maniGraph* g, uint32_t data,
+                                         const maniLearnedModel* model);
 
 // No state, the clocks at 0, no events heard.
 void maniGraphResetLearned(const maniGraph* g, uint32_t data, uint32_t* block);

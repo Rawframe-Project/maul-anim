@@ -27,8 +27,8 @@
 
 // An optional word among count, its index in out (0 when absent): one
 // of a kind's values.
-static bool Choice(maniGraphReader* r, uint32_t value, const char* const* words, uint32_t count,
-                   int32_t* out)
+MANI_NODISCARD static bool Choice(maniGraphReader* r, uint32_t value, const char* const* words,
+                                  uint32_t count, int32_t* out)
 {
     uint32_t word = value == ABSENT ? 0u : maniGraphJsonWord(r, value, words, count);
     *out = (int32_t)word;
@@ -37,8 +37,8 @@ static bool Choice(maniGraphReader* r, uint32_t value, const char* const* words,
 
 // A parameter condition's value, of its parameter's type: true or false,
 // a whole number, or a number.
-static bool Compared(maniGraphReader* r, const maniGraphScope* scope, uint32_t value,
-                     maniGraphConditionSource* c)
+MANI_NODISCARD static bool Compared(maniGraphReader* r, const maniGraphScope* scope, uint32_t value,
+                                    maniGraphConditionSource* c)
 {
     maniGraphParameterType type = scope->sources[c->parameter].type;
     if (type == maniGraphParameterBool)
@@ -60,7 +60,8 @@ static bool Compared(maniGraphReader* r, const maniGraphScope* scope, uint32_t v
 
 // The one member naming a condition's kind (its index among the kind
 // keys), or a fault on a second or on none.
-static bool KindOf(maniGraphReader* r, uint32_t object, const uint32_t* f, uint32_t* kindOut)
+MANI_NODISCARD static bool KindOf(maniGraphReader* r, uint32_t object, const uint32_t* f,
+                                  uint32_t* kindOut)
 {
     // The keys' order is the members' from parameter on.
     static const uint32_t kKinds[] = {0, 3, 4, 5, 6, 7};
@@ -82,8 +83,8 @@ static bool KindOf(maniGraphReader* r, uint32_t object, const uint32_t* f, uint3
     return extra == ABSENT || maniGraphJsonFault(r, extra - 1, maniGraphFormMember);
 }
 
-static bool Condition(maniGraphReader* r, const maniGraphScope* scope, uint32_t object,
-                      maniGraphConditionSource* c)
+MANI_NODISCARD static bool Condition(maniGraphReader* r, const maniGraphScope* scope,
+                                     uint32_t object, maniGraphConditionSource* c)
 {
     static const char* const kKeys[] = {"parameter",   "compare", "value",    "trigger",
                                         "timeInState", "phase",   "finished", "event"};
@@ -124,8 +125,8 @@ static bool Condition(maniGraphReader* r, const maniGraphScope* scope, uint32_t 
     }
 }
 
-static bool Conditions(maniGraphReader* r, const maniGraphScope* scope, uint32_t value,
-                       maniGraphTransitionSource* t)
+MANI_NODISCARD static bool Conditions(maniGraphReader* r, const maniGraphScope* scope,
+                                      uint32_t value, maniGraphTransitionSource* t)
 {
     uint32_t count = 0;
     if (value == ABSENT)
@@ -157,7 +158,7 @@ static bool Conditions(maniGraphReader* r, const maniGraphScope* scope, uint32_t
 }
 
 // A state index, or "any" for a transition's source.
-static bool State(maniGraphReader* r, uint32_t value, bool any, uint32_t* out)
+MANI_NODISCARD static bool State(maniGraphReader* r, uint32_t value, bool any, uint32_t* out)
 {
     static const char* const kAny[] = {"any"};
     if (any && maniGraphJsonWord(r, value, kAny, 1) == 0)
@@ -168,8 +169,8 @@ static bool State(maniGraphReader* r, uint32_t value, bool any, uint32_t* out)
     return maniGraphJsonIndex(r, value, out);
 }
 
-static bool Transition(maniGraphReader* r, const maniGraphScope* scope, uint32_t object,
-                       maniGraphTransitionSource* t)
+MANI_NODISCARD static bool Transition(maniGraphReader* r, const maniGraphScope* scope,
+                                      uint32_t object, maniGraphTransitionSource* t)
 {
     static const char* const kKeys[] = {"from", "to",       "priority", "interruption", "entry",
                                         "fade", "duration", "cooldown", "conditions"};
@@ -189,7 +190,7 @@ static bool Transition(maniGraphReader* r, const maniGraphScope* scope, uint32_t
 }
 
 // The final states: an array of state indices.
-static bool Finals(maniGraphReader* r, uint32_t value, maniGraphMachineNodeSource* m)
+MANI_NODISCARD static bool Finals(maniGraphReader* r, uint32_t value, maniGraphMachineNodeSource* m)
 {
     uint32_t count = 0;
     if (!maniGraphJsonArray(r, value, &count))

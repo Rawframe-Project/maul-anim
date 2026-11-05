@@ -20,7 +20,8 @@
 #include <stdint.h>
 #include <string.h>
 
-static bool FaultWith(maniGraphReader* r, maniResult result, uint32_t value, maniGraphForm form)
+MANI_NODISCARD static bool FaultWith(maniGraphReader* r, maniResult result, uint32_t value,
+                                     maniGraphForm form)
 {
     if (r->fault.result == mani_success)
     {
@@ -59,7 +60,7 @@ bool maniGraphJsonNoMemory(maniGraphReader* r)
     return false;
 }
 
-static bool IsKind(const maniGraphReader* r, uint32_t value, maniJsonKind kind)
+MANI_NODISCARD static bool IsKind(const maniGraphReader* r, uint32_t value, maniJsonKind kind)
 {
     return r->json->values[value].kind == (uint32_t)kind;
 }

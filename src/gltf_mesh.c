@@ -144,7 +144,8 @@ uint32_t maniGltf_GetNodeSkin(const maniGltf* gltf, uint32_t node)
 
 // count numbers of an array into out; false for another kind, another
 // count or a value not a binary32.
-static bool ReadNumbers(const maniJson* json, uint32_t array, uint32_t count, float* out)
+MANI_NODISCARD static bool ReadNumbers(const maniJson* json, uint32_t array, uint32_t count,
+                                       float* out)
 {
     if (json->values[array].kind != maniJsonArray || json->values[array].count != count)
     {
@@ -525,7 +526,7 @@ typedef struct Semantic
 } Semantic;
 
 // n in decimal, no leading zeros, below 65536; false otherwise.
-static bool SetIndex(const char* text, size_t length, uint32_t* setOut)
+MANI_NODISCARD static bool SetIndex(const char* text, size_t length, uint32_t* setOut)
 {
     uint32_t n = 0;
     if (length == 0 || length > 5 || (text[0] == '0' && length > 1))
@@ -546,7 +547,7 @@ static bool SetIndex(const char* text, size_t length, uint32_t* setOut)
 
 // A target member's semantic, if it is one glTF morphs; false for others
 // (extension and application semantics, left).
-static bool ParseSemantic(const maniJson* json, uint32_t key, Semantic* out)
+MANI_NODISCARD static bool ParseSemantic(const maniJson* json, uint32_t key, Semantic* out)
 {
     char text[24];
     if (json->values[key].length >= sizeof text)

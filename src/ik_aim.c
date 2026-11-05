@@ -33,7 +33,7 @@
 // from the forward line than the goal from the origin. The direction
 // depends on the shape of t and the offset alone, and both are squared
 // here, so they are scaled together first.
-static bool Aimed(maniVec3 forward, maniVec3 offset, maniVec3 t, maniVec3* aimedOut)
+MANI_NODISCARD static bool Aimed(maniVec3 forward, maniVec3 offset, maniVec3 t, maniVec3* aimedOut)
 {
     maniVec3 v[3] = {t, offset, maniVec3Make(0.0f, 0.0f, 0.0f)};
     maniIkRescale(v);

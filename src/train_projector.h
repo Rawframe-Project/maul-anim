@@ -61,16 +61,19 @@ typedef struct maniTrainProjector
 // the generator, the normalization measured. False when no frame passes
 // the tags, a shape is past a limit or memory runs out, with nothing
 // held.
-bool maniTrainProjectorInit(const maniAllocator* allocator, const maniMotionDatabase* database,
-                            const maniTrainData* data, const float* latents,
-                            const maniTrainSoloShape* shape, uint32_t requiredTags,
-                            uint32_t excludedTags, maniTrainRandom* r, maniTrainProjector* t);
+MANI_NODISCARD bool maniTrainProjectorInit(const maniAllocator* allocator,
+                                           const maniMotionDatabase* database,
+                                           const maniTrainData* data, const float* latents,
+                                           const maniTrainSoloShape* shape, uint32_t requiredTags,
+                                           uint32_t excludedTags, maniTrainRandom* r,
+                                           maniTrainProjector* t);
 
 void maniTrainProjectorRelease(const maniAllocator* allocator, maniTrainProjector* t);
 
 // Whether a frame passes the tags: an entry with all of required, none
 // of excluded, frames, and jumps into it allowed.
-bool maniTrainAnyFrame(const maniMotionDatabase* database, uint32_t required, uint32_t excluded);
+MANI_NODISCARD bool maniTrainAnyFrame(const maniMotionDatabase* database, uint32_t required,
+                                      uint32_t excluded);
 
 // One iteration: the batch's queries drawn from the generator, the
 // chunks run on the hooks, an AdamW step (number step, from 1) at rate.

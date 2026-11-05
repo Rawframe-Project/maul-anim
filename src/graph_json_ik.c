@@ -50,8 +50,8 @@ bool maniGraphJsonVector(maniGraphReader* r, uint32_t value, maniVec3* v)
 
 // The pole parameter, MANI_NO_PARAMETER when absent; then twist, a
 // number and the weight, as given when absent.
-static bool Optional(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* f,
-                     uint32_t* pole, maniGraphScalar* scalars)
+MANI_NODISCARD static bool Optional(maniGraphReader* r, const maniGraphScope* scope,
+                                    const uint32_t* f, uint32_t* pole, maniGraphScalar* scalars)
 {
     *pole = MANI_NO_PARAMETER;
     if (f[0] != ABSENT && !maniGraphJsonRefer(r, &scope->parameters, f[0], pole))
@@ -88,7 +88,7 @@ bool maniGraphJsonTwoBone(maniGraphReader* r, const maniGraphScope* scope, const
 }
 
 // count bone names, 1 to MANI_MAX_AIM_BONES.
-static bool Bones(maniGraphReader* r, uint32_t value, maniGraphAimNodeSource* s)
+MANI_NODISCARD static bool Bones(maniGraphReader* r, uint32_t value, maniGraphAimNodeSource* s)
 {
     if (!maniGraphJsonArray(r, value, &s->count))
     {
@@ -117,7 +117,7 @@ static bool Bones(maniGraphReader* r, uint32_t value, maniGraphAimNodeSource* s)
 }
 
 // The shares, a number per bone; NULL when absent.
-static bool Shares(maniGraphReader* r, uint32_t value, maniGraphAimNodeSource* s)
+MANI_NODISCARD static bool Shares(maniGraphReader* r, uint32_t value, maniGraphAimNodeSource* s)
 {
     s->shares = NULL;
     if (value == ABSENT)
@@ -313,8 +313,8 @@ bool maniGraphJsonLimit(maniGraphReader* r, uint32_t object, maniJointLimit* l)
 }
 
 // The limits, one per turning bone of the chain from root to end.
-static bool Limits(maniGraphReader* r, uint32_t value, const maniGraphChainNodeSource* s,
-                   const maniJointLimit** out)
+MANI_NODISCARD static bool Limits(maniGraphReader* r, uint32_t value,
+                                  const maniGraphChainNodeSource* s, const maniJointLimit** out)
 {
     uint32_t bones[MANI_MAX_IK_CHAIN_BONES];
     uint32_t count = 0;

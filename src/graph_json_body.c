@@ -21,8 +21,8 @@
 #define ABSENT MANI_JSON_NONE
 
 // The element count of a list of least to most objects.
-static bool Count(maniGraphReader* r, uint32_t value, uint32_t least, uint32_t most,
-                  uint32_t* count)
+MANI_NODISCARD static bool Count(maniGraphReader* r, uint32_t value, uint32_t least, uint32_t most,
+                                 uint32_t* count)
 {
     if (!maniGraphJsonArray(r, value, count))
     {
@@ -31,8 +31,8 @@ static bool Count(maniGraphReader* r, uint32_t value, uint32_t least, uint32_t m
     return (*count >= least && *count <= most) || maniGraphJsonFault(r, value, maniGraphFormValue);
 }
 
-static bool Effector(maniGraphReader* r, const maniGraphScope* scope, uint32_t object,
-                     maniGraphEffectorSource* e)
+MANI_NODISCARD static bool Effector(maniGraphReader* r, const maniGraphScope* scope,
+                                    uint32_t object, maniGraphEffectorSource* e)
 {
     static const char* const kKeys[] = {"bone",           "position", "rotation", "positionWeight",
                                         "rotationWeight", "strength", "pullChain"};
@@ -60,7 +60,7 @@ static bool Effector(maniGraphReader* r, const maniGraphScope* scope, uint32_t o
            (f[6] == ABSENT || maniGraphJsonFloat(r, f[6], &e->pullChain));
 }
 
-static bool Setting(maniGraphReader* r, uint32_t object, maniBodyBone* b)
+MANI_NODISCARD static bool Setting(maniGraphReader* r, uint32_t object, maniBodyBone* b)
 {
     static const char* const kKeys[] = {"bone", "limit", "preferred", "rotationStiffness",
                                         "positionStiffness"};
@@ -77,8 +77,8 @@ static bool Setting(maniGraphReader* r, uint32_t object, maniBodyBone* b)
            (f[4] == ABSENT || maniGraphJsonFloat(r, f[4], &b->positionStiffness));
 }
 
-static bool Effectors(maniGraphReader* r, const maniGraphScope* scope, uint32_t value,
-                      maniGraphBodyNodeSource* s)
+MANI_NODISCARD static bool Effectors(maniGraphReader* r, const maniGraphScope* scope,
+                                     uint32_t value, maniGraphBodyNodeSource* s)
 {
     uint32_t count = 0;
     if (!Count(r, value, 1, MANI_MAX_BODY_IK_EFFECTORS, &count))
@@ -105,7 +105,7 @@ static bool Effectors(maniGraphReader* r, const maniGraphScope* scope, uint32_t 
     return true;
 }
 
-static bool Settings(maniGraphReader* r, uint32_t value, maniGraphBodyNodeSource* s)
+MANI_NODISCARD static bool Settings(maniGraphReader* r, uint32_t value, maniGraphBodyNodeSource* s)
 {
     uint32_t count = 0;
     if (!Count(r, value, 0, MANI_MAX_BODY_IK_BONES, &count))

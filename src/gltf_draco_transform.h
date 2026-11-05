@@ -32,7 +32,7 @@ typedef struct maniDracoTransform
 
 // The transform's data: wrap bounds, or the octahedron's largest
 // quantized value (odd, of 2 to 30 bits) and an unused center.
-bool maniDracoTransformRead(maniDracoReader* r, maniDracoTransform* t);
+MANI_NODISCARD bool maniDracoTransformRead(maniDracoReader* r, maniDracoTransform* t);
 
 // The value (the transform's components; out may be corr) from its
 // prediction and correction; transform is a maniDracoTransform.

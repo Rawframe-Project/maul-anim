@@ -42,7 +42,7 @@ static inline const uint8_t* maniGraphSubsetGroups(const maniGraphSubset* plan)
 }
 
 // Whether node p runs.
-static inline bool maniGraphSubsetRuns(const maniGraphSubset* plan, uint32_t p)
+MANI_NODISCARD static inline bool maniGraphSubsetRuns(const maniGraphSubset* plan, uint32_t p)
 {
     return ((const uint8_t*)plan)[plan->nodesAt + p] != 0;
 }

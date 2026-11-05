@@ -104,7 +104,7 @@ static maniRootMotionSource Declared(const Bake* b, maniRootMotionSource s)
     return s;
 }
 
-static bool Usable(const maniRetargetClipSource* s)
+MANI_NODISCARD static bool Usable(const maniRetargetClipSource* s)
 {
     return s != NULL && s->map != NULL && maniSkeletonValid(s->source) &&
            maniSkeletonValid(s->target) && s->clip != NULL;

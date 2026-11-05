@@ -26,10 +26,10 @@ typedef struct maniFbxBlendShape
 
 // Whether the file is from Blender's binary exporter (by its Creator, as
 // ufbx decides), whose FullWeights are per-vertex weights.
-bool maniFbxFromBlender(const maniFbx* fbx);
+MANI_NODISCARD bool maniFbxFromBlender(const maniFbx* fbx);
 
 // Whether an object is a blend shape channel.
-bool maniFbxIsBlendChannel(const maniFbx* fbx, uint32_t object);
+MANI_NODISCARD bool maniFbxIsBlendChannel(const maniFbx* fbx, uint32_t object);
 
 // A channel's mesh model: its BlendShape deformer's, or MANI_FBX_NONE.
 uint32_t maniFbxBlendChannelModel(const maniFbx* fbx, uint32_t channel);
@@ -57,7 +57,7 @@ void maniFbxBlendWeights(const maniFbxBlendShape* shapes, uint32_t count, double
 // Vertices and PolygonVertexIndex), or a 7.0 or 7.1 Geometry of
 // subclass Mesh. Each Shape is a channel of its name with one shape at
 // target 1, weighted by the owner's property of that name.
-bool maniFbxIsShapeOwner(const maniFbx* fbx, uint32_t object);
+MANI_NODISCARD bool maniFbxIsShapeOwner(const maniFbx* fbx, uint32_t object);
 
 // A shape owner's mesh model, as an index into fbx->models: the owner
 // (6.x) or its geometry's model; MANI_FBX_NONE for none.

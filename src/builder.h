@@ -42,7 +42,7 @@ static inline void maniBuilderMisuse(maniBuilder* builder)
 // Whether a builder function is called back in from the builder's
 // allocator: then one misuse is counted and the function refuses with
 // mani_errorBusy. A NULL builder is not.
-static inline bool maniBuilderCalledBack(maniBuilder* builder)
+MANI_NODISCARD static inline bool maniBuilderCalledBack(maniBuilder* builder)
 {
     return builder != NULL && maniHostCalledBack(&builder->host);
 }

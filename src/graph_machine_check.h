@@ -32,7 +32,7 @@ maniBuildResult maniCheckGraphInertial(const maniGraphSource* source, uint32_t* 
 
 // Whether a machine listens: a transition with a phase, finished or
 // event condition or a match entry.
-bool maniGraphMachineListens(const maniGraphNodeSource* n);
+MANI_NODISCARD bool maniGraphMachineListens(const maniGraphNodeSource* n);
 
 // Its conditions, and the data words it takes before its clip lists.
 uint32_t maniGraphMachineConditions(const maniGraphNodeSource* n);

@@ -114,7 +114,8 @@ static maniQuat Middle(maniVec3 a, maniVec3 b, maniVec3 h, float goal)
     return maniIkHalf(h, cw * cc + sw * sc, sw * cc - cw * sc);
 }
 
-static bool Valid(const maniPose* pose, const maniSkeleton* skeleton, const maniTwoBoneSolve* s)
+MANI_NODISCARD static bool Valid(const maniPose* pose, const maniSkeleton* skeleton,
+                                 const maniTwoBoneSolve* s)
 {
     uint32_t n = skeleton->boneCount;
     return maniIkPoseUsable(pose, skeleton) && s->start < n && s->middle < n && s->end < n &&

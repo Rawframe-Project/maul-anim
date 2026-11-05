@@ -13,7 +13,7 @@ static maniBasis Make(const maniGltfOptions* options)
     return maniBasisMake(options->axes, 1.0f);
 }
 
-static bool Identity(const maniGltfOptions* options)
+MANI_NODISCARD static bool Identity(const maniGltfOptions* options)
 {
     return options->axes[0] == maniAxisX && options->axes[1] == maniAxisY &&
            options->axes[2] == maniAxisZ;

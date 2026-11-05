@@ -33,14 +33,14 @@ static float LoadF32(const uint8_t* p)
     return value;
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);
     return (bits & 0x7F800000u) != 0x7F800000u;
 }
 
-static bool Bit(const uint8_t* set, uint32_t t)
+MANI_NODISCARD static bool Bit(const uint8_t* set, uint32_t t)
 {
     return ((set[t / 8] >> (t % 8)) & 1u) != 0;
 }
@@ -183,8 +183,8 @@ static maniFileResult CheckRanges(const uint8_t* ranges, uint64_t at, const Coun
 
 // A segment's rates (each below MANI_CODEC_RATES, 0 only with several
 // segments) and its bits per sample, bone channels and floats apart.
-static bool CheckRates(const uint8_t* rates, const maniClip* clip, uint64_t* channelBits,
-                       uint64_t* floatBits)
+MANI_NODISCARD static bool CheckRates(const uint8_t* rates, const maniClip* clip,
+                                      uint64_t* channelBits, uint64_t* floatBits)
 {
     *channelBits = 0;
     *floatBits = 0;

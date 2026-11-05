@@ -42,8 +42,8 @@ typedef bool (*ReadItem)(Reader* r, uint32_t value, void* item);
 
 // A list's items, each read by one into its place of count items of size
 // bytes in the arena; NULL and 0 when absent or empty.
-static bool List(Reader* r, uint32_t value, size_t size, ReadItem one, void** items,
-                 uint32_t* countOut)
+MANI_NODISCARD static bool List(Reader* r, uint32_t value, size_t size, ReadItem one, void** items,
+                                uint32_t* countOut)
 {
     *items = NULL;
     if (!maniMapJsonCount(r, value, countOut))
@@ -72,7 +72,7 @@ static bool List(Reader* r, uint32_t value, size_t size, ReadItem one, void** it
     return true;
 }
 
-static bool Pair(Reader* r, uint32_t object, void* item)
+MANI_NODISCARD static bool Pair(Reader* r, uint32_t object, void* item)
 {
     static const char* const kKeys[] = {"first", "second"};
     maniMirrorPairSource* p = item;
@@ -81,7 +81,7 @@ static bool Pair(Reader* r, uint32_t object, void* item)
            maniGraphJsonBone(r, f[0], &p->first) && maniGraphJsonBone(r, f[1], &p->second);
 }
 
-static bool Rule(Reader* r, uint32_t object, void* item)
+MANI_NODISCARD static bool Rule(Reader* r, uint32_t object, void* item)
 {
     static const char* const kKeys[] = {"find", "place", "replace"};
     maniMirrorRuleSource* rule = item;
@@ -93,7 +93,7 @@ static bool Rule(Reader* r, uint32_t object, void* item)
            maniGraphJsonName(r, f[2], &rule->replace, &rule->replaceLength);
 }
 
-static bool NamePair(Reader* r, uint32_t object, void* item)
+MANI_NODISCARD static bool NamePair(Reader* r, uint32_t object, void* item)
 {
     static const char* const kKeys[] = {"first", "second"};
     maniMirrorNamePairSource* p = item;
@@ -103,14 +103,14 @@ static bool NamePair(Reader* r, uint32_t object, void* item)
            maniGraphJsonName(r, f[1], &p->second, &p->secondLength);
 }
 
-static bool Name(Reader* r, uint32_t value, void* item)
+MANI_NODISCARD static bool Name(Reader* r, uint32_t value, void* item)
 {
     maniMirrorNameSource* n = item;
     *n = (maniMirrorNameSource){0};
     return maniGraphJsonName(r, value, &n->name, &n->nameLength);
 }
 
-static bool ReadMap(Reader* r, maniMirrorMapSource* out)
+MANI_NODISCARD static bool ReadMap(Reader* r, maniMirrorMapSource* out)
 {
     static const char* const kKeys[] = {"format", "version", "axis",      "reference",
                                         "pairs",  "rules",   "namePairs", "names"};

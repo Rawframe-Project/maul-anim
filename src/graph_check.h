@@ -51,11 +51,11 @@ maniBuildResult maniGraphPastLimit(maniBuildReason reason, uint32_t item, uint32
 uint32_t maniGraphMapSlotIn(uint64_t* ids, uint32_t* count, uint64_t identity);
 
 // Whether a source's node count or a list's count passes its bound.
-bool maniGraphListsPast(const maniGraphSource* source);
+MANI_NODISCARD bool maniGraphListsPast(const maniGraphSource* source);
 
 // The source's parameter, clip, sync group, database, model and spring
 // set lists: each within its limit, and given when it is not empty.
-bool maniGraphListsValid(const maniGraphSource* source);
+MANI_NODISCARD bool maniGraphListsValid(const maniGraphSource* source);
 
 // Checks the source's counts, parameters, clips, sync groups, databases
 // and nodes;

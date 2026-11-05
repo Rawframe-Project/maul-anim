@@ -128,7 +128,7 @@ static maniFileResult CheckHierarchy(const Section* parents, const Section* ends
     return Success();
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);

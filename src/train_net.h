@@ -51,8 +51,8 @@ typedef struct maniTrainNet
 // A network through sizes[0] to sizes[layerCount]; false past the
 // limits (MANI_MAX_LEARNED_LAYERS, MANI_MAX_LEARNED_WIDTH,
 // MANI_MAX_LEARNED_WEIGHTS) or for a size of 0.
-bool maniTrainNetInit(maniTrainNet* n, const uint32_t* sizes, uint32_t layerCount,
-                      maniTrainActivation activation);
+MANI_NODISCARD bool maniTrainNetInit(maniTrainNet* n, const uint32_t* sizes, uint32_t layerCount,
+                                     maniTrainActivation activation);
 
 // PyTorch's default start: weights and biases uniform in +-1 / sqrt(the
 // layer's inputs), drawn layer by layer, weights before biases.

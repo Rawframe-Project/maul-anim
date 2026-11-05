@@ -22,7 +22,7 @@
 
 #define PI_F 3.14159265358979f
 
-static bool Within(float v, float low, float high)
+MANI_NODISCARD static bool Within(float v, float low, float high)
 {
     return v >= low && v <= high;
 }

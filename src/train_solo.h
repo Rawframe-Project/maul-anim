@@ -33,8 +33,8 @@ typedef struct maniTrainSoloShape
 // The sizes of a network from in through the shape's hidden layers to
 // out; false when the layers pass MANI_MAX_LEARNED_LAYERS or the batch
 // is not a whole number of chunks.
-bool maniTrainSoloSizes(const maniTrainSoloShape* shape, uint32_t in, uint32_t out,
-                        uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1]);
+MANI_NODISCARD bool maniTrainSoloSizes(const maniTrainSoloShape* shape, uint32_t in, uint32_t out,
+                                       uint32_t sizes[MANI_MAX_LEARNED_LAYERS + 1]);
 
 typedef struct maniTrainSolo
 {
@@ -58,8 +58,9 @@ typedef struct maniTrainSolo
 // A ReLU network through sizes[0] to sizes[layerCount] with chunkCount
 // chunks, started from the generator. False past a limit or when memory
 // runs out, with nothing held.
-bool maniTrainSoloInit(const maniAllocator* allocator, const uint32_t* sizes, uint32_t layerCount,
-                       uint32_t chunkCount, maniTrainRandom* r, maniTrainSolo* s);
+MANI_NODISCARD bool maniTrainSoloInit(const maniAllocator* allocator, const uint32_t* sizes,
+                                      uint32_t layerCount, uint32_t chunkCount, maniTrainRandom* r,
+                                      maniTrainSolo* s);
 
 void maniTrainSoloRelease(const maniAllocator* allocator, maniTrainSolo* s);
 

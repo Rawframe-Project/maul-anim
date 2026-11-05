@@ -19,6 +19,8 @@
 #ifndef MAUL_ANIM_SRC_MATCH_FILE_H
 #define MAUL_ANIM_SRC_MATCH_FILE_H
 
+#include "maul-anim/base.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -80,7 +82,7 @@ enum
 // The leaf sizes a database may have, and the builder's default.
 #define MANI_MATCH_DEFAULT_LEAF 16u
 
-static inline bool maniMatchLeafValid(uint32_t leaf)
+MANI_NODISCARD static inline bool maniMatchLeafValid(uint32_t leaf)
 {
     return leaf == 8 || leaf == 16 || leaf == 32;
 }
@@ -123,7 +125,7 @@ static inline void maniMatchWalkStart(maniMatchWalk* w, uint32_t frames, uint32_
 }
 
 // The next node, false once every one was visited.
-static inline bool maniMatchWalkNext(maniMatchWalk* w, maniMatchVisit* v)
+MANI_NODISCARD static inline bool maniMatchWalkNext(maniMatchWalk* w, maniMatchVisit* v)
 {
     if (w->top == 0)
     {
@@ -169,7 +171,8 @@ uint32_t maniMatchChannelWidth(uint32_t kind);
 // (maniMatchFrameTime, binary32) does not hold, or one more when the
 // next one's does. False, *framesOut unset, when the span holds
 // MANI_MAX_MATCH_FRAMES frames or more (or is not a span).
-bool maniMatchEntryFrames(float start, float end, float rate, bool loop, uint32_t* framesOut);
+MANI_NODISCARD bool maniMatchEntryFrames(float start, float end, float rate, bool loop,
+                                         uint32_t* framesOut);
 
 // An entry's k-th frame's clip time: start + k / rate, in binary64.
 float maniMatchFrameTime(float start, uint32_t k, float rate);

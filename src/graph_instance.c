@@ -36,12 +36,12 @@
 #include <stdint.h>
 #include <string.h>
 
-static bool InstanceValid(const maniGraphInstance* instance)
+MANI_NODISCARD static bool InstanceValid(const maniGraphInstance* instance)
 {
     return instance != NULL && instance->stamp == MANI_GRAPH_INSTANCE_STAMP;
 }
 
-static bool BindingValid(const maniGraphBinding* binding)
+MANI_NODISCARD static bool BindingValid(const maniGraphBinding* binding)
 {
     return binding != NULL && binding->stamp == MANI_GRAPH_BINDING_STAMP;
 }
@@ -312,27 +312,27 @@ static uint32_t ShotBlockAt(const maniGraph* graph, uint32_t p)
                                                   : UINT32_MAX;
 }
 
-static bool Inertial(const maniGraph* graph, uint32_t p)
+MANI_NODISCARD static bool Inertial(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeInertialize;
 }
 
-static bool Matching(const maniGraph* graph, uint32_t p)
+MANI_NODISCARD static bool Matching(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeMatch;
 }
 
-static bool Learning(const maniGraph* graph, uint32_t p)
+MANI_NODISCARD static bool Learning(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeLearned;
 }
 
-static bool Springing(const maniGraph* graph, uint32_t p)
+MANI_NODISCARD static bool Springing(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeSpring;
 }
 
-static bool Turning(const maniGraph* graph, uint32_t p)
+MANI_NODISCARD static bool Turning(const maniGraph* graph, uint32_t p)
 {
     return maniLoadU16(graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) == maniGraphNodeTurnLimit;
 }
@@ -494,7 +494,7 @@ void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, m
 }
 
 // A pose parameter of the instance's graph.
-static bool PoseParameter(const maniGraphInstance* instance, uint32_t parameter)
+MANI_NODISCARD static bool PoseParameter(const maniGraphInstance* instance, uint32_t parameter)
 {
     const maniGraph* graph = &instance->binding->graph;
     return parameter < graph->parameterCount &&
@@ -665,7 +665,8 @@ maniResult maniGraphInstance_Save(const maniGraphInstance* instance, void* bytes
 
 // A saved value as its parameter keeps it: unchanged by Canonical, but
 // for a quaternion's last bits (unit within 1e-5).
-static bool SavedValueValid(const maniGraph* graph, uint32_t parameter, const uint8_t* p)
+MANI_NODISCARD static bool SavedValueValid(const maniGraph* graph, uint32_t parameter,
+                                           const uint8_t* p)
 {
     const uint8_t* entry = ParameterEntry(graph, parameter);
     maniGraphParameterType type = maniLoadU32(entry);
@@ -693,7 +694,7 @@ static bool SavedValueValid(const maniGraph* graph, uint32_t parameter, const ui
 
 // A saved node state: weight finite and not negative, time finite, the
 // word a select's input or else 0.
-static bool SavedNodeValid(const maniGraph* graph, uint32_t node, const uint8_t* p)
+MANI_NODISCARD static bool SavedNodeValid(const maniGraph* graph, uint32_t node, const uint8_t* p)
 {
     const uint8_t* e = graph->nodes + (size_t)node * MANI_GRAPH_NODE_SIZE;
     float weight = 0.0f;

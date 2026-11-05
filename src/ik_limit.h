@@ -14,7 +14,7 @@
 #include <stdbool.h>
 
 // Whether a limit is of a known kind with its numbers in range.
-bool maniIkLimitValid(const maniJointLimit* limit);
+MANI_NODISCARD bool maniIkLimitValid(const maniJointLimit* limit);
 
 // The turn r (a bone's rotation relative to its rest, unit) within the
 // limit, for a bone of unit axis (zero for none); r itself for NULL or

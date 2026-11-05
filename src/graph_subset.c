@@ -77,7 +77,7 @@ static void Mark(Closure* c, uint32_t bone)
     }
 }
 
-static bool Marked(const Closure* c, uint32_t bone)
+MANI_NODISCARD static bool Marked(const Closure* c, uint32_t bone)
 {
     return bone < c->bones && c->marks[bone] != 0;
 }
@@ -146,7 +146,7 @@ static void Springs(Visit* v, const maniSpringSet* set, bool reads)
 
 // A node's bones (those it writes, or with reads those it reads too);
 // false for a kind that writes each bone from the same bone.
-static bool Bones(Visit* v, const maniGraph* graph, uint32_t p, bool reads)
+MANI_NODISCARD static bool Bones(Visit* v, const maniGraph* graph, uint32_t p, bool reads)
 {
     const uint8_t* e = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
     uint32_t kind = maniLoadU16(e);
@@ -215,7 +215,7 @@ static void Grow(Closure* c)
 }
 
 // Whether the bones are in range and strictly increasing.
-static bool BonesValid(const uint32_t* bones, uint32_t count, uint32_t boneCount)
+MANI_NODISCARD static bool BonesValid(const uint32_t* bones, uint32_t count, uint32_t boneCount)
 {
     for (uint32_t i = 0; i < count; ++i)
     {

@@ -59,12 +59,12 @@ static void SkipSpace(Scanner* s)
     }
 }
 
-static bool At(const Scanner* s, uint8_t c)
+MANI_NODISCARD static bool At(const Scanner* s, uint8_t c)
 {
     return s->at < s->size && s->text[s->at] == c;
 }
 
-static bool IsDigit(uint8_t c)
+MANI_NODISCARD static bool IsDigit(uint8_t c)
 {
     return c >= '0' && c <= '9';
 }
@@ -307,7 +307,7 @@ static void Close(Scanner* s)
     }
 }
 
-static bool IsObject(const Scanner* s)
+MANI_NODISCARD static bool IsObject(const Scanner* s)
 {
     return s->text[s->values != NULL ? s->values[s->open[s->depth - 1]].start
                                      : s->open[s->depth - 1]] == kObjectOpen;
@@ -506,7 +506,7 @@ static size_t DecodeNext(const uint8_t* raw, size_t length, size_t* at, uint8_t 
     return 4;
 }
 
-static bool IsKind(const maniJson* json, uint32_t value, maniJsonKind kind)
+MANI_NODISCARD static bool IsKind(const maniJson* json, uint32_t value, maniJsonKind kind)
 {
     return value < json->count && json->values[value].kind == (uint32_t)kind;
 }

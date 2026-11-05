@@ -28,8 +28,8 @@
 // of at most MANI_MAX_BODY_IK_BONES objects {"bone", "limit",
 // "preferred", "rotationStiffness", "positionStiffness"} (bone required;
 // no limit, zero angles and stiffness 0 when left out).
-bool maniGraphJsonBody(maniGraphReader* r, const maniGraphScope* scope, const uint32_t* members,
-                       maniGraphBodyNodeSource* s);
+MANI_NODISCARD bool maniGraphJsonBody(maniGraphReader* r, const maniGraphScope* scope,
+                                      const uint32_t* members, maniGraphBodyNodeSource* s);
 
 // A full-body node's members after its inputs: its settings when it has
 // any, stretch when on, an effector's rotation and rotation weight when

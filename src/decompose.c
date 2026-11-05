@@ -192,7 +192,7 @@ static maniQuat ToQuaternion(const double q[9])
                       (float)(sign * z / length), (float)(sign * w / length)};
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);

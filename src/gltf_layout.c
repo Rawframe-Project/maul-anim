@@ -64,7 +64,8 @@ static maniImportResult ReadView(maniGltf* gltf, uint32_t value, uint32_t i)
 }
 
 // A type's rows and columns: SCALAR, VEC2 to VEC4, MAT2 to MAT4.
-static bool TypeShape(const maniGltfJson* g, uint32_t type, uint8_t* rows, uint8_t* columns)
+MANI_NODISCARD static bool TypeShape(const maniGltfJson* g, uint32_t type, uint8_t* rows,
+                                     uint8_t* columns)
 {
     static const char* const kTypes[7] = {"SCALAR", "VEC2", "VEC3", "VEC4", "MAT2", "MAT3", "MAT4"};
     static const uint8_t kRows[7] = {1, 2, 3, 4, 2, 3, 4};
@@ -349,7 +350,7 @@ static float Component(uint8_t component, bool normalized, const uint8_t* p)
     }
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);

@@ -45,7 +45,7 @@ static maniBuildResult Refuse(maniBuildReason reason, uint32_t item, uint32_t ot
     return Result(mani_errorInvalid, reason, item, other);
 }
 
-static bool Finite(float v)
+MANI_NODISCARD static bool Finite(float v)
 {
     return fabsf(v) < HUGE_VALF;
 }
@@ -93,7 +93,7 @@ typedef struct Work
     uint32_t unmatched;
 } Work;
 
-static bool Utf8(const char* text, size_t length)
+MANI_NODISCARD static bool Utf8(const char* text, size_t length)
 {
     return (text != NULL || length == 0) && maniValidUtf8((const uint8_t*)text, length);
 }
@@ -142,8 +142,8 @@ static maniBuildResult Reference(Work* w)
 
 // A rule's partner name of a name into out; false when it does not
 // match.
-static bool Apply(const maniMirrorRuleSource* r, const char* name, size_t length, char* out,
-                  size_t* lengthOut)
+MANI_NODISCARD static bool Apply(const maniMirrorRuleSource* r, const char* name, size_t length,
+                                 char* out, size_t* lengthOut)
 {
     size_t f = r->findLength;
     if (f > length)
@@ -256,7 +256,7 @@ static maniBuildResult RulePairs(Work* w)
 }
 
 // Whether bone b's parent's partner is not its partner's parent.
-static bool BoneUnmatched(const Work* w, uint32_t b)
+MANI_NODISCARD static bool BoneUnmatched(const Work* w, uint32_t b)
 {
     uint32_t p = maniSkeleton_GetParent(w->s->skeleton, b);
     uint32_t q = maniSkeleton_GetParent(w->s->skeleton, w->partner[b]);
@@ -547,7 +547,7 @@ static maniBuildResult Write(maniBuilder* builder, const Work* w, const uint32_t
     return file != NULL ? kOk : Result(mani_errorCapacity, maniBuildReasonNone, 0, 0);
 }
 
-static bool Usable(const maniMirrorMapSource* s)
+MANI_NODISCARD static bool Usable(const maniMirrorMapSource* s)
 {
     return s != NULL && maniSkeletonValid(s->skeleton) && (s->pairs != NULL || s->pairCount == 0) &&
            (s->rules != NULL || s->ruleCount == 0) &&
@@ -597,7 +597,8 @@ static maniBuildResult Bounds(const maniMirrorMapSource* s)
 // the room every listed name's partner takes, from lengths Bounds took;
 // false when either passes what an allocation can hold, as it can where
 // size_t has 32 bits.
-static bool Room(const maniMirrorMapSource* s, uint32_t count, size_t* nameOut, size_t* textOut)
+MANI_NODISCARD static bool Room(const maniMirrorMapSource* s, uint32_t count, size_t* nameOut,
+                                size_t* textOut)
 {
     uint64_t replace = 0;
     for (uint32_t i = 0; i < s->ruleCount; ++i)

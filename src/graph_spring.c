@@ -32,7 +32,7 @@ static uint32_t Word(const maniGraph* g, uint32_t at)
 }
 
 // A parameter of the type, or none.
-static bool ParameterOf(const maniGraph* g, uint32_t parameter, uint32_t type)
+MANI_NODISCARD static bool ParameterOf(const maniGraph* g, uint32_t parameter, uint32_t type)
 {
     return parameter == MANI_NO_PARAMETER ||
            (parameter < g->parameterCount &&

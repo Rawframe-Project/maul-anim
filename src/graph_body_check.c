@@ -28,14 +28,14 @@ static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t
 
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
-static bool ParameterIs(const maniGraphSource* source, uint32_t parameter,
-                        maniGraphParameterType type)
+MANI_NODISCARD static bool ParameterIs(const maniGraphSource* source, uint32_t parameter,
+                                       maniGraphParameterType type)
 {
     return parameter < source->parameterCount && source->parameters[parameter].type == type;
 }
 
 // A float parameter, or a number in [0, 1].
-static bool WeightValid(const maniGraphSource* source, maniGraphScalar s)
+MANI_NODISCARD static bool WeightValid(const maniGraphSource* source, maniGraphScalar s)
 {
     return s.parameter == MANI_NO_PARAMETER
                ? s.value >= 0.0f && s.value <= 1.0f

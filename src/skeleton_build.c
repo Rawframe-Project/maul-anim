@@ -47,7 +47,7 @@ static maniBuildResult Outcome(maniResult result)
     return (maniBuildResult){result, maniBuildReasonNone, 0, 0};
 }
 
-static bool Finite(float value)
+MANI_NODISCARD static bool Finite(float value)
 {
     uint32_t bits = 0;
     memcpy(&bits, &value, sizeof bits);
@@ -123,8 +123,8 @@ static uint32_t LowestUnplaced(const uint32_t* order, uint32_t placed, uint32_t 
 
 // Depth-first order of the source's bones into order (source indices by
 // position); false when some bone sits on a cycle, with that bone.
-static bool OrderDepthFirst(const maniSkeletonSource* source, uint32_t* scratch[ScratchArrays],
-                            uint32_t* cycleBoneOut)
+MANI_NODISCARD static bool OrderDepthFirst(const maniSkeletonSource* source,
+                                           uint32_t* scratch[ScratchArrays], uint32_t* cycleBoneOut)
 {
     uint32_t n = source->boneCount;
     uint32_t* first = scratch[ScratchFirstChild];

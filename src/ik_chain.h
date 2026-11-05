@@ -41,12 +41,12 @@ uint32_t maniIkChainPath(const maniSkeleton* skeleton, uint32_t root, uint32_t e
 
 // Whether a chain's count - 1 limits, one per turning bone, are valid:
 // known kinds, numbers in range, no hinge along its bone's axis.
-bool maniIkChainLimitsValid(const maniSkeleton* skeleton, const uint32_t* bones, uint32_t count,
-                            const maniJointLimit* limits);
+MANI_NODISCARD bool maniIkChainLimitsValid(const maniSkeleton* skeleton, const uint32_t* bones,
+                                           uint32_t count, const maniJointLimit* limits);
 
 // Whether the root is an ancestor of the end on a path of more than
 // MANI_MAX_IK_CHAIN_BONES bones: a chain past its bound.
-bool maniIkChainPathPast(const maniSkeleton* skeleton, uint32_t root, uint32_t end);
+MANI_NODISCARD bool maniIkChainPathPast(const maniSkeleton* skeleton, uint32_t root, uint32_t end);
 
 // A chain solve checked against the pose: mani_errorInvalid for a NULL
 // argument, mani_errorLimit for a chain
@@ -75,6 +75,7 @@ maniVec3 maniIkChainEnd(const maniIkChain* chain);
 // The end turned toward the wanted rotation by its weight, then every
 // turned bone's correction weighted on its input local; whether the end
 // lies within the tolerance at full weight.
-bool maniIkChainFinish(maniIkChain* chain, maniPose* pose, const maniChainSolve* solve);
+MANI_NODISCARD bool maniIkChainFinish(maniIkChain* chain, maniPose* pose,
+                                      const maniChainSolve* solve);
 
 #endif // MAUL_ANIM_SRC_IK_CHAIN_H

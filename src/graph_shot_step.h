@@ -18,7 +18,7 @@
 // acting (each consumed), or else a fade-out begun when its leading clip
 // had no more than the fade-out's seconds left. Whether fire restarted
 // it.
-bool maniGraphStepShot(const maniGraphShot* s, maniGraphCell* cells, uint32_t* block,
-                       double seconds);
+MANI_NODISCARD bool maniGraphStepShot(const maniGraphShot* s, maniGraphCell* cells, uint32_t* block,
+                                      double seconds);
 
 #endif // MAUL_ANIM_SRC_GRAPH_SHOT_STEP_H

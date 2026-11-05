@@ -57,7 +57,8 @@ static void ReleaseSampler(const maniAllocator* a, Sampler* p)
     maniRelease(a, p->floats, (size_t)p->floatCapacity + 1, sizeof(float), 4);
 }
 
-static bool InitSampler(const maniAllocator* a, const maniTrainDataSource* s, Sampler* p)
+MANI_NODISCARD static bool InitSampler(const maniAllocator* a, const maniTrainDataSource* s,
+                                       Sampler* p)
 {
     *p = (Sampler){.s = s, .poseSize = maniSkeleton_GetPoseSize(s->skeleton)};
     for (uint32_t c = 0; c < s->database->clipCount; ++c)
@@ -78,7 +79,7 @@ static bool InitSampler(const maniAllocator* a, const maniTrainDataSource* s, Sa
 }
 
 // Places frame f and samples its poses: only the first when only is set.
-static bool Sample(Sampler* p, uint32_t f, bool only)
+MANI_NODISCARD static bool Sample(Sampler* p, uint32_t f, bool only)
 {
     const maniMotionDatabase* d = p->s->database;
     uint32_t entry = 0;
@@ -141,13 +142,13 @@ static void Character(const maniPose* pose, uint32_t b, float* position, float* 
     Put3(columns + 3, maniQuatRotate(undo, maniVec3Make(m.m[3], m.m[4], m.m[5])));
 }
 
-static bool SameName(const char* a, size_t aLength, const maniLearnedNameSource* b)
+MANI_NODISCARD static bool SameName(const char* a, size_t aLength, const maniLearnedNameSource* b)
 {
     return aLength == b->length && memcmp(a, b->name, aLength) == 0;
 }
 
 // The float tracks' values and the events' states at the frame.
-static bool Extras(Sampler* p, float* out)
+MANI_NODISCARD static bool Extras(Sampler* p, float* out)
 {
     const maniTrainDataSource* s = p->s;
     uint32_t count = 0;
@@ -181,7 +182,7 @@ static bool Extras(Sampler* p, float* out)
 }
 
 // The first pass: the bones whose scale differs from frame 0's.
-static bool FindScaled(Sampler* p, maniTrainData* d)
+MANI_NODISCARD static bool FindScaled(Sampler* p, maniTrainData* d)
 {
     uint32_t bones = d->boneCount;
     for (uint32_t f = 0; f < d->frameCount; ++f)
@@ -251,7 +252,7 @@ static void BoneInputs(const Sampler* p, const maniTrainData* d, uint32_t b, flo
 }
 
 // The second pass's row of frame f.
-static bool Row(Sampler* p, const maniTrainData* d, uint32_t f)
+MANI_NODISCARD static bool Row(Sampler* p, const maniTrainData* d, uint32_t f)
 {
     if (!Sample(p, f, false) ||
         maniMotionDatabase_GetFeatures(p->s->database, f, d->features + (size_t)f * d->featureCount,

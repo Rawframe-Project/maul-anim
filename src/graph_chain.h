@@ -40,10 +40,11 @@ maniJointLimit maniGraphLimitAt(const maniGraph* g, uint32_t at);
 uint32_t maniGraphLimitValid(const maniGraph* g, uint32_t at);
 
 // Whether word at names a parameter of the type, or none when optional.
-bool maniGraphIkParameterValid(const maniGraph* g, uint32_t at, uint32_t type, bool optional);
+MANI_NODISCARD bool maniGraphIkParameterValid(const maniGraph* g, uint32_t at, uint32_t type,
+                                              bool optional);
 
 // Whether the scalar at words at is a float parameter with literal bits
 // 0, or a literal in [0, 1].
-bool maniGraphIkWeightValid(const maniGraph* g, uint32_t at);
+MANI_NODISCARD bool maniGraphIkWeightValid(const maniGraph* g, uint32_t at);
 
 #endif // MAUL_ANIM_SRC_GRAPH_CHAIN_H

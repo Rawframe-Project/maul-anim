@@ -22,27 +22,28 @@
 
 // The text read as JSON and r started over it, its arena empty; false
 // with the refusal (Json, or Capacity) in *result.
-bool maniMapJsonOpen(maniBuilder* builder, const char* text, size_t length, maniJson* json,
-                     maniGraphReader* r, maniBuildResult* result);
+MANI_NODISCARD bool maniMapJsonOpen(maniBuilder* builder, const char* text, size_t length,
+                                    maniJson* json, maniGraphReader* r, maniBuildResult* result);
 
 // The reader's arena and the JSON values released.
 void maniMapJsonClose(maniBuilder* builder, maniJson* json, maniGraphReader* r);
 
 // The format string (format) and version (1) at f[0] and f[1].
-bool maniMapJsonHeader(maniGraphReader* r, const uint32_t* f, const char* format);
+MANI_NODISCARD bool maniMapJsonHeader(maniGraphReader* r, const uint32_t* f, const char* format);
 
 // A reference pose of r's skeleton: a list of {bone, translation,
 // rotation, scale} objects, each bone at most once, a bone or member left
 // out its rest; NULL for an empty or absent list.
-bool maniMapJsonReference(maniGraphReader* r, uint32_t value, const maniTransform** out);
+MANI_NODISCARD bool maniMapJsonReference(maniGraphReader* r, uint32_t value,
+                                         const maniTransform** out);
 
 // A list's count, 0 when absent; refuses another kind.
-bool maniMapJsonCount(maniGraphReader* r, uint32_t value, uint32_t* countOut);
+MANI_NODISCARD bool maniMapJsonCount(maniGraphReader* r, uint32_t value, uint32_t* countOut);
 
 // A word among count words into *out, one of a kind's values; *out as it
 // is when absent.
-bool maniMapJsonWord(maniGraphReader* r, uint32_t value, const char* const* words, uint32_t count,
-                     int32_t* out);
+MANI_NODISCARD bool maniMapJsonWord(maniGraphReader* r, uint32_t value, const char* const* words,
+                                    uint32_t count, int32_t* out);
 
 // The header's lines, after the opening brace.
 void maniMapJsonPutHeader(maniGraphWriter* w, const char* format);

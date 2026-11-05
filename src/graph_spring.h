@@ -57,7 +57,8 @@ uint64_t maniGraphSpringSetWords(const maniSpringSet* set);
 uint32_t maniGraphSpringBlockWords(const maniGraph* g, uint32_t data);
 
 // Whether a set takes the node: its state the node's words.
-bool maniGraphSpringFits(const maniGraph* g, uint32_t data, const maniSpringSet* set);
+MANI_NODISCARD bool maniGraphSpringFits(const maniGraph* g, uint32_t data,
+                                        const maniSpringSet* set);
 
 // The first wrong word of a saved block (little-endian words at bytes)
 // of a node of set, or UINT32_MAX.

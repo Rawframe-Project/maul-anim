@@ -51,10 +51,10 @@ void maniGraphJsonPutScalars(maniGraphWriter* w, const maniGraphSource* source,
 
 // Whether a number has a default's bits: what the reader takes when its
 // key is left out, so the writer leaves it out.
-bool maniGraphJsonIsDefault(float value, float fallback);
+MANI_NODISCARD bool maniGraphJsonIsDefault(float value, float fallback);
 
 // Whether a scalar is a literal with a default's bits.
-bool maniGraphJsonScalarIsDefault(maniGraphScalar s, float fallback);
+MANI_NODISCARD bool maniGraphJsonScalarIsDefault(maniGraphScalar s, float fallback);
 
 // ", key: value" unless the number has the default's bits.
 void maniGraphJsonPutNumberOr(maniGraphWriter* w, const char* key, float value, float fallback);

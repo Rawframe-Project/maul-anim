@@ -59,7 +59,7 @@ void maniGraphResetShot(uint32_t* block)
     block[maniGraphShotRemaining + 1] = (uint32_t)(bits >> 32);
 }
 
-static bool Unit(float value)
+MANI_NODISCARD static bool Unit(float value)
 {
     return value >= 0.0f && value <= 1.0f;
 }
@@ -108,7 +108,7 @@ uint32_t maniGraphShotDataWords(const maniGraph* g, uint32_t data, uint32_t avai
     return count <= available - MANI_GRAPH_SHOT_WORDS ? MANI_GRAPH_SHOT_WORDS + count : UINT32_MAX;
 }
 
-static bool Trigger(const maniGraph* g, uint32_t parameter, bool optional)
+MANI_NODISCARD static bool Trigger(const maniGraph* g, uint32_t parameter, bool optional)
 {
     if (parameter == MANI_NO_PARAMETER)
     {
@@ -124,7 +124,7 @@ static uint32_t Kind(const maniGraph* g, uint32_t node)
     return maniLoadU16(g->nodes + (size_t)node * MANI_GRAPH_NODE_SIZE);
 }
 
-static bool Seconds(const maniGraph* g, uint32_t at)
+MANI_NODISCARD static bool Seconds(const maniGraph* g, uint32_t at)
 {
     float value = FloatOf(Word(g, at));
     return isfinite(value) && value >= 0.0f;

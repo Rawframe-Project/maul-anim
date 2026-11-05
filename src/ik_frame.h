@@ -51,7 +51,7 @@ maniIkFrame maniIkParentModel(const maniPose* pose, const maniSkeleton* skeleton
 maniIkFrame maniIkLocal(const maniPose* pose, uint32_t bone);
 
 // Whether ancestor is a strict ancestor of bone.
-bool maniIkAbove(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone);
+MANI_NODISCARD bool maniIkAbove(const maniSkeleton* skeleton, uint32_t ancestor, uint32_t bone);
 
 // A frame's origin and rigid rotation.
 maniVec3 maniIkOrigin(const maniIkFrame* f);
@@ -85,12 +85,12 @@ maniQuat maniIkWeighted(maniQuat q, float weight);
 // A bone's local rotation turned by a correction before it.
 void maniIkCorrect(maniPose* pose, uint32_t bone, maniQuat correction);
 
-bool maniIkFiniteVec(maniVec3 v);
+MANI_NODISCARD bool maniIkFiniteVec(maniVec3 v);
 
 // Whether v is not zero: its length, which binary64 keeps for every
 // finite vector, above 0. A binary32 dot(v, v) reads a vector shorter
 // than about 2^-75 as zero.
-bool maniIkNonzero(maniVec3 v);
+MANI_NODISCARD bool maniIkNonzero(maniVec3 v);
 
 // The largest of v's components, 0 when one is not finite.
 static inline float maniIkLargest(maniVec3 v)
@@ -132,6 +132,6 @@ static inline float maniIkPower(int n)
 void maniIkRescale(maniVec3 v[3]);
 
 // A pose of the skeleton that is not a difference.
-bool maniIkPoseUsable(const maniPose* pose, const maniSkeleton* skeleton);
+MANI_NODISCARD bool maniIkPoseUsable(const maniPose* pose, const maniSkeleton* skeleton);
 
 #endif // MAUL_ANIM_SRC_IK_FRAME_H

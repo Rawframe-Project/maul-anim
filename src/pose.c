@@ -207,7 +207,7 @@ void maniPose_SetLocal(maniPose* pose, uint32_t bone, maniTransform transform)
     }
 }
 
-static bool RangeFits(const maniPose* pose, uint32_t first, uint32_t count)
+MANI_NODISCARD static bool RangeFits(const maniPose* pose, uint32_t first, uint32_t count)
 {
     return first <= pose->boneCount && count <= pose->boneCount - first;
 }

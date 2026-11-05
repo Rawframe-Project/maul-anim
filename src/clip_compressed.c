@@ -430,7 +430,7 @@ typedef struct Sampling
     Group group;
 } Sampling;
 
-static bool Listed(const Sampling* s, uint32_t bone, uint32_t* next)
+MANI_NODISCARD static bool Listed(const Sampling* s, uint32_t bone, uint32_t* next)
 {
     return s->list == NULL || maniBoneListed(s->list, bone, next);
 }

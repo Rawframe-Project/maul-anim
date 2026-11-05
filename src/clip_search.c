@@ -363,7 +363,7 @@ static double Evaluate(const Search* s, const Bone* b, const uint8_t* rates, dou
     return worst;
 }
 
-static bool Allowed(const Search* s, const uint8_t* rates, uint32_t count)
+MANI_NODISCARD static bool Allowed(const Search* s, const uint8_t* rates, uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i)
     {

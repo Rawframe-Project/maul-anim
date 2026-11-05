@@ -277,17 +277,18 @@ static maniTransform Bone(const Transfer* x, uint32_t b)
 // Whether two poses' memory is apart: the target's locals are written
 // while the source's are still read. A pose fills its skeleton's pose
 // size from its start.
-static bool PosesApart(const maniSkeleton* source, const maniPose* sourcePose,
-                       const maniSkeleton* target, const maniPose* targetPose)
+MANI_NODISCARD static bool PosesApart(const maniSkeleton* source, const maniPose* sourcePose,
+                                      const maniSkeleton* target, const maniPose* targetPose)
 {
     uintptr_t s = (uintptr_t)sourcePose;
     uintptr_t t = (uintptr_t)targetPose;
     return s + maniSkeleton_GetPoseSize(source) <= t || t + maniSkeleton_GetPoseSize(target) <= s;
 }
 
-static bool Usable(const maniRetargetMap* map, const maniSkeleton* source,
-                   const maniPose* sourcePose, const maniSkeleton* target,
-                   const maniPose* targetPose, const void* scratch, size_t scratchSize)
+MANI_NODISCARD static bool Usable(const maniRetargetMap* map, const maniSkeleton* source,
+                                  const maniPose* sourcePose, const maniSkeleton* target,
+                                  const maniPose* targetPose, const void* scratch,
+                                  size_t scratchSize)
 {
     return map != NULL && maniSkeletonValid(source) && maniSkeletonValid(target) &&
            sourcePose != NULL && targetPose != NULL && scratch != NULL &&

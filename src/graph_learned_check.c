@@ -35,20 +35,21 @@ static maniBuildResult PastLimit(maniBuildReason reason, uint32_t item, uint32_t
 
 static const maniBuildResult kOk = {mani_success, maniBuildReasonNone, 0, 0};
 
-static bool ParameterOf(const maniGraphSource* source, uint32_t parameter,
-                        maniGraphParameterType type)
+MANI_NODISCARD static bool ParameterOf(const maniGraphSource* source, uint32_t parameter,
+                                       maniGraphParameterType type)
 {
     return parameter < source->parameterCount && source->parameters[parameter].type == type;
 }
 
-static bool TagsValid(const maniGraphSource* source, maniGraphTags tags)
+MANI_NODISCARD static bool TagsValid(const maniGraphSource* source, maniGraphTags tags)
 {
     return tags.parameter == MANI_NO_PARAMETER ||
            (ParameterOf(source, tags.parameter, maniGraphParameterInt) && tags.value == 0);
 }
 
 // The query's parameters against the model's database's channels.
-static bool QueryValid(const maniGraphSource* source, const maniGraphLearnedNodeSource* l)
+MANI_NODISCARD static bool QueryValid(const maniGraphSource* source,
+                                      const maniGraphLearnedNodeSource* l)
 {
     // maniCheckGraphLearned refused a count past MANI_MAX_MATCH_FEATURES.
     if (l->queryCount > 0 && l->query == NULL)
@@ -66,7 +67,8 @@ static bool QueryValid(const maniGraphSource* source, const maniGraphLearnedNode
 }
 
 // Literal tags (both) those of one of the model's Projectors.
-static bool TagsKnown(const maniGraphSource* source, const maniGraphLearnedNodeSource* l)
+MANI_NODISCARD static bool TagsKnown(const maniGraphSource* source,
+                                     const maniGraphLearnedNodeSource* l)
 {
     if (l->requiredTags.parameter != MANI_NO_PARAMETER ||
         l->excludedTags.parameter != MANI_NO_PARAMETER)

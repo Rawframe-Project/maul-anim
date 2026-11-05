@@ -41,7 +41,7 @@ static float LoadF32(const uint8_t* p)
 // Stored float k after the header: finite, and a translation component
 // within MANI_ROOT_MOTION_REACH (seven for the period, then seven per
 // sample).
-static bool StoredValid(const uint8_t* p, uint64_t k)
+MANI_NODISCARD static bool StoredValid(const uint8_t* p, uint64_t k)
 {
     uint32_t bits = maniLoadU32(p);
     if ((bits & 0x7F800000u) == 0x7F800000u)
@@ -53,7 +53,7 @@ static bool StoredValid(const uint8_t* p, uint64_t k)
 }
 
 // The source's fields in range, with a channel chosen.
-static bool SourceValid(const maniRootMotionSource* s)
+MANI_NODISCARD static bool SourceValid(const maniRootMotionSource* s)
 {
     return s->translationAxes <= 7u && (uint32_t)s->rotation <= maniRootRotationWhole &&
            s->twistAxis <= 2u && (uint32_t)s->translationReference <= maniRootReferenceOrigin &&
@@ -74,7 +74,7 @@ static maniRootMotionSource LoadSource(const uint8_t* h)
 }
 
 // Whether the clip's tracks hold the bone's translation and rotation.
-static bool BoneTracked(const maniClip* clip, uint32_t bone)
+MANI_NODISCARD static bool BoneTracked(const maniClip* clip, uint32_t bone)
 {
     for (uint32_t i = 0; i < clip->trackCount; ++i)
     {
@@ -280,7 +280,7 @@ maniResult maniClip_GetRootMotion(const maniClip* clip, float time, float step,
     return result;
 }
 
-static bool MoveFinite(const maniRootMove* m)
+MANI_NODISCARD static bool MoveFinite(const maniRootMove* m)
 {
     return isfinite(m->translation.x) && isfinite(m->translation.y) && isfinite(m->translation.z) &&
            isfinite(m->rotation.x) && isfinite(m->rotation.y) && isfinite(m->rotation.z) &&

@@ -14,7 +14,8 @@
 #include <stdint.h>
 
 // Whether a skin links models and every one is a bone of the skeleton.
-bool maniFbxSkinWithin(const maniFbx* fbx, uint32_t skin, const maniSkeleton* skeleton);
+MANI_NODISCARD bool maniFbxSkinWithin(const maniFbx* fbx, uint32_t skin,
+                                      const maniSkeleton* skeleton);
 
 // A skin's clusters linking a model, in connection order: its joints,
 // as maniBuildFbxSkin numbers them. Counted with clusters NULL.

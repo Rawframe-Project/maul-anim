@@ -207,7 +207,8 @@ static maniFbxMatrix Identity(void)
 
 // m's world relative to a frame, decomposed; false where it shears or
 // the frame has no inverse.
-static bool Relative(const maniFbxMatrix* frame, const maniFbxMatrix* world, maniTransform* out)
+MANI_NODISCARD static bool Relative(const maniFbxMatrix* frame, const maniFbxMatrix* world,
+                                    maniTransform* out)
 {
     maniFbxMatrix inverse;
     if (!maniFbxMatrixInverse(frame, &inverse))
@@ -221,7 +222,7 @@ static bool Relative(const maniFbxMatrix* frame, const maniFbxMatrix* world, man
 
 // The root's local: its own transform, or folded with its placement as
 // the skeleton's rest was.
-static bool Root(const Clip* c, uint32_t m, maniTransform* out)
+MANI_NODISCARD static bool Root(const Clip* c, uint32_t m, maniTransform* out)
 {
     const maniFbxWorld* w = &c->worlds[m];
     if (c->options->foldPlacement == 0)
@@ -239,7 +240,7 @@ static bool Root(const Clip* c, uint32_t m, maniTransform* out)
     return maniDecomposeExact(&affine, out);
 }
 
-static bool Helper(const Clip* c, uint32_t m, maniTransform* out)
+MANI_NODISCARD static bool Helper(const Clip* c, uint32_t m, maniTransform* out)
 {
     const double* s = c->worlds[m].inheritScale;
     *out = (maniTransform){
@@ -256,7 +257,7 @@ static const maniFbxMatrix* Frame(const Clip* c, uint32_t bone)
 
 // One bone's local at the sample the worlds hold; false where it does
 // not decompose.
-static bool Local(const Clip* c, uint32_t b, maniTransform* out)
+MANI_NODISCARD static bool Local(const Clip* c, uint32_t b, maniTransform* out)
 {
     uint32_t m = c->modelOf[b];
     const maniFbxWorld* w = &c->worlds[m];
@@ -290,7 +291,7 @@ static void Floats(const maniTransform* t, float out[10])
     memcpy(out, t, sizeof *t);
 }
 
-static bool Finite(const maniTransform* t)
+MANI_NODISCARD static bool Finite(const maniTransform* t)
 {
     float v[10];
     Floats(t, v);

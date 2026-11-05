@@ -343,7 +343,7 @@ static maniImportResult ReadDrives(const maniGltfRagdollReader* r, uint32_t sett
 
 // The two sides' frames together at rest: within a thousandth of a
 // meter, and of a radian (the turn between them's half-angle sine).
-static bool Together(maniGltfRigid a, maniGltfRigid b)
+MANI_NODISCARD static bool Together(maniGltfRigid a, maniGltfRigid b)
 {
     maniVec3 d = maniVec3Sub(a.t, b.t);
     maniQuat turn = maniQuatMul(maniQuatConjugate(a.r), b.r);

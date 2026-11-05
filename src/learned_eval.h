@@ -19,8 +19,8 @@
 // hidden (maniLearnedHiddenCount floats), the last layer's inputs are
 // kept there. False, out unchanged, when an output passes the float
 // range (the model's data).
-bool maniLearnedDecompressMotion(const maniLearnedModel* model, const float* state, float* out,
-                                 void* scratch, float* hidden);
+MANI_NODISCARD bool maniLearnedDecompressMotion(const maniLearnedModel* model, const float* state,
+                                                float* out, void* scratch, float* hidden);
 
 // The inputs of the Decompressor's last layer: the hidden values a
 // decompression keeps for another at the same state (0 for a Decompressor

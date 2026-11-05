@@ -97,7 +97,7 @@ maniImportResult maniGltfReadFallback(maniGltf* gltf, uint32_t value, uint32_t b
     return r;
 }
 
-static bool FilterFits(const maniGltfView* v)
+MANI_NODISCARD static bool FilterFits(const maniGltfView* v)
 {
     uint32_t s = v->elementStride;
     switch ((maniMeshoptFilter)v->filter)

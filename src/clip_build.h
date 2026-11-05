@@ -20,7 +20,8 @@
 // An importer's clip settings in range for a skeleton: a rate finite and
 // not negative, a loop and basis known, a root motion source
 // valid with its bone in the skeleton.
-bool maniImportClipOptionsValid(const maniImportClipOptions* options, const maniSkeleton* skeleton);
+MANI_NODISCARD bool maniImportClipOptionsValid(const maniImportClipOptions* options,
+                                               const maniSkeleton* skeleton);
 
 // A clip source from an importer's tracks and its clip settings.
 static inline void maniApplyImportClipOptions(const maniImportClipOptions* options,

@@ -80,8 +80,8 @@ static float Clamped(const maniGraphEvaluation* e, uint32_t at, float low, float
 
 // The input of an IK node copied to out; false with none (out then
 // neutral) or a weight of 0 at data word weightAt.
-static bool IkInput(const maniGraphEvaluation* e, const uint8_t* record, uint32_t weightAt,
-                    maniPose* out)
+MANI_NODISCARD static bool IkInput(const maniGraphEvaluation* e, const uint8_t* record,
+                                   uint32_t weightAt, maniPose* out)
 {
     const maniPose* input = maniGraphEvalInput(e, record, 0);
     if (input == NULL)

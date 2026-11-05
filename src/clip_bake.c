@@ -125,7 +125,7 @@ static size_t Aligned(size_t n)
 }
 
 // The poses and the transfer's scratch, in one block.
-static bool TakePoses(Bake* b)
+MANI_NODISCARD static bool TakePoses(Bake* b)
 {
     const maniClipBakeKind* s = b->s;
     size_t sourceSize = Aligned(maniSkeleton_GetPoseSize(s->from));
@@ -151,7 +151,7 @@ static bool TakePoses(Bake* b)
 }
 
 // The lists' memory; false when the allocator fails or a size overflows.
-static bool TakeLists(Bake* b)
+MANI_NODISCARD static bool TakeLists(Bake* b)
 {
     const maniClip* clip = b->s->clip;
     size_t n = b->samples;
@@ -267,7 +267,8 @@ static maniResult Sample(Bake* b, uint32_t k)
 }
 
 // Whether a channel's samples (dimension floats each) are all its rest's.
-static bool AtRest(const float* values, uint32_t dimension, size_t n, const float* rest)
+MANI_NODISCARD static bool AtRest(const float* values, uint32_t dimension, size_t n,
+                                  const float* rest)
 {
     for (size_t k = 0; k < n; ++k)
     {
