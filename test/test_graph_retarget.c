@@ -626,6 +626,67 @@ static void TestSharedScratch(void)
     CHECK(same, "each graph its own clip carried");
 }
 
+// The scratch's poses of a skeleton, found by their tag and identity at
+// each MANI_POSE_ALIGNMENT step: up to count, into poses.
+static uint32_t PosesIn(uint8_t* scratch, size_t size, const maniSkeleton* skeleton,
+                        uint8_t** poses, uint32_t count)
+{
+    uint32_t found = 0;
+    for (size_t at = 0; at + 16 <= size && found < count; at += MANI_POSE_ALIGNMENT)
+    {
+        if (maniLoadU32(scratch + at) == 0x534F504Du &&
+            maniLoadU64(scratch + at + 16) == maniSkeleton_GetIdentity(skeleton))
+        {
+            poses[found++] = scratch + at;
+        }
+    }
+    return found;
+}
+
+// The scratch written over between two evaluations where a mapped clip
+// keeps its poses: each of the three still marked a pose of its skeleton,
+// its group count made huge. The next evaluation makes them again.
+static void TestOverwrittenRoom(void)
+{
+    maniGraphSource source = Graph(&s_map, &s_map);
+    maniGraph g;
+    maniGraphInstance* instance = NULL;
+    CHECK(BuildGraph(&source).result == mani_success &&
+              maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
+              Bound(&g, &instance),
+          "the walk's graph bound");
+    CHECK(maniGraphInstance_Update(instance, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+              maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) ==
+                  mani_success,
+          "evaluated once");
+    // The source's two poses, then the target's first after them (the
+    // slots before them are the target's too).
+    uint8_t* room[2];
+    uint8_t* target[8];
+    uint32_t targets = PosesIn(s_scratch, sizeof s_scratch, &s_target, target, 8);
+    bool found = PosesIn(s_scratch, sizeof s_scratch, &s_source, room, 2) == 2;
+    uint8_t* after = NULL;
+    for (uint32_t k = 0; k < targets && found; ++k)
+    {
+        after = after == NULL && target[k] > room[1] ? target[k] : after;
+    }
+    CHECK(found && after != NULL, "the room's poses found");
+    if (after == NULL)
+    {
+        return;
+    }
+    uint8_t* poses[3] = {room[0], room[1], after};
+    for (int k = 0; k < 3; ++k)
+    {
+        maniStoreU32(poses[k] + 8, 0x01000000u);
+    }
+    CHECK(maniGraphInstance_Update(instance, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+              maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) ==
+                  mani_success &&
+              Expected(0.2f) && Same(s_out, s_expected),
+          "the room's poses made again");
+}
+
 static uint64_t SectionAt(uint32_t tag)
 {
     maniContainer c;
@@ -750,6 +811,7 @@ int main(void)
     TestTooManyMaps();
     TestBindRefusals();
     TestSharedScratch();
+    TestOverwrittenRoom();
     TestOpen();
     TestJson();
     TestSubgraph();

@@ -293,23 +293,19 @@ static void Additive(const maniGraphEvaluation* e, const uint8_t* record, maniPo
 
 // A mapped clip's pose: sampled into a pose of the map's source and
 // carried; an additive clip's difference added to the source's rest,
-// carried, and taken from the source's rest carried. The room's poses
-// are made again only when they are not poses of their skeletons.
+// carried, and taken from the source's rest carried. The room's poses'
+// headers are made on every call, as the slots' are; each pose's bones
+// are written before they are read.
 static void SampleMapped(const maniGraphEvaluation* e, const maniGraphBoundMapPair* pair,
                          maniClipCursor* c, const maniClip* clip, float time, maniPose* out)
 {
     uint8_t* at = e->scratch + e->parts.retargetAt;
     size_t sourceSize = e->binding->sourcePoseSize;
-    maniPose* poses[3] = {(void*)at, (void*)(at + sourceSize), (void*)(at + 2 * sourceSize)};
-    void* scratch = at + 2 * sourceSize + e->parts.poseSize;
     const maniSkeleton* skeleton = e->binding->skeleton;
-    if (!maniPoseMatches(poses[0], pair->source) || !maniPoseMatches(poses[1], pair->source) ||
-        !maniPoseMatches(poses[2], skeleton))
-    {
-        (void)maniInitPoseEntered(pair->source, poses[0], sourceSize, &poses[0]);
-        (void)maniInitPoseEntered(pair->source, poses[1], sourceSize, &poses[1]);
-        (void)maniInitPoseEntered(skeleton, poses[2], e->parts.poseSize, &poses[2]);
-    }
+    maniPose* poses[3] = {maniPoseMakeHeader(pair->source, at),
+                          maniPoseMakeHeader(pair->source, at + sourceSize),
+                          maniPoseMakeHeader(skeleton, at + 2 * sourceSize)};
+    void* scratch = at + 2 * sourceSize + e->parts.poseSize;
     size_t size = e->binding->retargetScratchSize;
     (void)maniSampleClipCursorEntered(c, clip, pair->source, time, poses[0]);
     if (!maniPose_IsDifference(poses[0]))
