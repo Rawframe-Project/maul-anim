@@ -15,10 +15,12 @@
 // the request comes before any header that reaches the C library.
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "file_tag.h"
 #include "graph_learned_fixture.h"
 #include "learned_eval.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 static maniLearnedModel s_other;
 
@@ -408,6 +410,41 @@ static void TestRoom(bool wideFirst)
         playing += learned && LearnedBlock(instance, &g, p)[maniGraphLearnedHas] == 1 ? 1u : 0u;
     }
     CHECK(playing == 2, "both playing");
+    // After the bind, each node made to play the other slot's model: the
+    // cache the lookup gives reaches as far as the caches from the node's
+    // place on, so the earlier node keeps one (the wider model's running
+    // into the later node's) and the later one has none for the wider.
+    uint32_t slot[2];
+    uint8_t* word[2];
+    for (uint32_t k = 0; k < 2; ++k)
+    {
+        uint32_t data = maniLoadU32(g.nodes + (size_t)at[k] * MANI_GRAPH_NODE_SIZE + 12);
+        word[k] = (uint8_t*)(uintptr_t)g.data + 4 * (size_t)(data + maniGraphLearnedModel);
+        slot[k] = maniLoadU32(word[k]);
+    }
+    const maniLearnedModel* narrow = BoundModelOf(instance, &g, at[wideFirst ? 1 : 0]);
+    uint32_t wider = slot[wideFirst ? 0 : 1];
+    maniStoreU32(word[0], slot[1]);
+    maniStoreU32(word[1], slot[0]);
+    CHECK(maniGraphLearnedCache(instance, at[0], BoundModelOf(instance, &g, at[0])) != NULL &&
+              (maniGraphLearnedCache(instance, at[1], BoundModelOf(instance, &g, at[1])) == NULL) ==
+                  wideFirst,
+          "a model changed since the bind: a cache only within the caches from the place on");
+    // A new instance with both nodes made to play the wider model: the
+    // caches bind counted hold it once, so the later node gets no place.
+    maniStoreU32(word[0], wider);
+    maniStoreU32(word[1], wider);
+    size_t size = maniGraphBinding_GetInstanceSize(binding);
+    uint8_t* block = NULL;
+    uint8_t* memory = TestExactCopy(size, &block);
+    maniGraphInstance* fresh = NULL;
+    CHECK(memory != NULL && maniInitGraphInstance(binding, memory, size, &fresh) == mani_success &&
+              maniGraphLearnedCache(fresh, at[0], BoundModelOf(fresh, &g, at[0])) != NULL &&
+              maniGraphLearnedCache(fresh, at[1], narrow) == NULL,
+          "both nodes made to play the wider model: only the first placed");
+    free(block);
+    maniStoreU32(word[0], slot[0]);
+    maniStoreU32(word[1], slot[1]);
 }
 
 // A graph whose first slot's model no node plays: bound whatever its

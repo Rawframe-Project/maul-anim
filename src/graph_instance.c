@@ -235,7 +235,10 @@ float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node,
     uint32_t* table = (uint32_t*)((uint8_t*)instance + instance->cachesAt);
     uint32_t at = table[node];
     size_t floats = CacheFloats(model);
-    // The model the node names now may take more than its place.
+    // The model the node names now may take more than the caches from its
+    // place on. One that takes more than its own place, but no more than
+    // that, runs into the next node's cache: within the instance, and only
+    // after the bytes changed.
     bool fits = at != UINT32_MAX && floats > 0 && floats <= binding->cacheFloats - at;
     return fits ? (float*)(table + binding->graph.nodeCount) + at : NULL;
 }

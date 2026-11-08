@@ -675,8 +675,10 @@ extern "C"
     /// @param parameter  A parameter of type maniGraphParameterPose.
     /// @param pose       A pose of the graph's skeleton, not a difference.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// parameter past the count or of another type, or a pose of another
-    /// skeleton or a difference (nothing changed).
+    /// parameter past the count or of another type, a pose parameter past
+    /// the poses the binding counted (one the bytes, changed since the
+    /// bind, made a pose), or a pose of another skeleton or a difference
+    /// (nothing changed).
     /// @par Thread safety
     /// Safe from any thread; the instance and pose are used by one
     /// thread at a time.
@@ -691,8 +693,9 @@ extern "C"
     /// @param poseOut    A pose of the graph's skeleton; it becomes a pose
     ///                   (not a difference), its model not current.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// parameter past the count or of another type, or a pose of another
-    /// skeleton.
+    /// parameter past the count or of another type, a pose parameter past
+    /// the poses the binding counted (one the bytes, changed since the
+    /// bind, made a pose), or a pose of another skeleton.
     /// @par Thread safety
     /// Safe from any thread; the instance and pose are used by one
     /// thread at a time.

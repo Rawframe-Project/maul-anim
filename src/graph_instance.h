@@ -294,8 +294,8 @@ void maniGraphRecordLayout(maniGraphBinding* binding);
 // (maniLearnedHiddenCount), for its evaluation at the same state; found
 // through the table at cachesAt. NULL for a node of another kind, a
 // Decompressor of one layer, or a model (the one the node names now)
-// that takes more than the node's place. A pure function of the state,
-// so restores leave it right.
+// that takes more than the caches from the node's place on. A pure
+// function of the state, so restores leave it right.
 float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node,
                              const maniLearnedModel* model);
 
