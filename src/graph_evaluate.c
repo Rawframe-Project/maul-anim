@@ -495,7 +495,7 @@ static void SampleLearned(const maniGraphEvaluation* e, uint32_t p, const uint8_
     float* state = room + scratchSize / 4;
     uint32_t states = m->featureCount + m->latentCount;
     maniGraphLearnedState(block, states, m->stepRate, state);
-    const float* cache = maniGraphLearnedCache(e->instance, p);
+    const float* cache = maniGraphLearnedCache(e->instance, p, m);
     bool kept =
         cache != NULL && cache[0] != 0.0f && memcmp(cache + 1, state, sizeof(float) * states) == 0;
     maniLearnedOutput output = {out, NULL, 0, NULL, 0, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};

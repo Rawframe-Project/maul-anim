@@ -13,6 +13,7 @@
 // restored playing alike, and after the largest deltas; each word of a
 // saved block checked.
 
+#include "graph_changed.h"
 #include "graph_learned_fixture.h"
 #include "learned_eval.h"
 #include "vecmath.h"
@@ -720,7 +721,7 @@ static void TestReset(void)
     maniGraph g;
     (void)Learning(LearnedNode(0.1f, 0.0f), &g);
     uint32_t data = maniLoadU32(g.nodes + 12);
-    uint32_t words = maniGraphLearnedBlockWords(&g, data);
+    uint64_t words = maniGraphLearnedBlockWords(&g, data);
     uint32_t block[64];
     CHECK(words < 64, "a small block");
     memset(block, 0xFF, sizeof block);
@@ -760,7 +761,7 @@ static void TestCache(void)
     maniGraphInstance* instance = Learning(LearnedNode(0.1f, 0.5f), &g);
     size_t size = SavedGraphSize(instance);
     uint32_t hidden = maniLearnedHiddenCount(&s_learned);
-    float* cache = maniGraphLearnedCache(instance, 0);
+    float* cache = maniGraphLearnedCache(instance, 0, &s_learned);
     static float kept[1 + STATE + 1024];
     size_t bytes = sizeof(float) * (1 + STATE + hidden);
     CHECK(hidden > 0 && hidden <= 1024 && cache != NULL && cache[0] == 0.0f &&
@@ -1031,6 +1032,24 @@ static void TestRootOverflow(void)
           "an angle whose reciprocal passes the float range turned by its first order");
 }
 
+// The graph's bytes changed after the open: graph_changed.h's
+// sweep over an inertialization above a learned node, bound to the
+// clips and the model.
+static void TestChangedBytes(void)
+{
+    maniGraph g;
+    (void)Learning(LearnedNode(0.1f, 0.5f), &g);
+    const maniClip* clips[CLIPS];
+    for (uint32_t c = 0; c < CLIPS; ++c)
+    {
+        clips[c] = &s_clips[c];
+    }
+    const maniLearnedModel* models[1] = {s_bound};
+    maniGraphAssets assets = {&s_skeleton, clips, NULL, models, NULL, CLIPS, 0,
+                              1,           0,     NULL, NULL,   0,    0,     NULL};
+    TestChangedGraph(&g, &assets, "every word of a learned graph changed and put back");
+}
+
 int main(void)
 {
     Open();
@@ -1054,5 +1073,6 @@ int main(void)
     TestMirrored();
     TestOverflow();
     TestRootOverflow();
+    TestChangedBytes();
     return s_failures == 0 ? 0 : 1;
 }

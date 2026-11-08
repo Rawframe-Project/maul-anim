@@ -583,7 +583,7 @@ static void TestNegativeZero(void)
 static void TestWords(void)
 {
     static _Alignas(8) uint8_t words[4 * MANI_GRAPH_BODY_WORDS];
-    maniGraph g = {.data = words};
+    maniGraph g = {.data = words, .dataWords = MANI_GRAPH_BODY_WORDS};
     const uint32_t counts[5][3] = {
         {2, 1, 42}, {2, 1, 41}, {0, 1, 1000}, {33, 0, 1000}, {2, 129, 4000}};
     const uint32_t want[5] = {42, 0, 0, 0, 0};

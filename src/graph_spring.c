@@ -28,7 +28,7 @@
 
 static uint32_t Word(const maniGraph* g, uint32_t at)
 {
-    return maniLoadU32(g->data + 4 * (size_t)at);
+    return maniGraphWord(g, at);
 }
 
 // A parameter of the type, or none.
@@ -73,9 +73,9 @@ uint64_t maniGraphSpringSetWords(const maniSpringSet* set)
     return maniSpringBlockWords(set);
 }
 
-uint32_t maniGraphSpringBlockWords(const maniGraph* g, uint32_t data)
+uint64_t maniGraphSpringBlockWords(const maniGraph* g, uint32_t data)
 {
-    return maniGraphSpringState + Word(g, data + maniGraphSpringStateWords);
+    return (uint64_t)maniGraphSpringState + Word(g, data + maniGraphSpringStateWords);
 }
 
 bool maniGraphSpringFits(const maniGraph* g, uint32_t data, const maniSpringSet* set)

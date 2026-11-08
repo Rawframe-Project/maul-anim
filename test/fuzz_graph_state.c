@@ -17,7 +17,12 @@
 // quaternion parameter made a unit one, then with the inertialize
 // nodes' blocks as a fresh instance has them, so the searching nodes'
 // reach their checks; a restored state saves back to the same bytes,
-// updates and evaluates. Run as fuzz_graph_state <corpus dir>.
+// updates and evaluates. Before them, the input's first words change the
+// graph file's words after the open and the bind: instances of the
+// binding made before and the live one, and instances of the graph
+// bound again, are set, inspected, saved and restored on the changed
+// bytes, which no call reads or writes past; then the words put back. Run as fuzz_graph_state
+// <corpus dir>.
 
 #include "bytes.h"
 #include "fuzz_model.h"
@@ -69,6 +74,11 @@ static maniClip s_clip;
 static maniGraph s_graph;
 static maniGraphInstance* s_live;
 static size_t s_stateSize;
+static size_t s_graphSize;
+static const maniClip* s_clips[1];
+static const maniMotionDatabase* s_databases[1];
+static const maniLearnedModel* s_models[1];
+static const maniSpringSet* s_sets[1];
 
 static bool Built(maniBuilder* builder, uint8_t* out, size_t capacity, size_t* size)
 {
@@ -215,17 +225,18 @@ static bool MakeGraph(maniBuilder* builder)
     size_t size = 0;
     return maniBuildGraph(builder, &source).result == mani_success &&
            Built(builder, s_graphFile, sizeof s_graphFile, &size) &&
-           maniOpenGraph(s_graphFile, size, &s_graph).result == mani_success;
+           maniOpenGraph(s_graphFile, size, &s_graph).result == mani_success &&
+           (s_graphSize = size) > 0;
 }
 
 static void Setup(void)
 {
     maniBuilderDef def = maniDefaultBuilderDef();
     maniBuilder* builder = NULL;
-    const maniClip* clips[1] = {&s_clip};
-    const maniMotionDatabase* databases[1] = {&s_database};
-    const maniLearnedModel* models[1] = {&s_model};
-    const maniSpringSet* sets[1] = {&s_set};
+    s_clips[0] = &s_clip;
+    s_databases[0] = &s_database;
+    s_models[0] = &s_model;
+    s_sets[0] = &s_set;
     maniGraphBinding* binding = NULL;
     bool ok =
         maniCreateBuilder(&def, &builder) == mani_success && MakeClip(builder) &&
@@ -234,8 +245,8 @@ static void Setup(void)
                       &s_model) &&
         MakeSet(builder) && MakeGraph(builder) &&
         maniBindGraph(&s_graph,
-                      &(maniGraphAssets){&s_skeleton, clips, databases, models, sets, 1, 1, 1, 1,
-                                         NULL, NULL, 0, 0, NULL},
+                      &(maniGraphAssets){&s_skeleton, s_clips, s_databases, s_models, s_sets, 1, 1,
+                                         1, 1, NULL, NULL, 0, 0, NULL},
                       s_binding, sizeof s_binding, &binding, NULL) == mani_success &&
         maniInitGraphInstance(binding, s_instance, sizeof s_instance, &s_live) == mani_success;
     maniDestroyBuilder(builder);
@@ -264,6 +275,83 @@ static void Setup(void)
     if (eased != 2)
     {
         abort();
+    }
+}
+
+// Every call on an instance on the changed bytes: its parameters and
+// poses set and read, every node inspected, its state saved and restored
+// into other.
+static void ChangedCalls(maniGraphInstance* a, maniGraphInstance* b)
+{
+    static uint8_t saved[4096];
+    for (uint32_t p = 0; p < s_graph.parameterCount; ++p)
+    {
+        (void)maniGraphInstance_SetParameter(a, p, maniGraphParameterTrigger,
+                                             (maniGraphValue){.b = 1});
+        (void)maniGraphInstance_SetPose(a, p, s_pose);
+        (void)maniGraphInstance_GetPose(a, p, s_pose);
+    }
+    for (uint32_t p = 0; p < s_graph.nodeCount; ++p)
+    {
+        maniGraphNodeView view;
+        (void)maniGraphInstance_InspectNode(a, p, &view);
+    }
+    size_t length = 0;
+    if (maniGraphInstance_Save(a, saved, sizeof saved, &length) == mani_success)
+    {
+        (void)maniGraphInstance_Restore(b, saved, length);
+    }
+}
+
+// Two instances made on a binding, every call run on them.
+static void ChangedInstances(const maniGraphBinding* bound)
+{
+    static _Alignas(8) uint8_t instance[4096];
+    static _Alignas(8) uint8_t other[4096];
+    maniGraphInstance* a = NULL;
+    maniGraphInstance* b = NULL;
+    if (maniGraphBinding_GetInstanceSize(bound) <= sizeof instance &&
+        maniInitGraphInstance(bound, instance, sizeof instance, &a) == mani_success &&
+        maniInitGraphInstance(bound, other, sizeof other, &b) == mani_success)
+    {
+        ChangedCalls(a, b);
+    }
+}
+
+// The graph's words changed by the input's first words (a word's place,
+// then its value, up to eight). Then every call runs on new instances of
+// the binding made before the change and on the live instance, and on
+// instances of the graph bound again; then the words are put back.
+static void Changed(const uint8_t* data, size_t size)
+{
+    static _Alignas(8) uint8_t binding[512];
+    uint32_t words = (uint32_t)(s_graphSize / 4);
+    uint32_t places[8];
+    uint32_t kept[8];
+    uint32_t n = 0;
+    for (; n < 8 && 8 * (size_t)(n + 1) <= size; ++n)
+    {
+        places[n] = maniLoadU32(data + 8 * (size_t)n) % words;
+        kept[n] = maniLoadU32(s_graphFile + 4 * (size_t)places[n]);
+        maniStoreU32(s_graphFile + 4 * (size_t)places[n], maniLoadU32(data + 8 * (size_t)n + 4));
+    }
+    if (n > 0)
+    {
+        ChangedInstances(s_live->binding);
+        ChangedCalls(s_live, s_live);
+    }
+    maniGraphBinding* bound = NULL;
+    if (n > 0 && maniGraph_GetBindingSize(&s_graph) <= sizeof binding &&
+        maniBindGraph(&s_graph,
+                      &(maniGraphAssets){&s_skeleton, s_clips, s_databases, s_models, s_sets, 1, 1,
+                                         1, 1, NULL, NULL, 0, 0, NULL},
+                      binding, sizeof binding, &bound, NULL) == mani_success)
+    {
+        ChangedInstances(bound);
+    }
+    for (uint32_t k = n; k-- > 0;)
+    {
+        maniStoreU32(s_graphFile + 4 * (size_t)places[k], kept[k]);
     }
 }
 
@@ -308,6 +396,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     {
         memcpy(copy, data, size);
     }
+    Changed(copy, size);
     Exercise(copy, size);
     // The header made right: the fresh state's prefix, the graph's
     // identity, the size.

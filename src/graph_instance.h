@@ -17,6 +17,7 @@
 #include "maul-anim/spring.h"
 
 #include <float.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -48,6 +49,15 @@ struct maniGraphBinding
     uint32_t rootMotionBone;
     // The most inputs a node takes: the layers evaluation lists at once.
     uint32_t maxInputs;
+    // What the instance's layout is made from, counted once here: the
+    // nodes that sample clips through a cursor, the pose parameters, the
+    // room (maniGraphRoom) and every learned node's cache in floats. The
+    // graph's bytes stay in the caller's hands, so later calls never
+    // count them again.
+    uint32_t clipNodeCount;
+    uint32_t poseCount;
+    size_t room;
+    size_t cacheFloats;
     // The scratch evaluation carries a mapped clip's pose in: two poses
     // of the largest source skeleton, a pose of the graph's and the
     // largest transfer scratch, each part a multiple of
@@ -70,15 +80,26 @@ static inline const maniMotionDatabase** maniGraphBoundDatabases(maniGraphBindin
     return (const maniMotionDatabase**)(uint8_t*)(binding->clips + binding->graph.clipCount);
 }
 
+// A slot read from the graph's bytes, clamped to the count: the bytes
+// are not checked again after the open, so a changed one names the last
+// slot; UINT32_MAX for a count of 0.
+static inline uint32_t maniGraphBoundSlot(uint32_t slot, uint32_t count)
+{
+    return slot < count ? slot : count - 1u;
+}
+
+// The database a database slot binds; NULL for a graph without them.
 static inline const maniMotionDatabase* maniGraphBoundDatabase(const maniGraphBinding* binding,
                                                                uint32_t slot)
 {
+    uint32_t count = binding->graph.databaseCount;
     const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
-    return ((const maniMotionDatabase* const*)at)[slot];
+    return count > 0 ? ((const maniMotionDatabase* const*)at)[maniGraphBoundSlot(slot, count)]
+                     : NULL;
 }
 
 // The models a binding's model slots bind, in slot order: after its
-// databases.
+// databases; maniGraphBoundModel gives NULL for a graph without them.
 static inline const maniLearnedModel** maniGraphBoundModels(maniGraphBinding* binding)
 {
     return (const maniLearnedModel**)(uint8_t*)(maniGraphBoundDatabases(binding) +
@@ -90,11 +111,13 @@ static inline const maniLearnedModel* maniGraphBoundModel(const maniGraphBinding
 {
     const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
     at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
-    return ((const maniLearnedModel* const*)at)[slot];
+    uint32_t count = binding->graph.modelCount;
+    return count > 0 ? ((const maniLearnedModel* const*)at)[maniGraphBoundSlot(slot, count)] : NULL;
 }
 
 // The spring sets a binding's spring set slots bind, in slot order:
-// after its models.
+// after its models; maniGraphBoundSpringSet gives NULL for a graph
+// without them.
 static inline const maniSpringSet** maniGraphBoundSpringSets(maniGraphBinding* binding)
 {
     return (const maniSpringSet**)(uint8_t*)(maniGraphBoundModels(binding) +
@@ -107,7 +130,8 @@ static inline const maniSpringSet* maniGraphBoundSpringSet(const maniGraphBindin
     const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
     at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
     at += (size_t)binding->graph.modelCount * sizeof(const maniLearnedModel*);
-    return ((const maniSpringSet* const*)at)[slot];
+    uint32_t count = binding->graph.springSetCount;
+    return count > 0 ? ((const maniSpringSet* const*)at)[maniGraphBoundSlot(slot, count)] : NULL;
 }
 
 // A map slot's map and its source skeleton: after the spring sets, a
@@ -133,7 +157,8 @@ static inline const maniGraphBoundMapPair* maniGraphBoundMap(const maniGraphBind
     at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
     at += (size_t)binding->graph.modelCount * sizeof(const maniLearnedModel*);
     at += (size_t)binding->graph.springSetCount * sizeof(const maniSpringSet*);
-    return (const maniGraphBoundMapPair*)at + slot;
+    uint32_t count = binding->graph.mapCount;
+    return count > 0 ? (const maniGraphBoundMapPair*)at + maniGraphBoundSlot(slot, count) : NULL;
 }
 
 // The map pair a clip slot plays through; NULL for a clip of the graph's
@@ -232,12 +257,15 @@ struct maniGraphInstance
 };
 
 // A pose parameter's locals in the instance, in a pose's layout (groups
-// of MANI_POSE_GROUP_BONES bones, MANI_POSE_COMPONENTS floats each).
+// of MANI_POSE_GROUP_BONES bones, MANI_POSE_COMPONENTS floats each);
+// NULL for a parameter past the count, of another type, or past the pose
+// parameters bind counted.
 float* maniGraphPoseLocals(maniGraphInstance* instance, uint32_t parameter);
 const float* maniGraphPoseLocalsRead(const maniGraphInstance* instance, uint32_t parameter);
 
 // A pose parameter's pose into out, a pose of the skeleton: a pose (not
-// differences), its model stale.
+// differences), its model stale; the rest for a parameter that is not a
+// pose parameter bind counted.
 void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, maniPose* out);
 
 // The bytes the instance's room needs: for a learned node, its model's
@@ -248,13 +276,27 @@ void maniGraphPoseInput(const maniGraphInstance* instance, uint32_t parameter, m
 // full-body nodes).
 size_t maniGraphRoom(const maniGraphBinding* binding);
 
+// Node p's block among the machines' words: its first word as the
+// node's data gives it now, when the block its kind and data size fits
+// in the words the graph was opened with; NULL for a node past the
+// count, of a kind without a block, or whose block does not fit (the
+// bytes changed since the open).
+uint32_t* maniGraphNodeBlock(maniGraphInstance* instance, uint32_t p);
+const uint32_t* maniGraphNodeBlockRead(const maniGraphInstance* instance, uint32_t p);
+
+// Counts once, at bind, what the instance's layout is made from: the
+// clip nodes, the pose parameters, the room and the caches' floats.
+void maniGraphRecordLayout(maniGraphBinding* binding);
+
 // Learned node node's cache: a word, 0 until its update keeps a state
 // and 1 after; the state its update decompressed at (its model's
 // features and latents); the Decompressor's hidden values there
 // (maniLearnedHiddenCount), for its evaluation at the same state; found
-// through the table at cachesAt. NULL for a node of another kind or a
-// Decompressor of one layer. A pure function of the state, so restores
-// leave it right.
-float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node);
+// through the table at cachesAt. NULL for a node of another kind, a
+// Decompressor of one layer, or a model (the one the node names now)
+// that takes more than the caches from the node's place on. A pure
+// function of the state, so restores leave it right.
+float* maniGraphLearnedCache(maniGraphInstance* instance, uint32_t node,
+                             const maniLearnedModel* model);
 
 #endif // MAUL_ANIM_SRC_GRAPH_INSTANCE_H
