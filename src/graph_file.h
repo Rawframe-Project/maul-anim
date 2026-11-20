@@ -9,6 +9,11 @@
 #ifndef MAUL_ANIM_SRC_GRAPH_FILE_H
 #define MAUL_ANIM_SRC_GRAPH_FILE_H
 
+#include "bytes.h"
+
+#include "maul-anim/graph.h"
+
+#include <stddef.h>
 #include <stdint.h>
 
 #define MANI_GRAPH_FORMAT_VERSION 7u
@@ -308,5 +313,22 @@ uint32_t maniGraphInputRange(uint32_t kind, uint32_t* minOut);
 // The identity: maniHash64 over every section in tag order, each
 // continuing the last.
 uint64_t maniGraphComputeIdentity(const uint8_t* const* sections, const uint64_t* sizes);
+
+// Data word at of an opened graph; 0 past its words. The opener checked
+// every index, but the bytes stay in the caller's hands, so a word read
+// at an offset another word gives is bounded here.
+static inline uint32_t maniGraphWord(const maniGraph* g, uint32_t at)
+{
+    return at < g->dataWords ? maniLoadU32(g->data + 4 * (size_t)at) : 0u;
+}
+
+// A node's input count as its record gives it, 0 when its inputs would
+// run past the inputs section.
+static inline uint32_t maniGraphInputCount(const maniGraph* g, const uint8_t* record)
+{
+    uint32_t first = maniLoadU32(record + 4);
+    uint32_t count = maniLoadU32(record + 8);
+    return first <= g->inputCount && count <= g->inputCount - first ? count : 0u;
+}
 
 #endif // MAUL_ANIM_SRC_GRAPH_FILE_H

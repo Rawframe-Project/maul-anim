@@ -54,7 +54,7 @@ uint32_t maniGraphSpringValid(const maniGraph* g, uint32_t data, uint32_t block)
 uint64_t maniGraphSpringSetWords(const maniSpringSet* set);
 
 // The words of the node's block.
-uint32_t maniGraphSpringBlockWords(const maniGraph* g, uint32_t data);
+uint64_t maniGraphSpringBlockWords(const maniGraph* g, uint32_t data);
 
 // Whether a set takes the node: its state the node's words.
 MANI_NODISCARD bool maniGraphSpringFits(const maniGraph* g, uint32_t data,

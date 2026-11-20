@@ -273,7 +273,7 @@ MANI_NODISCARD static bool RootMove(const Learned* l, double step, maniRootMove*
 static void Outputs(const Learned* l, double step)
 {
     const maniLearnedModel* m = l->m;
-    float* cache = maniGraphLearnedCache(l->u->instance, l->p);
+    float* cache = maniGraphLearnedCache(l->u->instance, l->p, m);
     maniRootMove move = maniMakeRootMoveIdentity();
     if (!maniLearnedDecompressMotion(m, l->state, l->motion, l->scratch,
                                      cache != NULL ? cache + 1 + l->states : NULL) ||

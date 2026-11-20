@@ -268,6 +268,7 @@ if(MAUL_ANIM_BUILD_TESTS)
         maul_add_test(graph_dead_blend WHITEBOX)
         maul_add_test(graph_pose WHITEBOX)
         maul_add_test(graph_pose_node WHITEBOX)
+        maul_add_test(graph_changed WHITEBOX)
         maul_add_test(match WHITEBOX)
         # The name totals' test holds about 200 MB, past Emscripten's
         # fixed default memory.

@@ -15,6 +15,7 @@
 #include "maul-anim/match.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 // A node's data words (graph_file.h): its model slot, trigger, period
@@ -68,12 +69,16 @@ uint32_t maniGraphLearnedDataWords(const maniGraph* g, uint32_t data, uint32_t a
 uint32_t maniGraphLearnedValid(const maniGraph* g, uint32_t data, uint32_t block);
 
 // The words of the node's block.
-uint32_t maniGraphLearnedBlockWords(const maniGraph* g, uint32_t data);
+uint64_t maniGraphLearnedBlockWords(const maniGraph* g, uint32_t data);
 
 // Whether a model takes the node: its counts the node's, and its
 // database's channels the node's query.
 MANI_NODISCARD bool maniGraphLearnedFits(const maniGraph* g, uint32_t data,
                                          const maniLearnedModel* model);
+
+// The bytes of the instance's room a learned node of the model works in:
+// its scratch, its state and its Decompressor's outputs after the bones'.
+size_t maniGraphLearnedRoom(const maniLearnedModel* m);
 
 // No state, the clocks at 0, no events heard.
 void maniGraphResetLearned(const maniGraph* g, uint32_t data, uint32_t* block);

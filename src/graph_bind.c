@@ -87,6 +87,13 @@ MANI_NODISCARD static bool DatabaseFits(const maniGraph* graph, uint32_t slot,
     {
         return false;
     }
+    // The bytes may have changed since the open: a clip run past the
+    // list, a query count past the most or a parameter past the count is
+    // refused as a database that does not fit.
+    if (first > graph->databaseClipCount || count > graph->databaseClipCount - first)
+    {
+        return false;
+    }
     for (uint32_t c = 0; c < count; ++c)
     {
         uint32_t clip = maniLoadU32(graph->databaseClips + 4 * (size_t)(first + c));
@@ -99,16 +106,24 @@ MANI_NODISCARD static bool DatabaseFits(const maniGraph* graph, uint32_t slot,
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         const uint8_t* record = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
-        const uint8_t* words = graph->data + 4 * (size_t)maniLoadU32(record + 12);
+        uint32_t data = maniLoadU32(record + 12);
         if (maniLoadU16(record) != maniGraphNodeMatch ||
-            maniLoadU32(words + 4 * maniGraphMatchDatabase) != slot)
+            maniGraphWord(graph, data + maniGraphMatchDatabase) != slot)
         {
             continue;
         }
-        uint32_t queries = maniLoadU32(words + 4 * maniGraphMatchQueryCount);
+        uint32_t queries = maniGraphWord(graph, data + maniGraphMatchQueryCount);
+        if (queries > MANI_MAX_MATCH_FEATURES)
+        {
+            return false;
+        }
         for (uint32_t q = 0; q < queries; ++q)
         {
-            uint32_t parameter = maniLoadU32(words + 4 * (size_t)(maniGraphMatchQuery + q));
+            uint32_t parameter = maniGraphWord(graph, data + maniGraphMatchQuery + q);
+            if (parameter >= graph->parameterCount)
+            {
+                return false;
+            }
             types[q] =
                 maniLoadU32(graph->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE);
         }
@@ -280,7 +295,7 @@ MANI_NODISCARD static bool ModelFits(const maniGraph* graph, uint32_t slot,
         const uint8_t* record = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
         uint32_t data = maniLoadU32(record + 12);
         if (maniLoadU16(record) == maniGraphNodeLearned &&
-            maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphLearnedModel)) == slot &&
+            maniGraphWord(graph, data + maniGraphLearnedModel) == slot &&
             !maniGraphLearnedFits(graph, data, m))
         {
             return false;
@@ -333,7 +348,7 @@ MANI_NODISCARD static bool SpringSetFits(const maniGraph* graph, uint32_t slot,
         const uint8_t* record = graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
         uint32_t data = maniLoadU32(record + 12);
         if (maniLoadU16(record) == maniGraphNodeSpring &&
-            maniLoadU32(graph->data + 4 * (size_t)(data + maniGraphSpringSet)) == slot &&
+            maniGraphWord(graph, data + maniGraphSpringSet) == slot &&
             !maniGraphSpringFits(graph, data, set))
         {
             return false;
@@ -463,6 +478,7 @@ static MANI_NOINLINE maniResult BindGraphWork(const maniGraph* graph, const mani
         binding->maxInputs = n > binding->maxInputs ? n : binding->maxInputs;
     }
     binding->cursorSize = CursorSize(binding);
+    maniGraphRecordLayout(binding);
     *bindingOut = binding;
     return mani_success;
 }

@@ -300,8 +300,10 @@ extern "C"
     ///
     /// @param graph      An opened graph.
     /// @param parameter  The parameter.
-    /// @param lengthOut  Receives the name's length; 0 past the count.
-    /// @return The name, not terminated, or NULL past the count.
+    /// @param lengthOut  Receives the name's length; 0 past the count, or
+    /// for a name the bytes, changed since the open, place past the names.
+    /// @return The name, not terminated, or NULL past the count or for
+    /// such a name.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraph_GetParameterName(const maniGraph* graph, uint32_t parameter,
@@ -328,8 +330,10 @@ extern "C"
     ///
     /// @param graph      An opened graph.
     /// @param clip       The slot.
-    /// @param lengthOut  Receives the name's length; 0 past the count.
-    /// @return The name, not terminated, or NULL past the count.
+    /// @param lengthOut  Receives the name's length; 0 past the count, or
+    /// for a name the bytes, changed since the open, place past the names.
+    /// @return The name, not terminated, or NULL past the count or for
+    /// such a name.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraph_GetClipName(const maniGraph* graph, uint32_t clip,
@@ -358,8 +362,10 @@ extern "C"
     ///
     /// @param graph      An opened graph.
     /// @param database   The slot.
-    /// @param lengthOut  Receives the name's length; 0 past the count.
-    /// @return The name, not terminated, or NULL past the count.
+    /// @param lengthOut  Receives the name's length; 0 past the count, or
+    /// for a name the bytes, changed since the open, place past the names.
+    /// @return The name, not terminated, or NULL past the count or for
+    /// such a name.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraph_GetDatabaseName(const maniGraph* graph, uint32_t database,
@@ -388,8 +394,10 @@ extern "C"
     ///
     /// @param graph      An opened graph.
     /// @param model      The slot.
-    /// @param lengthOut  Receives the name's length; 0 past the count.
-    /// @return The name, not terminated, or NULL past the count.
+    /// @param lengthOut  Receives the name's length; 0 past the count, or
+    /// for a name the bytes, changed since the open, place past the names.
+    /// @return The name, not terminated, or NULL past the count or for
+    /// such a name.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraph_GetModelName(const maniGraph* graph, uint32_t model,
@@ -418,8 +426,10 @@ extern "C"
     ///
     /// @param graph      An opened graph.
     /// @param slot       The slot.
-    /// @param lengthOut  Receives the name's length; 0 past the count.
-    /// @return The name, not terminated, or NULL past the count.
+    /// @param lengthOut  Receives the name's length; 0 past the count, or
+    /// for a name the bytes, changed since the open, place past the names.
+    /// @return The name, not terminated, or NULL past the count or for
+    /// such a name.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniGraph_GetSpringSetName(const maniGraph* graph, uint32_t slot,
@@ -467,7 +477,8 @@ extern "C"
     /// @param graph  An opened graph.
     /// @param clip   The clip slot.
     /// @return The map slot; MANI_NO_TRACK for a clip of the graph's
-    /// skeleton or past the count.
+    /// skeleton, past the count, or whose map slot the bytes, changed since
+    /// the open, place past the maps.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniGraph_GetClipRetargetMap(const maniGraph* graph, uint32_t clip);
@@ -488,7 +499,8 @@ extern "C"
     ///
     /// @param graph  An opened graph.
     /// @param node   The node.
-    /// @return The count; 0 for a NULL graph or past the count.
+    /// @return The count; 0 for a NULL graph, past the count, or for
+    /// inputs the bytes, changed since the open, place past the inputs.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniGraph_GetNodeInputCount(const maniGraph* graph, uint32_t node);
@@ -498,8 +510,9 @@ extern "C"
     /// @param graph  An opened graph.
     /// @param node   The node.
     /// @param input  The place, below maniGraph_GetNodeInputCount.
-    /// @return The input node; MANI_GRAPH_NONE for a NULL graph or past a
-    /// count.
+    /// @return The input node; MANI_GRAPH_NONE for a NULL graph, past a
+    /// count, or for a node the bytes, changed since the open, place past
+    /// the nodes.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniGraph_GetNodeInput(const maniGraph* graph, uint32_t node, uint32_t input);
@@ -662,8 +675,10 @@ extern "C"
     /// @param parameter  A parameter of type maniGraphParameterPose.
     /// @param pose       A pose of the graph's skeleton, not a difference.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// parameter past the count or of another type, or a pose of another
-    /// skeleton or a difference (nothing changed).
+    /// parameter past the count or of another type, a pose parameter past
+    /// the poses the binding counted (one the bytes, changed since the
+    /// bind, made a pose), or a pose of another skeleton or a difference
+    /// (nothing changed).
     /// @par Thread safety
     /// Safe from any thread; the instance and pose are used by one
     /// thread at a time.
@@ -678,8 +693,9 @@ extern "C"
     /// @param poseOut    A pose of the graph's skeleton; it becomes a pose
     ///                   (not a difference), its model not current.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// parameter past the count or of another type, or a pose of another
-    /// skeleton.
+    /// parameter past the count or of another type, a pose parameter past
+    /// the poses the binding counted (one the bytes, changed since the
+    /// bind, made a pose), or a pose of another skeleton.
     /// @par Thread safety
     /// Safe from any thread; the instance and pose are used by one
     /// thread at a time.

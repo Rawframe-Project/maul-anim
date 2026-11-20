@@ -36,7 +36,7 @@ static float FloatOf(uint32_t bits)
 
 static uint32_t Word(const maniGraph* g, uint32_t at)
 {
-    return maniLoadU32(g->data + 4 * (size_t)at);
+    return maniGraphWord(g, at);
 }
 
 static uint32_t ParameterType(const maniGraph* g, uint32_t parameter)
@@ -58,10 +58,10 @@ uint32_t maniGraphLearnedDataWords(const maniGraph* g, uint32_t data, uint32_t a
                : 0;
 }
 
-uint32_t maniGraphLearnedBlockWords(const maniGraph* g, uint32_t data)
+uint64_t maniGraphLearnedBlockWords(const maniGraph* g, uint32_t data)
 {
-    return MANI_GRAPH_LEARNED_BLOCK_WORDS(Word(g, data + maniGraphLearnedStates),
-                                          Word(g, data + maniGraphLearnedEvents));
+    return MANI_GRAPH_LEARNED_BLOCK_WORDS((uint64_t)Word(g, data + maniGraphLearnedStates),
+                                          (uint64_t)Word(g, data + maniGraphLearnedEvents));
 }
 
 // The slot, trigger, period and cost; the first wrong, or UINT32_MAX.
@@ -156,11 +156,25 @@ bool maniGraphLearnedFits(const maniGraph* g, uint32_t data, const maniLearnedMo
     }
     uint32_t types[MANI_MAX_MATCH_FEATURES];
     uint32_t queries = Word(g, data + maniGraphLearnedQueryCount);
+    // More queries than features (the bytes changed since the open) never
+    // fit; a parameter past the count has no type and fits none.
+    if (queries > MANI_MAX_MATCH_FEATURES)
+    {
+        return false;
+    }
     for (uint32_t q = 0; q < queries; ++q)
     {
         types[q] = ParameterType(g, Word(g, data + maniGraphLearnedQuery + q));
     }
     return maniGraphQueryFits(model, model->channelCount, maniGraphModelChannel, types, queries);
+}
+
+size_t maniGraphLearnedRoom(const maniLearnedModel* m)
+{
+    size_t tail =
+        (size_t)m->outputCount - 9 * (size_t)m->boneCount - 3 * (size_t)m->scaledBoneCount;
+    return maniLearnedModel_GetScratchSize(m) +
+           sizeof(float) * ((size_t)m->featureCount + m->latentCount + tail);
 }
 
 void maniGraphResetLearned(const maniGraph* g, uint32_t data, uint32_t* block)
@@ -179,7 +193,7 @@ static double DoubleOf(const uint8_t* bytes)
 uint32_t maniGraphSavedLearnedValid(const uint8_t* bytes, const maniGraph* g, uint32_t data,
                                     const maniLearnedModel* model)
 {
-    uint32_t words = maniGraphLearnedBlockWords(g, data);
+    uint64_t words = maniGraphLearnedBlockWords(g, data);
     uint32_t has = maniLoadU32(bytes);
     if (has > 1)
     {

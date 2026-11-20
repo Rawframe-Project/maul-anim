@@ -25,7 +25,7 @@
 
 static uint32_t Word(const maniGraph* g, uint32_t at)
 {
-    return maniLoadU32(g->data + 4 * (size_t)at);
+    return maniGraphWord(g, at);
 }
 
 static float WordFloat(const maniGraph* g, uint32_t at)
@@ -197,6 +197,9 @@ size_t maniGraphBodyRoom(const maniGraph* g, uint32_t data, const maniSkeleton* 
 {
     uint32_t count = Word(g, data + maniGraphBodyEffectorCount);
     uint32_t settings = Word(g, data + maniGraphBodySettingCount);
+    // The opener took at most the most effectors; bytes changed since may
+    // give more, which the solve refuses, so the room counts the most.
+    count = count < MANI_MAX_BODY_IK_EFFECTORS ? count : MANI_MAX_BODY_IK_EFFECTORS;
     // The part is the top and the effectors' paths to it: goals,
     // settings and numbers leave its size as it is.
     maniBodyEffector effectors[MANI_MAX_BODY_IK_EFFECTORS];

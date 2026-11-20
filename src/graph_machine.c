@@ -44,7 +44,7 @@ static double DoubleOf(uint32_t low, uint32_t high)
 
 uint32_t maniGraphMachineWord(const maniGraphMachine* m, uint32_t at)
 {
-    return maniLoadU32(m->graph->data + 4 * (size_t)(m->data + at));
+    return maniGraphWord(m->graph, m->data + at);
 }
 
 float maniGraphMachineFloat(const maniGraphMachine* m, uint32_t at)

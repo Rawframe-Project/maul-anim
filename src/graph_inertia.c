@@ -40,7 +40,7 @@ void maniGraphInertiaSet(uint32_t* block, uint32_t at, float value)
 
 static uint32_t Word(const maniGraph* g, uint32_t at)
 {
-    return maniLoadU32(g->data + 4 * (size_t)at);
+    return maniGraphWord(g, at);
 }
 
 maniGraphInertia maniGraphInertiaOf(const maniGraph* g, uint32_t data)

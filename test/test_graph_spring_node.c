@@ -24,6 +24,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "graph_changed.h"
 #include "graph_file.h"
 #include "graph_fixture.h"
 #include "graph_instance.h"
@@ -845,6 +846,28 @@ static bool Seed(const char* graphPath, const char* textPath)
     return ok;
 }
 
+// The graph's bytes changed after the open: graph_changed.h's
+// sweep over a seek above a spring node over the walk, bound to the clips
+// and the set.
+static void TestChangedBytes(void)
+{
+    maniGraphSource source = SpringGraph(kSpring);
+    CHECK(Instanced(&source, &s_made[0]), "a graph");
+    const maniClip* clips[CLIPS];
+    for (uint32_t c = 0; c < CLIPS; ++c)
+    {
+        clips[c] = &s_clips[c];
+    }
+    const maniSpringSet* sets[1] = {&s_set};
+    maniGraphAssets assets = {.skeleton = &s_skeleton,
+                              .clips = clips,
+                              .springSets = sets,
+                              .clipCount = CLIPS,
+                              .springSetCount = 1};
+    TestChangedGraph(&s_made[0].graph, &assets,
+                     "every word of a spring graph changed and put back");
+}
+
 int main(int argc, char** argv)
 {
     Open();
@@ -863,5 +886,6 @@ int main(int argc, char** argv)
     TestBind();
     TestJson();
     TestSubgraph();
+    TestChangedBytes();
     return s_failures == 0 ? 0 : 1;
 }

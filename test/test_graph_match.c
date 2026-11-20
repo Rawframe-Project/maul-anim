@@ -17,6 +17,7 @@
 // request for the other clip's travel taken at the first search; a bone
 // facing made unit again after the blend.
 
+#include "graph_changed.h"
 #include "graph_match_fixture.h"
 #include "graph_match_step.h"
 #include "match_search.h"
@@ -688,6 +689,74 @@ static void TestFacingBlend(void)
           "the facing unit again where the line falls short");
 }
 
+// The graph's bytes changed after the open: graph_changed.h's
+// sweep over an inertialization above a motion matching node, bound to
+// the clips and the database.
+static void TestChangedBytes(void)
+{
+    maniGraph g;
+    (void)Matching(MatchNode(0.2f), &g);
+    const maniClip* clips[CLIPS];
+    for (uint32_t c = 0; c < CLIPS; ++c)
+    {
+        clips[c] = &s_clips[c];
+    }
+    const maniMotionDatabase* databases[1] = {&s_database};
+    maniGraphAssets assets = {&s_skeleton, clips, databases, NULL, NULL, CLIPS, 1,
+                              0,           0,     NULL,      NULL, 0,    0,     NULL};
+    TestChangedGraph(&g, &assets, "every word of a matching graph changed and put back");
+}
+
+// The bytes changed before a bind: a database whose clip run starts past
+// the graph's list, or a node asking more queries than a search takes
+// (its words past the query list reading as parameter 0), is a database
+// that does not fit the slot.
+static void TestBindRefuses(void)
+{
+    maniGraph g;
+    (void)Matching(MatchNode(0.2f), &g);
+    const maniClip* clips[CLIPS];
+    for (uint32_t c = 0; c < CLIPS; ++c)
+    {
+        clips[c] = &s_clips[c];
+    }
+    const maniMotionDatabase* databases[1] = {&s_database};
+    maniGraphAssets assets = {&s_skeleton, clips, databases, NULL, NULL, CLIPS, 1,
+                              0,           0,     NULL,      NULL, 0,    0,     NULL};
+    maniGraphBinding* binding = NULL;
+    uint32_t unbound = 0;
+    uint8_t* first = (uint8_t*)(uintptr_t)g.databases + 24;
+    uint32_t kept = maniLoadU32(first);
+    maniStoreU32(first, 0x40000000u);
+    CHECK(maniBindGraph(&g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, &unbound) ==
+                  mani_errorInvalid &&
+              unbound == g.clipCount,
+          "a clip run past the list refused");
+    maniStoreU32(first, kept);
+    uint8_t* data = (uint8_t*)(uintptr_t)g.data;
+    uint32_t at = 0;
+    for (uint32_t p = 0; p < g.nodeCount; ++p)
+    {
+        const uint8_t* record = g.nodes + (size_t)p * MANI_GRAPH_NODE_SIZE;
+        at = maniLoadU16(record) == maniGraphNodeMatch ? maniLoadU32(record + 12) : at;
+    }
+    static uint8_t saved[16384];
+    size_t size = 4 * (size_t)g.dataWords;
+    CHECK(size <= sizeof saved, "the data words fit");
+    memcpy(saved, data, size);
+    maniStoreU32(data + 4 * (size_t)(at + maniGraphMatchQueryCount), MANI_MAX_MATCH_FEATURES + 1);
+    memset(data + 4 * (size_t)(at + maniGraphMatchQuery), 0,
+           4 * (size_t)(g.dataWords - at - maniGraphMatchQuery));
+    CHECK(maniBindGraph(&g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, &unbound) ==
+                  mani_errorInvalid &&
+              unbound == g.clipCount,
+          "more queries than a search takes refused");
+    memcpy(data, saved, size);
+    CHECK(maniBindGraph(&g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
+              mani_success,
+          "bound again as built");
+}
+
 int main(void)
 {
     Open();
@@ -710,5 +779,7 @@ int main(void)
     TestLeaves();
     TestFacingBlend();
     TestMirrored();
+    TestChangedBytes();
+    TestBindRefuses();
     return s_failures == 0 ? 0 : 1;
 }
