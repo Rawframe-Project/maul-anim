@@ -15,6 +15,7 @@
 #include "graph_learned.h"
 #include "graph_match.h"
 #include "graph_spring.h"
+#include "mirror_view.h"
 #include "retarget_motion.h"
 #include "skeleton_view.h"
 
@@ -398,7 +399,7 @@ MANI_NODISCARD static bool BindMirror(maniGraphBinding* binding, const maniMirro
     {
         return true;
     }
-    if (map != NULL && map->identity == graph->mirrorMapIdentity &&
+    if (maniMirrorMapValid(map) && map->identity == graph->mirrorMapIdentity &&
         map->skeletonIdentity == graph->skeletonIdentity &&
         map->boneCount == graph->skeletonBoneCount)
     {

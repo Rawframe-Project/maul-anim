@@ -10,6 +10,7 @@
 // reflected, on the left arm moved to the right arm with its model
 // change reflected and its axes carried; the refusals.
 
+#include "file_tag.h"
 #include "source_padding.h"
 #include "test_harness.h"
 
@@ -527,6 +528,44 @@ static void TestChangedKeys(void)
     free(block);
 }
 
+// A clip's bytes changed after the open: its root motion bone made past
+// the bones, as far as the first bone record past the map's end. Baking
+// reads only within the clip and the map, each in a heap block of exactly
+// its length, and declares the root motion on the root's partner, the
+// root.
+static void TestChangedRootBone(void)
+{
+    maniClip opened;
+    Clip(maniAdditiveNone, kArmL, &opened);
+    size_t size = (size_t)opened.size;
+    uint8_t* block = (uint8_t*)malloc(size + 16);
+    CHECK(block != NULL, "memory");
+    uint8_t* bytes = block + (16 - (uintptr_t)block % 16) % 16;
+    memcpy(bytes, opened.base, size);
+    maniClip clip;
+    CHECK(maniOpenClip(bytes, size, &clip).result == mani_success, "opens the copy");
+    uint8_t* mapBlock = NULL;
+    uint8_t* mapBytes = TestExactCopy((size_t)s_map.size, &mapBlock);
+    CHECK(mapBytes != NULL, "a block of the map's length");
+    memcpy(mapBytes, s_map.base, (size_t)s_map.size);
+    maniMirrorMap map;
+    CHECK(maniOpenMirrorMap(mapBytes, (size_t)s_map.size, &map).result == mani_success,
+          "opens the map's copy");
+    // Section 16, the root motion: its bone first. Bone records are 40
+    // bytes.
+    uint32_t past = (uint32_t)((map.size - map.sections[1] + 39) / 40);
+    memcpy(bytes + clip.offsets[16 - 2], &past, sizeof past);
+    maniMirrorClipSource s = Source(&clip);
+    s.map = &map;
+    maniClip baked;
+    maniRootMotionSource declared;
+    CHECK(Bake(&s, 1, &baked).result == mani_success &&
+              maniClip_GetRootMotionSource(&baked, &declared) && declared.bone == kRoot,
+          "a root motion bone past the bones declared on the root");
+    free(mapBlock);
+    free(block);
+}
+
 static void TestRefusals(void)
 {
     maniClip clip;
@@ -559,14 +598,19 @@ static void TestRefusals(void)
     s = Source(&clip);
     CHECK(maniBuildMirroredClip(NULL, &s).result == mani_errorInvalid, "a NULL builder");
     CHECK(maniBuildMirroredClip(builder, NULL).result == mani_errorInvalid, "a NULL source");
-    const maniMirrorClipSource fields[3] = {
-        {NULL, &s_skeleton, &clip}, {&s_map, NULL, &clip}, {&s_map, &s_skeleton, NULL}};
+    maniMirrorMap unopened = s_map;
+    unopened.cookie ^= 1u;
+    const maniMirrorClipSource fields[4] = {{NULL, &s_skeleton, &clip},
+                                            {&unopened, &s_skeleton, &clip},
+                                            {&s_map, NULL, &clip},
+                                            {&s_map, &s_skeleton, NULL}};
     bool refused = true;
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 4; ++i)
     {
         refused = refused && maniBuildMirroredClip(builder, &fields[i]).result == mani_errorInvalid;
     }
-    CHECK(refused && maniBuilder_GetMisuse(builder) == 4, "a NULL field; misuses");
+    CHECK(refused && maniBuilder_GetMisuse(builder) == 5,
+          "a NULL field, a map no open wrote; misuses");
     maniDestroyBuilder(builder);
 }
 
@@ -579,5 +623,6 @@ int main(void)
     TestRootMotion();
     TestRefusals();
     TestChangedKeys();
+    TestChangedRootBone();
     return s_failures == 0 ? 0 : 1;
 }

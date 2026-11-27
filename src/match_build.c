@@ -18,6 +18,7 @@
 #include "match_file.h"
 #include "match_sample.h"
 #include "match_tree.h"
+#include "mirror_view.h"
 #include "skeleton_view.h"
 #include "text.h"
 
@@ -257,7 +258,8 @@ static maniBuildResult Check(const maniMotionDatabaseSource* s, Totals* t)
         return Refuse(maniBuildReasonCount, 0, 0);
     }
     const maniMirrorMap* map = s->mirrorMap;
-    if (map != NULL && (map->skeletonIdentity != maniSkeleton_GetIdentity(s->skeleton) ||
+    if (map != NULL && (!maniMirrorMapValid(map) ||
+                        map->skeletonIdentity != maniSkeleton_GetIdentity(s->skeleton) ||
                         map->boneCount != maniSkeleton_GetBoneCount(s->skeleton)))
     {
         return Refuse(maniBuildReasonMirrorDatabase, 0, 0);

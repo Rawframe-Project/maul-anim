@@ -28,6 +28,8 @@
 #include "maul-anim/build.h"
 #include "maul-anim/mirror.h"
 #include "maul-anim/mirrorbuild.h"
+#include "maul-anim/pose.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
 #include <math.h>
@@ -35,6 +37,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static _Alignas(16) uint8_t s_skeletonFile[4096];
@@ -42,6 +45,7 @@ static _Alignas(16) uint8_t s_file[16384];
 static _Alignas(16) uint8_t s_crafted[16384];
 static size_t s_size;
 static maniSkeleton s_skeleton;
+static _Alignas(32) uint8_t s_poseMemory[3][2048];
 
 enum
 {
@@ -550,6 +554,161 @@ static void TestFile(void)
     CHECK(TestLaterTagRefused(s_file, s_size, OpenFile, 4), "a later writer's tag refused");
 }
 
+// A heap block of exactly the map just built, opened from it.
+static uint8_t* OpenCopy(maniMirrorMap* out, uint8_t** blockOut)
+{
+    uint8_t* bytes = TestExactCopy(s_size, blockOut);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    CHECK(maniOpenMirrorMap(bytes, s_size, out).result == mani_success, "opens the copy");
+    return bytes;
+}
+
+static maniPose* Pose(uint32_t i)
+{
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(&s_skeleton, s_poseMemory[i], sizeof s_poseMemory[i], &pose) == mani_success,
+          "a pose");
+    return pose;
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, a name, its hash and a move as they are, the pose refused.
+static bool ViewRefused(const maniMirrorMap* map)
+{
+    maniPose* pose = Pose(0);
+    static const char kName[] = "curveL";
+    size_t length = 0;
+    maniRootMove move = {{1.0f, 2.0f, 3.0f}, {0.0f, 0.6f, 0.0f, 0.8f}};
+    maniRootMove moved = maniMirrorMap_MirrorRootMotion(map, move);
+    return maniMirrorMap_GetIdentity(map) == 0 && maniMirrorMap_GetSkeletonIdentity(map) == 0 &&
+           maniMirrorMap_GetAxis(map) == maniMirrorAxisX &&
+           maniMirrorMap_GetPartner(map, kArmL) == MANI_NO_BONE &&
+           maniMirrorMap_GetBoneFlags(map, kPropR) == 0 &&
+           maniMirrorMap_GetUnmatchedBone(map) == MANI_NO_BONE &&
+           maniMirrorMap_MirrorName(map, kName, 6, &length) == kName && length == 6 &&
+           maniMirrorMap_MirrorNameHash(map, 7) == 7 && memcmp(&moved, &move, sizeof move) == 0 &&
+           maniMirrorMap_MirrorPose(map, &s_skeleton, pose, pose) == mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: a count edited past the file, one
+// view's counts and sections over another's bytes, an axis past the
+// three, a zeroed view and another kind's cookie are each refused.
+static void TestViewChecked(void)
+{
+    maniMirrorMapSource source = Source();
+    maniMirrorMap built;
+    CHECK(Build(&source, &built).result == mani_success, "a map builds");
+    maniMirrorMap big;
+    uint8_t* bigBlock = NULL;
+    (void)OpenCopy(&big, &bigBlock);
+    source.nameCount = 0;
+    CHECK(Build(&source, &built).result == mani_success, "a map without names builds");
+    maniMirrorMap small;
+    uint8_t* smallBlock = NULL;
+    (void)OpenCopy(&small, &smallBlock);
+    maniMirrorMap edited = big;
+    edited.nameCount = 60000;
+    CHECK(ViewRefused(&edited), "a count edited past the file");
+    edited = big;
+    edited.boneCount = MANI_MAX_BONES + 1;
+    CHECK(ViewRefused(&edited), "a bone count past the most");
+    edited.boneCount = 0;
+    CHECK(ViewRefused(&edited), "no bones");
+    edited = big;
+    edited.base = NULL;
+    CHECK(ViewRefused(&edited), "no base");
+    edited = big;
+    edited.sections[0] = big.size;
+    CHECK(ViewRefused(&edited), "a header past the file");
+    edited = big;
+    edited.sections[1] = big.size - 8;
+    CHECK(ViewRefused(&edited), "bones past the file");
+    edited = big;
+    edited.sections[2] = big.size - 8;
+    CHECK(ViewRefused(&edited), "name pairs past the file");
+    edited = big;
+    edited.stringsSize = big.size;
+    CHECK(ViewRefused(&edited), "names past the file");
+    maniMirrorMap mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(ViewRefused(&mixed), "a count and sections over another view's bytes");
+    edited = big;
+    edited.axis = 3;
+    CHECK(ViewRefused(&edited), "an axis past the three");
+    maniMirrorMap zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniMirrorMap other = big;
+    other.cookie ^= 1u;
+    CHECK(ViewRefused(&zeroed) && ViewRefused(&other) && ViewRefused(NULL),
+          "zeroed, another cookie, NULL");
+    CHECK(!ViewRefused(&big) && maniMirrorMap_GetPartner(&big, kArmL) == kArmR &&
+              !ViewRefused(&small),
+          "the views as opened");
+    free(bigBlock);
+    free(smallBlock);
+}
+
+// Bytes changed after the open are read only within the map, the poses
+// and the stack, and give what the header says: the first unmatched bone
+// past the bones is none, a partner past the bones is the bone itself, a
+// scale's source axis past the three its own axis, and a name whose
+// partner lies past the names stays as it is.
+static void TestChangedBytes(void)
+{
+    maniMirrorMapSource source = Source();
+    maniMirrorMap built;
+    CHECK(Build(&source, &built).result == mani_success, "a map builds");
+    maniMirrorMap map;
+    uint8_t* block = NULL;
+    uint8_t* bytes = OpenCopy(&map, &block);
+    maniPose* in = Pose(0);
+    maniPose* out = Pose(1);
+    maniPose* changed = Pose(2);
+    // The head is its own partner; a scale that differs between axes
+    // takes the permutation's path.
+    maniPose_SetLocal(in, kHead,
+                      (maniTransform){{0.1f, 0.3f, -0.2f}, {0.0f, 0.6f, 0.0f, 0.8f}, {2, 3, 4}});
+    CHECK(maniMirrorMap_MirrorPose(&map, &s_skeleton, in, out) == mani_success, "mirrored");
+    uint8_t* head = bytes + map.sections[1] + (size_t)kHead * MANI_MIRROR_BONE_SIZE;
+    CHECK(maniLoadU32(head) == kHead && (maniLoadU32(head + 4) & 3u) == 0,
+          "the head's own partner, its x scale from x");
+    maniStoreU32(head, 1000);
+    maniStoreU32(head + 4, maniLoadU32(head + 4) | 3u);
+    maniStoreU32(bytes + map.sections[0] + 20, 1000);
+    bool same = maniMirrorMap_MirrorPose(&map, &s_skeleton, in, changed) == mani_success;
+    for (uint32_t bone = 0; bone < kBones; ++bone)
+    {
+        maniTransform x = maniPose_GetLocal(out, bone);
+        maniTransform y = maniPose_GetLocal(changed, bone);
+        same = same && memcmp(&x, &y, sizeof x) == 0;
+    }
+    CHECK(same && maniMirrorMap_GetPartner(&map, kHead) == kHead,
+          "a partner past the bones is the bone, an axis past the three its own");
+    CHECK(maniMirrorMap_GetUnmatchedBone(&map) == MANI_NO_BONE,
+          "a first unmatched bone past the bones is none");
+    size_t length = 0;
+    const char* paired = maniMirrorMap_MirrorName(&map, "curveL", 6, &length);
+    CHECK(length == 6 && memcmp(paired, "curveR", 6) == 0, "a name paired");
+    uint8_t* names = bytes + map.sections[2];
+    for (uint32_t i = 0; i < map.nameCount; ++i)
+    {
+        uint8_t* e = names + (size_t)i * MANI_MIRROR_NAME_SIZE;
+        maniStoreU32(e + 16, i == 0 ? (uint32_t)map.stringsSize : 1u);
+        maniStoreU32(e + 20, i == 0 ? 1u : (uint32_t)map.stringsSize);
+    }
+    static const char kCurve[] = "curveL";
+    static const char kFoot[] = "footL";
+    static const char kIdle[] = "idle";
+    CHECK(maniMirrorMap_MirrorName(&map, kCurve, 6, &length) == kCurve && length == 6 &&
+              maniMirrorMap_MirrorName(&map, kFoot, 5, &length) == kFoot && length == 5 &&
+              maniMirrorMap_MirrorName(&map, kIdle, 4, &length) == kIdle && length == 4,
+          "a partner's name past the names leaves the name");
+    free(block);
+}
+
 // The map of TestPairs written to path.
 static bool Seed(const char* path)
 {
@@ -580,5 +739,7 @@ int main(int argc, char** argv)
     TestPairRefusals();
     TestOtherRefusals();
     TestFile();
+    TestViewChecked();
+    TestChangedBytes();
     return s_failures == 0 ? 0 : 1;
 }

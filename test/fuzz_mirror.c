@@ -5,6 +5,8 @@
 // partner (within the count, pairing back) and every name pair's
 // partner; then the same bytes with the payload's hash made right, and
 // then the identity too, so that mutations reach the checks behind them.
+// After each open, up to 16 of the file's bytes change and every call
+// runs again: it reads only within the file and ends, whatever it gives.
 // Run as fuzz_mirror <corpus dir>; the seed comes from test_mirror_map
 // --seed <file>.
 
@@ -13,8 +15,10 @@
 #include "mirror_file.h"
 
 #include "maul-anim/mirror.h"
+#include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -22,34 +26,94 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 
-static void Exercise(const uint8_t* bytes, size_t size)
+// Up to 16 bytes inside an opened file changed, picked from its own
+// bytes, as a host's memory may change after the open. Restore puts them
+// back.
+typedef struct Changed
+{
+    uint64_t at[16];
+    uint8_t kept[16];
+} Changed;
+
+static Changed Change(uint8_t* bytes, uint64_t size)
+{
+    Changed c;
+    uint64_t state = size * 0x9E3779B97F4A7C15u;
+    for (uint64_t i = 0; i < size && i < 64; ++i)
+    {
+        state = (state ^ bytes[i]) * 0x100000001B3u;
+    }
+    for (int i = 0; i < 16; ++i)
+    {
+        state ^= state >> 29;
+        state *= 0xBF58476D1CE4E5B9u;
+        c.at[i] = state % size;
+        c.kept[i] = bytes[c.at[i]];
+        bytes[c.at[i]] ^= (uint8_t)(state >> 56) | 1u;
+    }
+    return c;
+}
+
+static void Restore(uint8_t* bytes, const Changed* c)
+{
+    for (int i = 15; i >= 0; --i)
+    {
+        bytes[c->at[i]] = c->kept[i];
+    }
+}
+
+// Every call on the map; with checked set, what an unchanged file must
+// give: partners within the count pairing back, and every partner's name
+// inside the names.
+static void Calls(const maniMirrorMap* map, bool checked)
+{
+    uint32_t bones = map->boneCount;
+    for (uint32_t b = 0; b < bones; ++b)
+    {
+        uint32_t partner = maniMirrorMap_GetPartner(map, b);
+        (void)maniMirrorMap_GetBoneFlags(map, b);
+        if (checked && (partner >= bones || maniMirrorMap_GetPartner(map, partner) != b))
+        {
+            abort();
+        }
+    }
+    (void)maniMirrorMap_GetUnmatchedBone(map);
+    (void)maniMirrorMap_MirrorRootMotion(
+        map, (maniRootMove){{1.0f, 2.0f, 3.0f}, {0.0f, 0.6f, 0.0f, 0.8f}});
+    const char* strings = (const char*)map->base + map->sections[3];
+    for (uint32_t i = 0; i < map->nameCount; ++i)
+    {
+        const uint8_t* e = map->base + map->sections[2] + (size_t)i * MANI_MIRROR_NAME_SIZE;
+        (void)maniMirrorMap_MirrorNameHash(map, maniLoadU64(e));
+        uint64_t offset = maniLoadU32(e + 16);
+        uint64_t length = maniLoadU32(e + 20);
+        if (offset > map->stringsSize || length > map->stringsSize - offset)
+        {
+            continue;
+        }
+        size_t out = 0;
+        const char* name = strings + offset;
+        const char* partner = maniMirrorMap_MirrorName(map, name, (size_t)length, &out);
+        if (partner == NULL ||
+            (partner != name && (partner < strings || out > map->stringsSize ||
+                                 (uint64_t)(partner - strings) > map->stringsSize - out)))
+        {
+            abort();
+        }
+    }
+}
+
+static void Exercise(uint8_t* bytes, size_t size)
 {
     maniMirrorMap map;
     if (maniOpenMirrorMap(bytes, size, &map).result != 0)
     {
         return;
     }
-    for (uint32_t b = 0; b < map.boneCount; ++b)
-    {
-        uint32_t partner = maniMirrorMap_GetPartner(&map, b);
-        if (partner >= map.boneCount || maniMirrorMap_GetPartner(&map, partner) != b)
-        {
-            abort();
-        }
-    }
-    for (uint32_t i = 0; i < map.nameCount; ++i)
-    {
-        const uint8_t* e = map.names + (size_t)i * MANI_MIRROR_NAME_SIZE;
-        size_t length = 0;
-        const char* name = (const char*)map.strings + maniLoadU32(e + 16);
-        const char* partner = maniMirrorMap_MirrorName(&map, name, maniLoadU32(e + 20), &length);
-        if (partner == NULL ||
-            (partner != name && (partner < (const char*)map.strings ||
-                                 partner + length > (const char*)map.strings + map.stringsSize)))
-        {
-            abort();
-        }
-    }
+    Calls(&map, true);
+    Changed c = Change(bytes, map.size);
+    Calls(&map, false);
+    Restore(bytes, &c);
 }
 
 // The identity the sections give, written where the header keeps it.

@@ -322,7 +322,7 @@ static void Play(uint32_t mirrors)
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
               Bound(&g, &instance),
           "built, opened and bound");
-    CHECK(maniGraph_GetMirrorMapIdentity(&g) == s_map.identity &&
+    CHECK(maniGraph_GetMirrorMapIdentity(&g) == maniMirrorMap_GetIdentity(&s_map) &&
               maniGraph_GetMirrorMapIdentity(NULL) == 0,
           "the map's identity read back");
     bool odd = mirrors % 2 == 1;
@@ -423,6 +423,10 @@ static void TestBuildRefusals(void)
     counted.boneCount = kBones - 1;
     source = Graph(1, &counted);
     CHECK(Refused(&source, maniBuildReasonMirrorGraph, 0, 0), "a map of another bone count");
+    counted = s_map;
+    counted.cookie ^= 1u;
+    source = Graph(1, &counted);
+    CHECK(Refused(&source, maniBuildReasonMirrorGraph, 0, 0), "a map no open wrote");
     // The walk blended with its own mirror.
     source = Graph(1, &s_map);
     static const uint32_t kBoth[2] = {0, 1};
@@ -451,7 +455,7 @@ static void TestBuildRefusals(void)
     maniGraph g;
     CHECK(BuildGraph(&source).result == mani_success &&
               maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-              maniGraph_GetMirrorMapIdentity(&g) == s_map.identity,
+              maniGraph_GetMirrorMapIdentity(&g) == maniMirrorMap_GetIdentity(&s_map),
           "a map kept without a mirror node");
 }
 
@@ -487,6 +491,11 @@ static void TestBindRefusals(void)
     CHECK(maniBindGraph(&g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
               mani_errorInvalid,
           "a map of another skeleton");
+    crafted = s_map;
+    crafted.cookie ^= 1u;
+    CHECK(maniBindGraph(&g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
+              mani_errorInvalid,
+          "a map no open wrote");
 }
 
 static bool Section(const uint8_t* file, size_t size, uint32_t tag, const uint8_t** data,
@@ -652,7 +661,7 @@ static void TestSubgraph(void)
         maniGraph g;
         CHECK(BuildGraph(&source).result == mani_success &&
                   maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success &&
-                  maniGraph_GetMirrorMapIdentity(&g) == s_map.identity,
+                  maniGraph_GetMirrorMapIdentity(&g) == maniMirrorMap_GetIdentity(&s_map),
               i == 0 ? "the subgraph's map the root's" : "the subgraph's map taken");
     }
     source.mirrorMap = &s_mapZ;

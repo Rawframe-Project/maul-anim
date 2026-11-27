@@ -230,7 +230,8 @@ static void TestFeatures(void)
     maniMotionDatabaseSource source = Mirrored(&s_map);
     CHECK(BuildDatabase(&source, 0, &s_mirrored).result == mani_success,
           "a database of mirrored entries builds");
-    CHECK(maniMotionDatabase_GetMirrorMapIdentity(&s_mirrored) == s_map.identity &&
+    CHECK(maniMotionDatabase_GetMirrorMapIdentity(&s_mirrored) ==
+                  maniMirrorMap_GetIdentity(&s_map) &&
               maniMotionDatabase_GetMirrorMapIdentity(NULL) == 0,
           "the map's identity kept");
     static const maniClip* baked[2];
@@ -319,6 +320,10 @@ static void TestRefusals(void)
     counted.skeletonIdentity ^= 1u;
     source = Mirrored(&counted);
     CHECK(Refused(&source, maniBuildReasonMirrorDatabase, 0), "a map of another skeleton");
+    counted = s_map;
+    counted.cookie ^= 1u;
+    source = Mirrored(&counted);
+    CHECK(Refused(&source, maniBuildReasonMirrorDatabase, 0), "a map no open wrote");
     // A channel's partner track missing.
     static const maniMatchChannelSource lone[1] = {
         {maniMatchFloatTrack, 0, maniMatchAxisX, 1, kNow, "flag", 4, 1.0f}};
@@ -370,7 +375,7 @@ static void TestOpen(void)
     size_t size = s_databaseSizes[0];
     uint64_t length = 0;
     uint64_t at = SectionAt(s_databaseFiles[0], size, maniMatchTagMirror, &length);
-    CHECK(length == 8 && maniLoadU64(s_databaseFiles[0] + at) == s_map.identity,
+    CHECK(length == 8 && maniLoadU64(s_databaseFiles[0] + at) == maniMirrorMap_GetIdentity(&s_map),
           "the mirror section");
     memcpy(s_crafted, s_databaseFiles[0], size);
     maniStoreU64(s_crafted + at, 0);

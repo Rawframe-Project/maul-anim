@@ -55,7 +55,7 @@ ceiling bodyik     O3 34000
 ceiling springs    O3 31000
 ceiling ragdoll    O3 17000
 ceiling retarget   O3 14000
-ceiling mirror     O3 6000
+ceiling mirror     O3 7000
 ceiling match      O3 23000
 ceiling learned    O3 18000
 ceiling morph      O3 9000
@@ -82,7 +82,7 @@ ceiling bodyik     O3-avx2 36000
 ceiling springs    O3-avx2 30000
 ceiling ragdoll    O3-avx2 16000
 ceiling retarget   O3-avx2 13000
-ceiling mirror     O3-avx2 6000
+ceiling mirror     O3-avx2 7000
 ceiling match      O3-avx2 27000
 ceiling learned    O3-avx2 19000
 ceiling morph      O3-avx2 9000

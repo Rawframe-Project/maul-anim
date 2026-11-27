@@ -13,6 +13,8 @@
 #ifndef MAUL_ANIM_SRC_VIEW_H
 #define MAUL_ANIM_SRC_VIEW_H
 
+#include "maul-anim/base.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
