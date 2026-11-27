@@ -20,6 +20,11 @@
 // velocity times the step, the rotation by the angular velocity times
 // the step) at the node's root weight, and each event whose state rose
 // past 0.5 is listed (the node's weight past MANI_GRAPH_EVENT_THRESHOLD).
+// The bytes stay in the caller's hands after the open: a node does not
+// move without a block that fits, without a model, or with a model its
+// block or the instance's room does not hold (Housed); a query parameter
+// past the count leaves the state's feature, and a tag parameter past it
+// gives the literal.
 
 #include "graph_learned_step.h"
 
@@ -127,11 +132,15 @@ static void After(const Learned* l, const uint32_t* from)
     }
 }
 
-// The clock moved by step, the state stepped each time a step passes.
+// The clock moved by step, the state stepped each time a step passes. A
+// block holds a clock within a step; one the bytes moved onto other words
+// since the open may hold any, which starts at 0, so an update steps at
+// most MANI_GRAPH_LEARNED_MAX_STEPS times.
 static void Move(const Learned* l, double step)
 {
     double seconds = 1.0 / (double)l->m->stepRate;
-    double clock = Clock(l) + step;
+    double clock = Clock(l);
+    clock = (clock >= 0.0 && clock < seconds ? clock : 0.0) + step;
     uint32_t* before = l->block + maniGraphLearnedBefore;
     while (clock >= seconds)
     {
@@ -160,9 +169,9 @@ static void Query(const Learned* l, float* out)
         for (uint32_t t = 0; t < (vector || ch.kind == maniMatchFloatTrack ? ch.timeCount : 0u);
              ++t, ++q)
         {
-            const maniGraphValue* v =
-                &l->u->instance->cells[Word(l, maniGraphLearnedQuery + q)].value;
-            for (uint32_t i = 0; i < width; ++i)
+            const maniGraphValue* v = maniGraphParameterValue(l->u->graph, l->u->instance->cells,
+                                                              Word(l, maniGraphLearnedQuery + q));
+            for (uint32_t i = 0; i < width && v != NULL; ++i)
             {
                 uint32_t j = ch.firstFeature + t * width + i;
                 float offset = FloatOf(maniLoadU32(m->normalization + 4 * (size_t)j));
@@ -173,12 +182,13 @@ static void Query(const Learned* l, float* out)
     }
 }
 
-// Tags: an int parameter's bits, or the literal.
+// Tags: an int parameter's bits, or the literal (also for a parameter
+// past the count).
 static uint32_t Tags(const Learned* l, uint32_t k)
 {
-    uint32_t parameter = Word(l, k);
-    return parameter == MANI_NO_PARAMETER ? Word(l, k + 1)
-                                          : (uint32_t)l->u->instance->cells[parameter].value.i;
+    const maniGraphValue* v =
+        maniGraphParameterValue(l->u->graph, l->u->instance->cells, Word(l, k));
+    return v == NULL ? Word(l, k + 1) : (uint32_t)v->i;
 }
 
 // The Projector whose filter is the node's tags, or UINT32_MAX.
@@ -333,6 +343,19 @@ static void Outputs(const Learned* l, double step)
     }
 }
 
+// Whether the node's block and the instance's room hold the model: the
+// block as the node's states and events size it (maniGraphNodeBlock), the
+// room as bind measured it. Bind checked both; the bytes may since name
+// another model.
+MANI_NODISCARD static bool Housed(const maniGraphUpdate* u, uint32_t data,
+                                  const maniLearnedModel* m)
+{
+    return maniGraphUpdateWord(u, data + maniGraphLearnedStates) ==
+               m->featureCount + m->latentCount &&
+           m->eventCount <= maniGraphUpdateWord(u, data + maniGraphLearnedEvents) &&
+           maniGraphLearnedRoom(m) <= u->binding->room;
+}
+
 void maniGraphAdvanceLearned(maniGraphUpdate* u, uint32_t p)
 {
     maniGraphNodeState* s = maniGraphUpdateNode(u, p);
@@ -343,10 +366,13 @@ void maniGraphAdvanceLearned(maniGraphUpdate* u, uint32_t p)
         return;
     }
     uint32_t data = maniLoadU32(u->graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
-    uint32_t* block = (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) +
-                      maniGraphUpdateWord(u, data + maniGraphLearnedBlock);
+    uint32_t* block = maniGraphNodeBlock(u->instance, p);
     const maniLearnedModel* m =
         maniGraphBoundModel(u->binding, maniGraphUpdateWord(u, data + maniGraphLearnedModel));
+    if (block == NULL || m == NULL || !Housed(u, data, m))
+    {
+        return;
+    }
     float* room = (float*)((uint8_t*)u->instance + u->instance->roomAt);
     size_t scratchSize = maniLearnedModel_GetScratchSize(m);
     // The scratch is whole floats; the state follows it.
@@ -374,12 +400,8 @@ void maniGraphAdvanceLearned(maniGraphUpdate* u, uint32_t p)
     }
     maniGraphLearnedState(block, states, m->stepRate, l.state);
     double since = (double)FloatOf(block[maniGraphLearnedSince]) + step;
-    uint32_t trigger = Word(&l, maniGraphLearnedTrigger);
-    bool triggered = trigger != MANI_NO_PARAMETER && u->instance->cells[trigger].value.b != 0;
-    if (triggered)
-    {
-        u->instance->cells[trigger].value.b = 0;
-    }
+    bool triggered =
+        maniGraphTakeTrigger(u->graph, u->instance->cells, Word(&l, maniGraphLearnedTrigger));
     bool due = !has || triggered || since >= (double)FloatOf(Word(&l, maniGraphLearnedPeriod));
     block[maniGraphLearnedSince] = BitsOf(due ? 0.0f : (float)since);
     if (due)

@@ -322,6 +322,14 @@ static inline uint32_t maniGraphWord(const maniGraph* g, uint32_t at)
     return at < g->dataWords ? maniLoadU32(g->data + 4 * (size_t)at) : 0u;
 }
 
+// A mask's per-bone weights (binary32, one per skeleton bone); NULL,
+// the whole body, for MANI_GRAPH_NO_MASK and a mask past the count (the
+// bytes changed since the open).
+static inline const uint8_t* maniGraphMaskWeights(const maniGraph* g, uint32_t mask)
+{
+    return mask < g->maskCount ? g->maskWeights + 4 * (size_t)mask * g->skeletonBoneCount : NULL;
+}
+
 // A node's input count as its record gives it, 0 when its inputs would
 // run past the inputs section.
 static inline uint32_t maniGraphInputCount(const maniGraph* g, const uint8_t* record)

@@ -237,6 +237,39 @@ static void TestEnd(void)
           "one pick kept, over the oldest");
 }
 
+// After the bind, the history's count made past the most: each end of
+// the clamped run jumps to its start, and the history keeps at most
+// MANI_MAX_MATCH_HISTORY picks, round. Then made fewer than the place of
+// the next: the next pick goes to the first place.
+static void TestHistoryChanged(void)
+{
+    maniGraphNodeSource node = MatchNode(10.0f);
+    node.match.historyCount = 4;
+    node.match.historyTime = 0.0f;
+    maniGraph g;
+    maniGraphInstance* instance = Matching(node, &g);
+    Ahead(instance, 0.0f, 0.0f);
+    Update(instance, 0.0f);
+    uint32_t data = maniLoadU32(g.nodes + 12);
+    uint8_t* count = (uint8_t*)(uintptr_t)g.data + 4 * (size_t)(data + maniGraphMatchHistoryCount);
+    maniStoreU32(count, 1000);
+    for (uint32_t k = 0; k < 2 * MANI_MAX_MATCH_HISTORY + 3; ++k)
+    {
+        Update(instance, 1.0f);
+    }
+    const uint32_t* block = NodeBlock(instance, &g, 0, maniGraphMatchBlock);
+    CHECK(Playing(instance, &g, 0, 1, 0.0) &&
+              block[maniGraphMatchPicks] == MANI_MAX_MATCH_HISTORY &&
+              block[maniGraphMatchNext] < MANI_MAX_MATCH_HISTORY,
+          "a history count past the most keeps the most picks");
+    CHECK(block[maniGraphMatchNext] >= 2, "the next place past the second");
+    maniStoreU32(count, 2);
+    Update(instance, 1.0f);
+    CHECK(block[maniGraphMatchNext] == 1 && block[maniGraphMatchHistory] == RUN_FIRST,
+          "a history count below the next place: the pick in the first");
+    maniStoreU32(count, 4);
+}
+
 // Under a select: not chosen it stays as it is, unweighed; chosen,
 // through a time scale of 2, it moves twice as far.
 static void TestScaled(void)
@@ -770,6 +803,7 @@ int main(void)
     TestPeriod();
     TestTrigger();
     TestEnd();
+    TestHistoryChanged();
     TestSeek();
     TestScaled();
     TestWraps();

@@ -8,7 +8,9 @@
 // model of them, and the nearest point where no band reaches; a vec2
 // parameter for the position; a space evaluated as the blending functions
 // blend; the builder's refusals and opening's checks; a space in a
-// subgraph; the JSON form round trip. Run as
+// subgraph; the JSON form round trip; the spaces' words changed after
+// the open (graph_changed.h), and a space's input count made past the
+// most points. Run as
 // test_graph_space --seed <graph file> <json file> it writes the round
 // trip's file and text, seeds of the fuzz targets.
 
@@ -16,6 +18,7 @@
 // the request comes before any header that reaches the C library.
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "graph_changed.h"
 #include "graph_space_fixture.h"
 
 #include "maul-anim/pose.h"
@@ -392,6 +395,133 @@ static void TestSubgraph(void)
           "a space inlined as written flat");
 }
 
+// A source built into a heap block of its exact length and opened;
+// *blockOut is what to free.
+static void Opened(maniGraphSource source, maniGraph* g, uint8_t** blockOut)
+{
+    source.skeleton = &s_skeleton;
+    source.clips = kSlots;
+    source.clipCount = CLIPS;
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    CHECK(maniBuildGraph(builder, &source).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, s_file, sizeof s_file, &size) == mani_success,
+          "built");
+    maniDestroyBuilder(builder);
+    uint8_t* file = TestExactCopy(size, blockOut);
+    memcpy(file, s_file, size);
+    CHECK(maniOpenGraph(file, size, g).result == mani_success, "opened");
+}
+
+static const maniClip* const* Clips(void)
+{
+    static const maniClip* clips[CLIPS];
+    for (uint32_t c = 0; c < CLIPS; ++c)
+    {
+        clips[c] = &s_clips[c];
+    }
+    return clips;
+}
+
+// A blend of a 1D space with a period, a triangulated space and a polar
+// banded space read from a vec2, over four clips, every word changed
+// after the bind and put back.
+static void TestChanged(void)
+{
+    static const uint32_t kSpaces[3] = {1, 2, 3};
+    static const uint32_t kClips[4] = {4, 5, 6, 7};
+    static const maniGraphScalar kWeights[3] = {{0, 0.0f}, LITERAL(0.5f), LITERAL(0.25f)};
+    static const float kLine[4] = {-1.0f, 2.0f, 0.5f, 1.0f};
+    static const float kSquare[8] = {0, 0, 1, 0, 0, 1, 1, 1};
+    static const float kPolar[8] = {0, 0, 1, 0, 0, 1, 2, 0};
+    static maniGraphParameterSource parameters[3];
+    parameters[0] = Parameter("x", maniGraphParameterFloat, Float(0.3f));
+    parameters[1] = Parameter("y", maniGraphParameterFloat, Float(0.6f));
+    parameters[2] = Parameter("at", maniGraphParameterVec2, Float(0.4f));
+    maniGraphNodeSource nodes[8] = {
+        {maniGraphNodeBlend, 3, kSpaces, .blend = {kWeights, 0}},
+        {maniGraphNodeBlendSpace1D, 4, kClips,
+         .blendSpace1D = {{MANI_NO_PARAMETER, {0, 0.0f}, LITERAL(0.0f)}, kLine, 4.0f}},
+        {maniGraphNodeBlendSpaceTriangles, 4, kClips,
+         .triangulated = {{MANI_NO_PARAMETER, {0, 0.0f}, {1, 0.0f}}, kSquare, NULL, 0}},
+        {maniGraphNodeBlendSpaceBands, 4, kClips,
+         .bands = {{2, LITERAL(0.0f), LITERAL(0.0f)}, kPolar, 1u}},
+        ClipNode(0, 1.0f, maniGraphLoopRepeat),
+        ClipNode(1, 1.0f, maniGraphLoopRepeat),
+        ClipNode(3, 1.0f, maniGraphLoopRepeat),
+        ClipNode(4, 1.0f, maniGraphLoopRepeat)};
+    maniGraph g;
+    uint8_t* block = NULL;
+    Opened((maniGraphSource){.parameters = parameters,
+                             .nodes = nodes,
+                             .parameterCount = 3,
+                             .nodeCount = 8,
+                             .output = 0},
+           &g, &block);
+    maniGraphAssets assets = {&s_skeleton, Clips(), NULL, NULL, NULL, CLIPS, 0,
+                              0,           0,       NULL, NULL, 0,    0,     NULL};
+    TestChangedGraph(&g, &assets, "every word of the three spaces changed and put back");
+    free(block);
+}
+
+// A 1D space of the most points (its inputs four clip nodes over and
+// over) under a blend: after the bind its input count made one more,
+// which the inputs section holds, it weighs the most points and no more
+// (AddressSanitizer sees the weights' array).
+static void TestPastMost(void)
+{
+    static uint32_t inputs[MANI_MAX_GRAPH_SPACE_POINTS];
+    static float points[MANI_MAX_GRAPH_SPACE_POINTS];
+    for (uint32_t k = 0; k < MANI_MAX_GRAPH_SPACE_POINTS; ++k)
+    {
+        inputs[k] = 2 + k % 4;
+        points[k] = (float)k;
+    }
+    static const uint32_t kBlend[2] = {1, 2};
+    static const maniGraphScalar kWeights[2] = {LITERAL(1.0f), LITERAL(1.0f)};
+    static maniGraphParameterSource x;
+    x = Parameter("x", maniGraphParameterFloat, Float(300.0f));
+    maniGraphNodeSource nodes[6] = {
+        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0}},
+        {maniGraphNodeBlendSpace1D, MANI_MAX_GRAPH_SPACE_POINTS, inputs,
+         .blendSpace1D = {{MANI_NO_PARAMETER, {0, 0.0f}, LITERAL(0.0f)}, points, 0.0f}},
+        ClipNode(0, 1.0f, maniGraphLoopRepeat),
+        ClipNode(1, 1.0f, maniGraphLoopRepeat),
+        ClipNode(3, 1.0f, maniGraphLoopRepeat),
+        ClipNode(4, 1.0f, maniGraphLoopRepeat)};
+    maniGraph g;
+    uint8_t* block = NULL;
+    Opened(
+        (maniGraphSource){
+            .parameters = &x, .nodes = nodes, .parameterCount = 1, .nodeCount = 6, .output = 0},
+        &g, &block);
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NULL;
+    maniGraphAssets assets = {&s_skeleton, Clips(), NULL, NULL, NULL, CLIPS, 0,
+                              0,           0,       NULL, NULL, 0,    0,     NULL};
+    CHECK(maniBindGraph(&g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
+                  mani_success &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "bound");
+    uint32_t space = 0;
+    while (space < g.nodeCount &&
+           maniLoadU16(g.nodes + (size_t)space * MANI_GRAPH_NODE_SIZE) != maniGraphNodeBlendSpace1D)
+    {
+        ++space;
+    }
+    uint8_t* record = (uint8_t*)(uintptr_t)g.nodes + (size_t)space * MANI_GRAPH_NODE_SIZE;
+    CHECK(space < g.nodeCount &&
+              maniLoadU32(record + 4) + MANI_MAX_GRAPH_SPACE_POINTS < g.inputCount,
+          "the inputs section holds one more");
+    // The points' words then run into the blend's: some weights, within
+    // the most points.
+    maniStoreU32(record + 8, MANI_MAX_GRAPH_SPACE_POINTS + 1);
+    CHECK(maniGraphInstance_Update(instance, 0.1f, NULL, 0, NULL, NULL) == mani_success,
+          "past the most points, the space weighs the most");
+    free(block);
+}
+
 static char s_text[16384];
 static _Alignas(16) uint8_t s_built[16384];
 static size_t s_textSize;
@@ -520,5 +650,7 @@ int main(int argc, char** argv)
     TestSubgraph();
     TestJson();
     TestJsonDefaults();
+    TestChanged();
+    TestPastMost();
     return s_failures == 0 ? 0 : 1;
 }

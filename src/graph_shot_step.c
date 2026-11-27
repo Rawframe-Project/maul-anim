@@ -62,17 +62,11 @@ static void Begin(const maniGraphShot* s, uint32_t* block, uint32_t phase)
     Fade(s, block);
 }
 
-// A trigger the one-shot names, consumed: whether it was set.
+// A trigger the one-shot names, consumed: whether it was set (never for
+// none or a parameter past the count).
 MANI_NODISCARD static bool Take(const maniGraphShot* s, maniGraphCell* cells, uint32_t at)
 {
-    uint32_t parameter = maniGraphShotWord(s, at);
-    if (parameter == MANI_NO_PARAMETER)
-    {
-        return false;
-    }
-    bool set = cells[parameter].value.b != 0;
-    cells[parameter].value.b = 0;
-    return set;
+    return maniGraphTakeTrigger(s->graph, cells, maniGraphShotWord(s, at));
 }
 
 static double Remaining(const uint32_t* block)

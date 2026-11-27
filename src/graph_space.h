@@ -15,8 +15,8 @@
 #include <stdint.h>
 
 // The weights of a blend space node (its kind, first data word and input
-// count) at the parameters' values in cells: count of them, each 0 to 1,
-// summing to 1 but for rounding.
+// count, at most MANI_MAX_GRAPH_SPACE_POINTS) at the parameters' values in
+// cells: count of them, each 0 to 1, summing to 1 but for rounding.
 void maniGraphSpaceWeights(const maniGraph* graph, const maniGraphCell* cells, uint32_t kind,
                            uint32_t data, uint32_t count, float* weights);
 

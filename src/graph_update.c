@@ -58,13 +58,18 @@ static uint32_t Word(const Update* u, uint32_t at)
 }
 
 // A node's input k: the opener checked that every input comes before its
-// reader, so the weights flow down in one pass from the last node.
+// reader, so the weights flow down in one pass from the last node. The
+// bytes stay in the caller's hands, so an input past the node's inputs
+// (maniGraphInputCount) or past the nodes is MANI_GRAPH_NO_NODE, which
+// takes no share.
 static uint32_t InputOf(const Update* u, const uint8_t* record, uint32_t k)
 {
+    if (k >= maniGraphInputCount(u->graph, record))
+    {
+        return MANI_GRAPH_NO_NODE;
+    }
     uint32_t input = maniLoadU32(u->graph->inputs + 4 * (size_t)(maniLoadU32(record + 4) + k));
-    MANI_ASSERT(k < maniLoadU32(record + 8) &&
-                input < (size_t)(record - u->graph->nodes) / MANI_GRAPH_NODE_SIZE);
-    return input;
+    return input < u->graph->nodeCount ? input : MANI_GRAPH_NO_NODE;
 }
 
 static float Scalar(const Update* u, uint32_t at)
@@ -86,6 +91,10 @@ typedef struct Share
 
 static void Give(const Update* u, uint32_t input, Share share)
 {
+    if (input == MANI_GRAPH_NO_NODE)
+    {
+        return;
+    }
     maniGraphNodeState* s = Node(u, input);
     s->weight += share.weight;
     s->rootWeight += share.rootWeight;
@@ -113,7 +122,7 @@ static Share Pass(const maniGraphNodeState* s, float part, float rootPart)
 static void ShareBlend(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
 {
     uint32_t d = maniLoadU32(record + 12);
-    uint32_t n = maniLoadU32(record + 8);
+    uint32_t n = maniGraphInputCount(u->graph, record);
     bool direct = Word(u, d) != 0;
     float total = 0.0f;
     for (uint32_t k = 0; k < n; ++k)
@@ -134,9 +143,14 @@ static void ShareBlend(const Update* u, const uint8_t* record, const maniGraphNo
 static void ShareMask(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
 {
     uint32_t bones = u->graph->skeletonBoneCount;
-    uint32_t mask = Word(u, maniLoadU32(record + 12));
-    MANI_ASSERT(mask < u->graph->maskCount);
-    const uint8_t* weights = u->graph->maskWeights + 4 * (size_t)mask * bones;
+    const uint8_t* weights = maniGraphMaskWeights(u->graph, Word(u, maniLoadU32(record + 12)));
+    if (weights == NULL)
+    {
+        // A mask past the count (the bytes changed since the open): the
+        // whole body inside.
+        Give(u, InputOf(u, record, 0), Pass(s, 1.0f, 1.0f));
+        return;
+    }
     float inside = 0.0f;
     float outside = 0.0f;
     for (uint32_t b = 0; b < bones; ++b)
@@ -159,7 +173,7 @@ static void ShareMask(const Update* u, const uint8_t* record, const maniGraphNod
 static void ShareAdditive(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
 {
     uint32_t d = maniLoadU32(record + 12);
-    uint32_t n = maniLoadU32(record + 8);
+    uint32_t n = maniGraphInputCount(u->graph, record);
     Give(u, InputOf(u, record, 0), Pass(s, 1.0f, 1.0f));
     for (uint32_t k = 1; k < n; ++k)
     {
@@ -172,8 +186,8 @@ static void ShareAdditive(const Update* u, const uint8_t* record, const maniGrap
 // A blend space's weights, shared as a normalized blend shares them.
 static void ShareSpace(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
 {
-    uint32_t n = maniLoadU32(record + 8);
-    MANI_ASSERT(n <= MANI_MAX_GRAPH_SPACE_POINTS);
+    uint32_t n = maniGraphInputCount(u->graph, record);
+    n = n < MANI_MAX_GRAPH_SPACE_POINTS ? n : MANI_MAX_GRAPH_SPACE_POINTS;
     float weights[MANI_MAX_GRAPH_SPACE_POINTS];
     maniGraphSpaceWeights(u->graph, u->instance->cells, maniLoadU16(record),
                           maniLoadU32(record + 12), n, weights);
@@ -183,22 +197,18 @@ static void ShareSpace(const Update* u, const uint8_t* record, const maniGraphNo
     }
 }
 
-static uint32_t* BlockAt(const Update* u, uint32_t first)
-{
-    return (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) + first;
-}
-
 // A machine a parent reached stepped by its own time, then its states
 // shared by their weights; a state it entered at weight 0 this step by a
 // restart or a match reached even so, seeking 0 or the leading clip's
 // phase, so its playheads start over or match. A seek above the machine
-// starts it over too.
-static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeState* s)
+// starts it over too. One whose block does not fit the bytes as they are
+// now (maniGraphNodeBlock) keeps no state and shares nothing.
+static void ShareMachine(const Update* u, const uint8_t* record, uint32_t p, maniGraphNodeState* s)
 {
+    // The states the record gives, as maniGraphNodeBlock sized the block.
     maniGraphMachine m = {u->graph, maniLoadU32(record + 12), maniLoadU32(record + 8)};
-    uint32_t* block =
-        (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) + maniGraphMachineBlockAt(&m);
-    if (!Reached(s))
+    uint32_t* block = maniGraphNodeBlock(u->instance, p);
+    if (!Reached(s) || block == NULL)
     {
         return;
     }
@@ -236,17 +246,18 @@ static void ShareMachine(const Update* u, const uint8_t* record, maniGraphNodeSt
 
 // A one-shot a parent reached stepped by its own time, then its base and
 // shot shared as a mask of the shot's weight times the mask's per-bone
-// weights (1 without one) shares them; a shot fire restarted reached
-// even at weight 0, seeking 0. A seek above it stops the shot.
-static void ShareShot(const Update* u, const uint8_t* record, const maniGraphNodeState* s)
+// weights (1 without one, or for one past the masks) shares them; a shot
+// fire restarted reached even at weight 0, seeking 0. A seek above it
+// stops the shot. One whose block does not fit shares nothing.
+static void ShareShot(const Update* u, const uint8_t* record, uint32_t p,
+                      const maniGraphNodeState* s)
 {
-    if (!Reached(s))
+    uint32_t* block = maniGraphNodeBlock(u->instance, p);
+    if (!Reached(s) || block == NULL)
     {
         return;
     }
     maniGraphShot shot = {u->graph, maniLoadU32(record + 12), 0};
-    uint32_t* block = (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) +
-                      maniGraphShotWord(&shot, maniGraphShotBlock);
     if ((s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         maniGraphResetShot(block);
@@ -258,12 +269,11 @@ static void ShareShot(const Update* u, const uint8_t* record, const maniGraphNod
     float most = 1.0f;
     float least = 1.0f;
     float root = 1.0f;
-    uint32_t mask = maniGraphShotWord(&shot, maniGraphShotMask);
-    MANI_ASSERT(mask == MANI_GRAPH_NO_MASK || mask < u->graph->maskCount);
-    if (mask != MANI_GRAPH_NO_MASK)
+    const uint8_t* weights =
+        maniGraphMaskWeights(u->graph, maniGraphShotWord(&shot, maniGraphShotMask));
+    if (weights != NULL)
     {
         uint32_t bones = u->graph->skeletonBoneCount;
-        const uint8_t* weights = u->graph->maskWeights + 4 * (size_t)mask * bones;
         most = 0.0f;
         for (uint32_t b = 0; b < bones; ++b)
         {
@@ -287,7 +297,8 @@ static void ShareShot(const Update* u, const uint8_t* record, const maniGraphNod
 
 // An inertialize node a parent reached: its count and step for the
 // evaluation, its clock advanced, its trigger read; its input reached as
-// it was, with this node the nearest above. A seek above clears it.
+// it was, with this node the nearest above. A seek above clears it. One
+// whose block does not fit only passes its input on, as no node above.
 static void ShareInertia(const Update* u, const uint8_t* record, const maniGraphNodeState* s,
                          uint32_t p)
 {
@@ -296,7 +307,13 @@ static void ShareInertia(const Update* u, const uint8_t* record, const maniGraph
         return;
     }
     uint32_t d = maniLoadU32(record + 12);
-    uint32_t* block = BlockAt(u, Word(u, d + maniGraphInertiaBlock));
+    uint32_t* block = maniGraphNodeBlock(u->instance, p);
+    Share share = Pass(s, 1.0f, 1.0f);
+    if (block == NULL)
+    {
+        Give(u, InputOf(u, record, 0), share);
+        return;
+    }
     if ((s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         maniGraphInertia node = maniGraphInertiaOf(u->graph, d);
@@ -307,24 +324,27 @@ static void ShareInertia(const Update* u, const uint8_t* record, const maniGraph
     maniGraphInertiaSet(block, maniGraphInertiaStep, step);
     double elapsed = (double)maniGraphInertiaGet(block, maniGraphInertiaElapsed) + (double)step;
     maniGraphInertiaSet(block, maniGraphInertiaElapsed, maniGraphSeconds(elapsed));
-    uint32_t trigger = Word(u, d);
-    if (trigger != MANI_NO_PARAMETER && u->instance->cells[trigger].value.b != 0)
+    if (maniGraphTakeTrigger(u->graph, u->instance->cells, Word(u, d)))
     {
-        u->instance->cells[trigger].value.b = 0;
         maniGraphRequest(u, p, Scalar(u, d + maniGraphInertiaDurationScalar));
     }
-    Share share = Pass(s, 1.0f, 1.0f);
     share.inertia = p;
     Give(u, InputOf(u, record, 0), share);
 }
 
-// The input a select's parameter chooses, clamped to its inputs.
+// The input a select's parameter chooses, clamped to its inputs; 0 for a
+// parameter past the count or a select without inputs (the bytes
+// changed since the open).
 static uint32_t Chosen(const Update* u, const uint8_t* record)
 {
     uint32_t parameter = Word(u, maniLoadU32(record + 12));
-    uint32_t n = maniLoadU32(record + 8);
+    uint32_t n = maniGraphInputCount(u->graph, record);
+    const maniGraphValue* v = maniGraphParameterValue(u->graph, u->instance->cells, parameter);
+    if (v == NULL || n == 0)
+    {
+        return 0;
+    }
     const uint8_t* entry = u->graph->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE;
-    const maniGraphValue* v = &u->instance->cells[parameter].value;
     int64_t i = maniLoadU32(entry) == maniGraphParameterInt ? (int64_t)v->i : (int64_t)v->b;
     return i < 0 ? 0u : (i >= (int64_t)n ? n - 1 : (uint32_t)i);
 }
@@ -337,7 +357,6 @@ static void ShareOne(const Update* u, const uint8_t* record, maniGraphNodeState*
     if (kind == maniGraphNodeSelect)
     {
         s->word = Chosen(u, record);
-        MANI_ASSERT(s->word < maniLoadU32(record + 8));
         Give(u, InputOf(u, record, s->word), share);
         return;
     }
@@ -347,10 +366,8 @@ static void ShareOne(const Update* u, const uint8_t* record, maniGraphNodeState*
     }
     else if (kind == maniGraphNodeSeek)
     {
-        maniGraphValue* trigger = &u->instance->cells[Word(u, d)].value;
-        if (trigger->b != 0)
+        if (maniGraphTakeTrigger(u->graph, u->instance->cells, Word(u, d)))
         {
-            trigger->b = 0;
             share.flags = (share.flags | MANI_GRAPH_SEEKING) & ~MANI_GRAPH_PHASE;
             share.seekTo = Scalar(u, d + 1);
         }
@@ -361,25 +378,26 @@ static void ShareOne(const Update* u, const uint8_t* record, maniGraphNodeState*
 // Whether a reset trigger fired; a fired one is cleared.
 MANI_NODISCARD static bool Consumed(const Update* u, uint32_t reset)
 {
-    bool fired = reset != MANI_NO_PARAMETER && u->instance->cells[reset].value.b != 0;
-    if (fired)
-    {
-        u->instance->cells[reset].value.b = 0;
-    }
-    return fired;
+    return maniGraphTakeTrigger(u->graph, u->instance->cells, reset);
 }
 
 // A spring node a parent reached: the time it moves by kept for its
 // evaluation, its motion dropped by a seek above it or its reset trigger;
-// its input reached as it was.
-static void ShareSpring(const Update* u, const uint8_t* record, maniGraphNodeState* s)
+// its input reached as it was. One whose block does not fit only passes
+// its input on.
+static void ShareSpring(const Update* u, const uint8_t* record, uint32_t p, maniGraphNodeState* s)
 {
     if (!Reached(s))
     {
         return;
     }
     uint32_t d = maniLoadU32(record + 12);
-    uint32_t* block = BlockAt(u, Word(u, d + maniGraphSpringBlock));
+    uint32_t* block = maniGraphNodeBlock(u->instance, p);
+    if (block == NULL)
+    {
+        ShareOne(u, record, s);
+        return;
+    }
     if (Consumed(u, Word(u, d + maniGraphSpringReset)) || (s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         maniGraphResetSpring(u->graph, d, block);
@@ -391,11 +409,20 @@ static void ShareSpring(const Update* u, const uint8_t* record, maniGraphNodeSta
 // A turn limit node: not reached, what it holds dropped (each bone takes
 // its input as it is when next evaluated); reached, the time it moves by kept
 // for its evaluation, its hold dropped by a seek above it or its reset
-// trigger; its input reached as it was.
-static void ShareTurn(const Update* u, const uint8_t* record, maniGraphNodeState* s)
+// trigger; its input reached as it was. One whose block does not fit only
+// passes its input on.
+static void ShareTurn(const Update* u, const uint8_t* record, uint32_t p, maniGraphNodeState* s)
 {
     uint32_t d = maniLoadU32(record + 12);
-    uint32_t* block = BlockAt(u, Word(u, d + maniGraphTurnBlock));
+    uint32_t* block = maniGraphNodeBlock(u->instance, p);
+    if (block == NULL)
+    {
+        if (Reached(s))
+        {
+            ShareOne(u, record, s);
+        }
+        return;
+    }
     if (!Reached(s))
     {
         maniGraphResetTurn(block, u->graph->skeletonBoneCount);
@@ -453,11 +480,11 @@ static void Weigh(const Update* u)
         }
         else if (kind == maniGraphNodeMachine)
         {
-            ShareMachine(u, record, s);
+            ShareMachine(u, record, p, s);
         }
         else if (kind == maniGraphNodeOneShot)
         {
-            ShareShot(u, record, s);
+            ShareShot(u, record, p, s);
         }
         else if (kind == maniGraphNodeInertialize)
         {
@@ -465,11 +492,11 @@ static void Weigh(const Update* u)
         }
         else if (kind == maniGraphNodeSpring)
         {
-            ShareSpring(u, record, s);
+            ShareSpring(u, record, p, s);
         }
         else if (kind == maniGraphNodeTurnLimit)
         {
-            ShareTurn(u, record, s);
+            ShareTurn(u, record, p, s);
         }
         else if (kind != maniGraphNodeClip && kind != maniGraphNodeMatch &&
                  kind != maniGraphNodeLearned && kind != maniGraphNodePose)
@@ -514,7 +541,7 @@ static MANI_NOINLINE maniResult UpdateGraphWork(maniGraphInstance* instance, flo
             maniGraphAdvanceLearned(&u, p);
         }
     }
-    maniGraphListen(u.graph, binding->clips, instance);
+    maniGraphListen(instance);
     if (eventCountOut != NULL)
     {
         *eventCountOut = u.count < UINT32_MAX ? (uint32_t)u.count : UINT32_MAX;

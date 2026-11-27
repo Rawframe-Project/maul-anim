@@ -6,7 +6,10 @@
 // loops a repeating clip wrapped come from where its playhead
 // landed, so a crossing at a loop's end counts in one update only. A
 // clip's events heard are the stretches its update listed: the same
-// ranges, the same whole loops.
+// ranges, the same whole loops. The bytes stay in the caller's hands
+// after the open: a list entry that is not a clip node is skipped, a list
+// is at most the nodes long, and a machine or one-shot whose block does
+// not fit keeps no record.
 
 #include "graph_machine_listen.h"
 
@@ -28,9 +31,8 @@
 typedef struct Listen
 {
     const maniGraph* graph;
-    const maniClip* const* clips;
+    maniGraphInstance* instance;
     maniGraphCell* cells;
-    uint32_t* blocks;
 } Listen;
 
 static const uint8_t* Record(const Listen* l, uint32_t p)
@@ -45,7 +47,20 @@ static maniGraphNodeState* Node(const Listen* l, uint32_t p)
 
 static uint32_t Word(const Listen* l, uint32_t at)
 {
-    return maniLoadU32(l->graph->data + 4 * (size_t)at);
+    return maniGraphWord(l->graph, at);
+}
+
+// Whether a node a list names is a clip node with a clip.
+MANI_NODISCARD static bool IsClip(const Listen* l, uint32_t p)
+{
+    return p < l->graph->nodeCount && maniLoadU16(Record(l, p)) == maniGraphNodeClip &&
+           l->graph->clipCount > 0;
+}
+
+// A list's count as the words give it, at most the nodes.
+static uint32_t ListCount(const Listen* l, uint32_t count)
+{
+    return count < l->graph->nodeCount ? count : l->graph->nodeCount;
 }
 
 static maniGraphMachine MachineAt(const Listen* l, uint32_t p)
@@ -54,11 +69,11 @@ static maniGraphMachine MachineAt(const Listen* l, uint32_t p)
     return (maniGraphMachine){l->graph, maniLoadU32(record + 12), maniLoadU32(record + 8)};
 }
 
-// A clip node's clip, its loop as the node says.
+// A clip node's clip (IsClip), its loop as the node says.
 static maniClip ClipOf(const Listen* l, uint32_t p)
 {
     uint32_t data = maniLoadU32(Record(l, p) + 12);
-    maniClip clip = *l->clips[Word(l, data)];
+    maniClip clip = *maniGraphBoundClip(l->instance->binding, Word(l, data));
     uint32_t loop = Word(l, data + 2);
     clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat);
     return clip;
@@ -111,9 +126,13 @@ static uint32_t Leading(const Listen* l, const maniGraphMachine* m, uint32_t k)
 {
     uint32_t leading = MANI_GRAPH_NO_NODE;
     float most = 0.0f;
-    for (uint32_t i = 0; i < maniGraphMachineState(m, k, 3); ++i)
+    for (uint32_t i = 0; i < ListCount(l, maniGraphMachineState(m, k, 3)); ++i)
     {
         uint32_t clip = maniGraphMachineClip(m, k, i);
+        if (!IsClip(l, clip))
+        {
+            continue;
+        }
         float weight = Node(l, clip)->weight;
         if (leading == MANI_GRAPH_NO_NODE || weight > most)
         {
@@ -140,15 +159,20 @@ static void Move(const Listen* l, uint32_t clip, uint32_t* block)
 
 // Whether the current state finished: its nearest machine final and
 // settled, or with none its leading clip, not repeating, at the end it
-// moves toward (its end when still).
+// moves toward (its end when still). A nearest node that is no machine
+// with a block that fits never finishes.
 MANI_NODISCARD static bool Finished(const Listen* l, const maniGraphMachine* m, uint32_t k,
                                     uint32_t leading)
 {
     uint32_t nearest = maniGraphMachineState(m, k, 1);
     if (nearest != MANI_GRAPH_NO_NODE)
     {
+        const uint32_t* block = maniGraphNodeBlockRead(l->instance, nearest);
+        if (block == NULL || maniLoadU16(Record(l, nearest)) != maniGraphNodeMachine)
+        {
+            return false;
+        }
         maniGraphMachine inner = MachineAt(l, nearest);
-        const uint32_t* block = l->blocks + maniGraphMachineBlockAt(&inner);
         return maniGraphMachineState(&inner, block[maniGraphBlockCurrent], 0) != 0 &&
                block[maniGraphBlockRunning] == MANI_GRAPH_NO_TRANSITION;
     }
@@ -168,9 +192,9 @@ static void Hear(const Listen* l, const maniGraphMachine* m, uint32_t* block, ui
     for (uint32_t t = 0; t < maniGraphMachineCount(m); ++t)
     {
         uint32_t from = maniGraphMachineTransition(m, t, 0);
-        uint32_t first = maniGraphMachineTransition(m, t, 6);
-        uint32_t count =
-            (from == k || from == MANI_GRAPH_ANY_STATE) ? maniGraphMachineTransition(m, t, 7) : 0u;
+        uint32_t first = 0;
+        uint32_t count = maniGraphMachineConditionsOf(m, t, &first);
+        count = (from == k || from == MANI_GRAPH_ANY_STATE) ? count : 0u;
         for (uint32_t c = first; c < first + count; ++c)
         {
             uint32_t at = maniGraphMachineCondition(m, c);
@@ -181,9 +205,13 @@ static void Hear(const Listen* l, const maniGraphMachine* m, uint32_t* block, ui
             uint64_t hash =
                 maniGraphMachineWord(m, at + 1) + ((uint64_t)maniGraphMachineWord(m, at + 2) << 32);
             bool heard = false;
-            for (uint32_t i = 0; i < maniGraphMachineState(m, k, 3) && !heard; ++i)
+            for (uint32_t i = 0; i < ListCount(l, maniGraphMachineState(m, k, 3)) && !heard; ++i)
             {
                 uint32_t clip = maniGraphMachineClip(m, k, i);
+                if (!IsClip(l, clip))
+                {
+                    continue;
+                }
                 const maniGraphNodeState* s = Node(l, clip);
                 maniClip view = ClipOf(l, clip);
                 heard = (s->flags & MANI_GRAPH_LISTED) != 0 && Heard(&view, s->from, s->step, hash);
@@ -202,7 +230,11 @@ static void Hear(const Listen* l, const maniGraphMachine* m, uint32_t* block, ui
 static void Keep(const Listen* l, uint32_t p)
 {
     maniGraphMachine m = MachineAt(l, p);
-    uint32_t* block = l->blocks + maniGraphMachineBlockAt(&m);
+    uint32_t* block = maniGraphNodeBlock(l->instance, p);
+    if (block == NULL)
+    {
+        return;
+    }
     double loops = maniGraphBlockDouble(block, maniGraphBlockLoops);
     bool finished = block[maniGraphBlockFinished] != 0;
     loops += fabs(maniGraphRecordMove(block));
@@ -227,16 +259,21 @@ static void Keep(const Listen* l, uint32_t p)
 // toward the end it moves to (+inf for none or repeating).
 static void KeepShot(const Listen* l, uint32_t p)
 {
-    if ((Node(l, p)->flags & MANI_GRAPH_REACHED) == 0)
+    uint32_t* block = maniGraphNodeBlock(l->instance, p);
+    if ((Node(l, p)->flags & MANI_GRAPH_REACHED) == 0 || block == NULL)
     {
         return;
     }
     maniGraphShot shot = {l->graph, maniLoadU32(Record(l, p) + 12), 0};
     uint32_t leading = MANI_GRAPH_NO_NODE;
     float most = 0.0f;
-    for (uint32_t i = 0; i < maniGraphShotWord(&shot, maniGraphShotClips); ++i)
+    for (uint32_t i = 0; i < ListCount(l, maniGraphShotWord(&shot, maniGraphShotClips)); ++i)
     {
         uint32_t clip = maniGraphShotClip(&shot, i);
+        if (!IsClip(l, clip))
+        {
+            continue;
+        }
         float weight = Node(l, clip)->weight;
         if (leading == MANI_GRAPH_NO_NODE || weight > most)
         {
@@ -251,15 +288,13 @@ static void KeepShot(const Listen* l, uint32_t p)
         maniClip c = ClipOf(l, leading);
         left = Repeats(&c) ? HUGE_VAL : (s->step < 0.0 ? s->time : (double)c.duration - s->time);
     }
-    uint32_t* block = l->blocks + maniGraphShotWord(&shot, maniGraphShotBlock);
     maniGraphSetBlockDouble(block, maniGraphShotRemaining, left > 0.0 ? left : 0.0);
 }
 
-void maniGraphListen(const maniGraph* graph, const maniClip* const* clips,
-                     maniGraphInstance* instance)
+void maniGraphListen(maniGraphInstance* instance)
 {
-    Listen l = {graph, clips, instance->cells,
-                (uint32_t*)((uint8_t*)instance + instance->machinesAt)};
+    const maniGraph* graph = &instance->binding->graph;
+    Listen l = {graph, instance, instance->cells};
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {
         uint32_t kind = maniLoadU16(Record(&l, p));

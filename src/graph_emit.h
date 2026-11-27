@@ -9,6 +9,7 @@
 #define MAUL_ANIM_SRC_GRAPH_EMIT_H
 
 #include "bytes.h"
+#include "graph_file.h"
 #include "graph_instance.h"
 #include "root_motion.h"
 
@@ -39,18 +40,21 @@ static inline maniGraphNodeState* maniGraphUpdateNode(const maniGraphUpdate* u, 
     return &u->instance->cells[u->graph->parameterCount + p].node;
 }
 
+// Data word at, 0 past the words (maniGraphWord).
 static inline uint32_t maniGraphUpdateWord(const maniGraphUpdate* u, uint32_t at)
 {
-    return maniLoadU32(u->graph->data + 4 * (size_t)at);
+    return maniGraphWord(u->graph, at);
 }
 
-// A scalar's value: its float parameter's, or its literal.
+// A scalar's value: its float parameter's, or its literal (also for a
+// parameter past the count).
 static inline float maniGraphUpdateScalar(const maniGraphUpdate* u, uint32_t at)
 {
-    uint32_t parameter = maniGraphUpdateWord(u, at);
-    if (parameter != MANI_NO_PARAMETER)
+    const maniGraphValue* v =
+        maniGraphParameterValue(u->graph, u->instance->cells, maniGraphUpdateWord(u, at));
+    if (v != NULL)
     {
-        return u->instance->cells[parameter].value.f[0];
+        return v->f[0];
     }
     uint32_t bits = maniGraphUpdateWord(u, at + 1);
     float value = 0.0f;
@@ -70,7 +74,8 @@ void maniGraphEmitLoops(maniGraphUpdate* u, uint32_t node, uint32_t slot, const 
                         double from, double to, double loops);
 
 // An inertialize node's request of seconds (none for MANI_GRAPH_NO_NODE
-// or seconds not at least 0): the least of an update's.
+// or seconds not at least 0): the least of an update's. The node's block
+// fits the bytes as they are (maniGraphNodeBlock).
 void maniGraphRequest(const maniGraphUpdate* u, uint32_t node, float seconds);
 
 // A node's move and an event or marker name of its clip (or model) as

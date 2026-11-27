@@ -3,7 +3,8 @@
 //
 // A graph's bytes changed after the open: the sweep of
 // graph_changed.h over a graph of most kinds, its file a heap block of
-// its exact length; then changes with their documented results.
+// its exact length; then changes with their documented results, and
+// with the results an update gives them.
 
 #include "bytes.h"
 #include "container.h"
@@ -196,6 +197,180 @@ static void TestFound(void)
     free(block);
 }
 
+// A graph opened from a heap block of its exact length into *g, bound
+// and an instance made; *blockOut is what to free.
+static maniGraphInstance* Made(maniGraphSource source, maniGraph* g, uint8_t** blockOut)
+{
+    size_t size = 0;
+    uint8_t* file = Built(source, &size, blockOut);
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NULL;
+    maniGraphAssets assets = {&s_skeleton, Clips(), NULL, NULL, NULL, CLIPS, 0,
+                              0,           0,       NULL, NULL, 0,    0,     NULL};
+    CHECK(maniOpenGraph(file, size, g).result == mani_success &&
+              maniBindGraph(g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
+                  mani_success &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "bound");
+    return instance;
+}
+
+// The graph of Source, as Made makes it.
+static maniGraphInstance* Instance(maniGraph* g, uint8_t** blockOut)
+{
+    maniGraphNodeSource nodes[10];
+    return Made(Source(nodes), g, blockOut);
+}
+
+static maniGraphNodeView View(const maniGraphInstance* instance, uint32_t node)
+{
+    maniGraphNodeView view;
+    CHECK(maniGraphInstance_InspectNode(instance, node, &view) == mani_success, "inspected");
+    return view;
+}
+
+// The first node of a kind in the file, which orders every input before
+// its reader.
+static uint32_t Find(const maniGraph* g, uint32_t kind)
+{
+    uint32_t p = 0;
+    while (p < g->nodeCount && maniLoadU16(g->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE) != kind)
+    {
+        ++p;
+    }
+    CHECK(p < g->nodeCount, "the kind found");
+    return p;
+}
+
+static uint8_t* DataWord(const maniGraph* g, uint32_t node, uint32_t k)
+{
+    uint32_t data = maniLoadU32(g->nodes + (size_t)node * MANI_GRAPH_NODE_SIZE + 12);
+    return (uint8_t*)(uintptr_t)g->data + 4 * ((size_t)data + k);
+}
+
+static uint8_t* InputWord(const maniGraph* g, uint32_t node, uint32_t k)
+{
+    uint32_t first = maniLoadU32(g->nodes + (size_t)node * MANI_GRAPH_NODE_SIZE + 4);
+    return (uint8_t*)(uintptr_t)g->inputs + 4 * ((size_t)first + k);
+}
+
+// Bytes changed after the bind, as an update takes them: an input past
+// the nodes takes no share; a select whose parameter is past the count
+// chooses its first input; a machine's transition into a state past its
+// states never fires.
+static void TestUpdated(void)
+{
+    maniGraph g;
+    uint8_t* block = NULL;
+    maniGraphInstance* instance = Instance(&g, &block);
+    uint32_t output = g.nodeCount - 1;
+    maniStoreU32(InputWord(&g, output, 0), 1000);
+    Update(instance, 0.1f);
+    bool none = View(instance, output).weight == 1.0f;
+    for (uint32_t p = 0; p < output; ++p)
+    {
+        none = none && View(instance, p).weight == 0.0f;
+    }
+    CHECK(none, "an input past the nodes takes no share");
+    free(block);
+
+    instance = Instance(&g, &block);
+    uint32_t select = Find(&g, maniGraphNodeSelect);
+    uint32_t walk = maniLoadU32(InputWord(&g, select, 0));
+    uint32_t pose = maniLoadU32(InputWord(&g, select, 1));
+    Update(instance, 0.1f);
+    CHECK(View(instance, select).current == 1 && View(instance, pose).weight == 1.0f &&
+              View(instance, walk).weight == 0.0f,
+          "the select chooses the pose by its parameter");
+    maniStoreU32(DataWord(&g, select, 0), 1000);
+    Update(instance, 0.1f);
+    CHECK(View(instance, select).current == 0 && View(instance, walk).weight == 1.0f &&
+              View(instance, pose).weight == 0.0f,
+          "a select whose parameter is past the count chooses its first input");
+    free(block);
+
+    instance = Instance(&g, &block);
+    uint32_t machine = Find(&g, maniGraphNodeMachine);
+    select = Find(&g, maniGraphNodeSelect);
+    maniStoreU32(DataWord(&g, machine, MANI_GRAPH_MACHINE_WORDS + 1), 7);
+    Set(instance, 4, maniGraphParameterTrigger, (maniGraphValue){.b = 1});
+    Update(instance, 0.1f);
+    CHECK(View(instance, machine).current == 0 && View(instance, select).weight == 1.0f,
+          "a transition into a state past the machine's never fires");
+    free(block);
+}
+
+// A machine of two states whose transitions both ways hold while a bool
+// is set and fade in no time, so each fire completes at once and the
+// machine looks again: after the bind its chain limit made 1001, past
+// the most (MANI_MAX_GRAPH_CHAIN, even), so an update fires that many
+// and ends where it began.
+static void TestChain(void)
+{
+    static const maniGraphConditionSource kGo[1] = {
+        {maniGraphConditionParameter, 0, maniGraphCompareEqual, 0, {.b = 1}, NULL}};
+    static const maniGraphTransitionSource kBoth[2] = {
+        {0, 1, 0, maniGraphInterruptionNone, maniGraphEntryRestart, maniGraphFadeLinear, 0.0f, 0.0f,
+         kGo, 1},
+        {1, 0, 1, maniGraphInterruptionNone, maniGraphEntryRestart, maniGraphFadeLinear, 0.0f, 0.0f,
+         kGo, 1}};
+    static const uint32_t kStates[2] = {1, 2};
+    static maniGraphParameterSource go;
+    go = Parameter("go", maniGraphParameterBool, Int(0));
+    maniGraphNodeSource nodes[3] = {
+        {maniGraphNodeMachine, 2, kStates, .machine = {kBoth, 2, 0, 1, 0, NULL}},
+        ClipNode(0, 1.0f, maniGraphLoopRepeat),
+        ClipNode(1, 1.0f, maniGraphLoopRepeat)};
+    maniGraphSource source = {.parameters = &go,
+                              .nodes = nodes,
+                              .parameterCount = 1,
+                              .nodeCount = 3,
+                              .output = 0,
+                              .skeleton = &s_skeleton,
+                              .clips = kSlots,
+                              .clipCount = CLIPS};
+    maniGraph g;
+    uint8_t* block = NULL;
+    maniGraphInstance* instance = Made(source, &g, &block);
+    uint32_t machine = Find(&g, maniGraphNodeMachine);
+    Set(instance, 0, maniGraphParameterBool, (maniGraphValue){.b = 1});
+    Update(instance, 0.1f);
+    CHECK(View(instance, machine).current == 1, "the chain limit of 1 fires once");
+    maniStoreU32(DataWord(&g, machine, 1), MANI_MAX_GRAPH_CHAIN * 62u + 9u);
+    Update(instance, 0.1f);
+    CHECK(View(instance, machine).current == 1,
+          "a chain limit past the most fires at most MANI_MAX_GRAPH_CHAIN times");
+    free(block);
+}
+
+// A graph without clips (a time scale over a pose node) swept: a node
+// changed into a clip node finds no clip and stays.
+static void TestNoClips(void)
+{
+    static const uint32_t kPose[1] = {1};
+    static maniGraphParameterSource pose;
+    pose = Parameter("ragdoll", maniGraphParameterPose, Int(0));
+    maniGraphNodeSource nodes[2] = {
+        {maniGraphNodeTimeScale, 1, kPose, .timeScale = {LITERAL(2.0f)}},
+        {maniGraphNodePose, 0, NULL, .pose = {0}}};
+    maniGraphSource source = {.parameters = &pose,
+                              .nodes = nodes,
+                              .parameterCount = 1,
+                              .nodeCount = 2,
+                              .output = 0,
+                              .skeleton = &s_skeleton};
+    size_t size = 0;
+    uint8_t* block = NULL;
+    uint8_t* file = Built(source, &size, &block);
+    maniGraph g;
+    CHECK(maniOpenGraph(file, size, &g).result == mani_success && g.clipCount == 0, "opened");
+    maniGraphAssets assets = {&s_skeleton, NULL, NULL, NULL, NULL, 0, 0,
+                              0,           0,    NULL, NULL, 0,    0, NULL};
+    TestChangedGraph(&g, &assets, "every word of a graph without clips changed and put back");
+    free(block);
+}
+
 int main(void)
 {
     Open();
@@ -206,5 +381,8 @@ int main(void)
           "poses");
     TestChangedWords();
     TestFound();
+    TestUpdated();
+    TestChain();
+    TestNoClips();
     return s_failures == 0 ? 0 : 1;
 }

@@ -72,6 +72,17 @@ static inline void ChangedCalls(ChangedRun* c, maniGraphInstance* instance,
         (void)maniGraphInstance_SetPose(instance, p, c->pose);
         (void)maniGraphInstance_GetPose(instance, p, c->spare);
     }
+    // Updates forward, back and by nothing, with room for a few events
+    // and with none.
+    static const float kDeltas[] = {0.25f, -0.4f, 0.0f, 3.5f};
+    for (size_t k = 0; k < sizeof kDeltas / sizeof kDeltas[0]; ++k)
+    {
+        maniGraphEvent events[4];
+        uint32_t eventCount = 0;
+        maniRootMove move;
+        (void)maniGraphInstance_Update(instance, kDeltas[k], events, k % 2 == 0 ? 4u : 0u,
+                                       &eventCount, &move);
+    }
     for (uint32_t p = 0; p < maniGraph_GetNodeCount(g); ++p)
     {
         maniGraphNodeView view;

@@ -34,6 +34,10 @@ uint32_t maniGraphMachineTransition(const maniGraphMachine* m, uint32_t t, uint3
 // Its condition count, and condition c's first data word.
 uint32_t maniGraphMachineConditionCount(const maniGraphMachine* m);
 uint32_t maniGraphMachineCondition(const maniGraphMachine* m, uint32_t c);
+// Transition t's conditions: its first into *first, and the count of
+// those within the machine's conditions. The opener checked that all
+// are; the bytes stay in the caller's hands, so the rest are none.
+uint32_t maniGraphMachineConditionsOf(const maniGraphMachine* m, uint32_t t, uint32_t* first);
 // Whether it listens (records its leading clip), and state k's word w:
 // final, nearest machine, list's first, list's count.
 MANI_NODISCARD bool maniGraphMachineListening(const maniGraphMachine* m);

@@ -73,6 +73,15 @@ uint32_t maniGraphMachineCondition(const maniGraphMachine* m, uint32_t c)
            MANI_GRAPH_CONDITION_WORDS * c;
 }
 
+uint32_t maniGraphMachineConditionsOf(const maniGraphMachine* m, uint32_t t, uint32_t* first)
+{
+    uint32_t conditions = maniGraphMachineConditionCount(m);
+    uint32_t at = maniGraphMachineTransition(m, t, 6);
+    uint32_t count = maniGraphMachineTransition(m, t, 7);
+    *first = at;
+    return at < conditions ? (count < conditions - at ? count : conditions - at) : 0u;
+}
+
 bool maniGraphMachineListening(const maniGraphMachine* m)
 {
     return maniGraphMachineWord(m, 5) != 0;

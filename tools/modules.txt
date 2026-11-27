@@ -133,7 +133,7 @@ graph_inertia: bytes graph_file pose_memory vecmath
 graph_dead_blend: elementary_float graph_file graph_inertia pose_memory scalar vecmath
 graph_inertia_apply: graph_dead_blend graph_file graph_inertia pose_memory scalar vecmath
 graph_shot_step: graph_file graph_instance graph_shot
-graph_emit: bytes clip_view graph_file graph_inertia graph_instance root_motion
+graph_emit: bytes clip_view graph_file graph_inertia graph_instance invariant root_motion
 graph_match_step: bytes graph_emit graph_file graph_instance graph_match match_file match_move match_search root_motion
 graph_learned_step: bytes container graph_emit graph_file graph_instance graph_learned learned_eval match_file root_motion vecmath
 graph_machine: bytes graph_file

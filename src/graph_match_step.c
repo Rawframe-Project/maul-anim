@@ -21,7 +21,12 @@
 // continuing frame is jumped to, kept in the history, and, when the node
 // had an entry, requests inertialization of the nearest node above for
 // the node's duration. A query that does not stay finite once normalized
-// searches nothing.
+// searches nothing. The bytes stay in the caller's hands after the open:
+// a node whose block does not fit, or in a graph without databases, does
+// not move; an entry whose clip is past its database's clip run plays
+// nothing; a query parameter past the count leaves the continuing frame's
+// feature, a tag parameter past it gives the literal, and the history
+// keeps at most MANI_MAX_MATCH_HISTORY picks.
 
 #include "graph_match_step.h"
 
@@ -75,13 +80,22 @@ static uint32_t Word(const Match* m, uint32_t k)
     return maniGraphUpdateWord(m->u, m->data + k);
 }
 
-// The clip slot of the database's clip.
-static uint32_t ClipSlot(const Match* m, uint32_t clip)
+// The database's clip: its slot into *slot, clamped (maniGraphBoundSlot),
+// and its clip; the database record as maniGraphBoundDatabase clamps the
+// node's slot. NULL for a clip past the record's clip run.
+static const maniClip* ClipOf(const Match* m, uint32_t clip, uint32_t* slot)
 {
     const maniGraph* g = m->u->graph;
-    const uint8_t* e =
-        g->databases + (size_t)Word(m, maniGraphMatchDatabase) * MANI_GRAPH_DATABASE_SIZE;
-    return maniLoadU32(g->databaseClips + 4 * (size_t)(maniLoadU32(e + 24) + clip));
+    uint32_t database = maniGraphBoundSlot(Word(m, maniGraphMatchDatabase), g->databaseCount);
+    const uint8_t* e = g->databases + (size_t)database * MANI_GRAPH_DATABASE_SIZE;
+    uint32_t run = maniLoadU32(e + 24);
+    if (run >= g->databaseClipCount || clip >= g->databaseClipCount - run)
+    {
+        return NULL;
+    }
+    uint32_t at = maniLoadU32(g->databaseClips + 4 * (size_t)(run + clip));
+    *slot = maniGraphBoundSlot(at, g->clipCount);
+    return maniGraphBoundClip(m->u->binding, at);
 }
 
 // The events of a move from t0 by step through a span, across wraps.
@@ -127,8 +141,13 @@ MANI_NODISCARD static bool Play(const Match* m, double step)
     {
         return false;
     }
-    uint32_t slot = ClipSlot(m, e.clip);
-    maniClip clip = *m->u->binding->clips[slot];
+    uint32_t slot = 0;
+    const maniClip* bound = ClipOf(m, e.clip, &slot);
+    if (bound == NULL)
+    {
+        return false;
+    }
+    maniClip clip = *bound;
     clip.loop = maniLoopClamp;
     bool loop = (e.flags & maniMatchEntryLoop) != 0;
     maniMatchPlace at =
@@ -237,9 +256,9 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
         for (uint32_t t = 0; t < (vector || ch.kind == maniMatchFloatTrack ? ch.timeCount : 0u);
              ++t, ++q)
         {
-            const maniGraphValue* v =
-                &m->u->instance->cells[Word(m, maniGraphMatchQuery + q)].value;
-            for (uint32_t i = 0; i < width; ++i)
+            const maniGraphValue* v = maniGraphParameterValue(m->u->graph, m->u->instance->cells,
+                                                              Word(m, maniGraphMatchQuery + q));
+            for (uint32_t i = 0; i < width && v != NULL; ++i)
             {
                 uint32_t j = ch.firstFeature + t * width + i;
                 float offset = LoadF32(d->normalization + 4 * (size_t)j);
@@ -250,12 +269,13 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
     }
 }
 
-// Tags: an int parameter's bits, or the literal.
+// Tags: an int parameter's bits, or the literal (also for a parameter
+// past the count).
 static uint32_t Tags(const Match* m, uint32_t k)
 {
-    uint32_t parameter = Word(m, k);
-    return parameter == MANI_NO_PARAMETER ? Word(m, k + 1)
-                                          : (uint32_t)m->u->instance->cells[parameter].value.i;
+    const maniGraphValue* v =
+        maniGraphParameterValue(m->u->graph, m->u->instance->cells, Word(m, k));
+    return v == NULL ? Word(m, k + 1) : (uint32_t)v->i;
 }
 
 // The pick jumped to and kept; inertialization requested when the node
@@ -269,9 +289,11 @@ static void Jump(const Match* m, uint32_t frame)
     m->block[maniGraphMatchEntry] = entry;
     m->s->time = (double)time;
     uint32_t history = Word(m, maniGraphMatchHistoryCount);
+    history = history < MANI_MAX_MATCH_HISTORY ? history : MANI_MAX_MATCH_HISTORY;
     if (history > 0)
     {
         uint32_t next = m->block[maniGraphMatchNext];
+        next = next < history ? next : 0u;
         m->block[maniGraphMatchHistory + next] = frame;
         m->block[maniGraphMatchNext] = next + 1 < history ? next + 1 : 0u;
         uint32_t picks = m->block[maniGraphMatchPicks];
@@ -296,7 +318,9 @@ static void Search(const Match* m, bool ended)
         .current = ended ? MANI_MATCH_NO_FRAME : current,
         .requiredTags = Tags(m, maniGraphMatchRequiredTags),
         .excludedTags = Tags(m, maniGraphMatchExcludedTags),
-        .historyCount = m->block[maniGraphMatchPicks],
+        .historyCount = m->block[maniGraphMatchPicks] < MANI_MAX_MATCH_HISTORY
+                            ? m->block[maniGraphMatchPicks]
+                            : MANI_MAX_MATCH_HISTORY,
         .continuingBias = FloatOf(Word(m, maniGraphMatchContinuingBias)),
         .transitionCost = FloatOf(Word(m, maniGraphMatchTransitionCost)),
         .jumpThreshold = FloatOf(Word(m, maniGraphMatchJumpThreshold)),
@@ -322,10 +346,15 @@ void maniGraphAdvanceMatch(maniGraphUpdate* u, uint32_t p)
         return;
     }
     uint32_t data = maniLoadU32(u->graph->nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
-    uint32_t* block = (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) +
-                      maniGraphUpdateWord(u, data + maniGraphMatchBlock);
-    Match m = {u, s,   block, maniGraphBoundDatabase(u->binding, maniGraphUpdateWord(u, data)),
-               p, data};
+    uint32_t* block = maniGraphNodeBlock(u->instance, p);
+    const maniMotionDatabase* d = maniGraphBoundDatabase(u->binding, maniGraphUpdateWord(u, data));
+    if (block == NULL || d == NULL)
+    {
+        s->from = s->time;
+        s->step = 0.0;
+        return;
+    }
+    Match m = {u, s, block, d, p, data};
     if ((s->flags & MANI_GRAPH_SEEKING) != 0)
     {
         maniGraphResetMatch(block);
@@ -339,12 +368,8 @@ void maniGraphAdvanceMatch(maniGraphUpdate* u, uint32_t p)
     double step = fabs(u->delta * (double)s->factor);
     bool ended = Play(&m, step);
     double clock = (double)FloatOf(block[maniGraphMatchClock]) + step;
-    uint32_t trigger = Word(&m, maniGraphMatchTrigger);
-    bool triggered = trigger != MANI_NO_PARAMETER && u->instance->cells[trigger].value.b != 0;
-    if (triggered)
-    {
-        u->instance->cells[trigger].value.b = 0;
-    }
+    bool triggered =
+        maniGraphTakeTrigger(u->graph, u->instance->cells, Word(&m, maniGraphMatchTrigger));
     bool due = block[maniGraphMatchEntry] == MANI_GRAPH_MATCH_NO_ENTRY || ended || triggered ||
                clock >= (double)FloatOf(Word(&m, maniGraphMatchPeriod));
     block[maniGraphMatchClock] = BitsOf(due ? 0.0f : (float)clock);
