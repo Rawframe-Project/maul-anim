@@ -70,11 +70,18 @@ static maniRootMove Carried(const Update* u, uint32_t slot, const maniClip* clip
     return maniRetargetMove(&motion, move);
 }
 
+// A clip node's clip slot, clamped to the clips (maniGraphBoundSlot): the
+// bytes stay in the caller's hands after the open. Only a graph with
+// clips moves its clip nodes (maniGraphAdvanceClip, GroupOf).
+static uint32_t Slot(const Update* u, uint32_t data)
+{
+    return maniGraphBoundSlot(Word(u, data), u->graph->clipCount);
+}
+
 // A clip node's clip, its loop as the node says.
 static maniClip ClipOf(const Update* u, uint32_t data)
 {
-    MANI_ASSERT(Word(u, data) < u->graph->clipCount);
-    maniClip clip = *u->binding->clips[Word(u, data)];
+    maniClip clip = *maniGraphBoundClip(u->binding, Word(u, data));
     uint32_t loop = Word(u, data + 2);
     clip.loop = loop == 0 ? clip.loop : (loop == 1 ? maniLoopClamp : maniLoopRepeat);
     return clip;
@@ -143,9 +150,9 @@ static Motion OwnMotion(const Update* u, const maniGraphNodeState* s, const mani
         return (Motion){Place(clip, (double)s->seekTo * scale), 0.0, true, false};
     }
     // The update takes a finite delta and the opener bounds the time
-    // factor, so the step is finite; one that is not moves nothing.
+    // factor, so the step is finite; one that is not (the bytes changed
+    // since the open) moves nothing.
     double step = u->delta * (double)Scalar(u, data + 4) * (double)s->factor;
-    MANI_ASSERT(isfinite(step));
     return (Motion){s->time, isfinite(step) ? step : 0.0, false, true};
 }
 
@@ -155,9 +162,11 @@ static maniGraphGroupState* Group(const Update* u, uint32_t group)
     return &u->instance->cells[u->graph->parameterCount + u->graph->nodeCount + group].group;
 }
 
+// A clip node's sync group; none (UINT32_MAX) in a graph without clips,
+// where a clip node is the bytes changed since the open.
 static uint32_t GroupOf(const Update* u, const uint8_t* record)
 {
-    return Word(u, maniLoadU32(record + 12) + 1);
+    return u->graph->clipCount > 0 ? Word(u, maniLoadU32(record + 12) + 1) : UINT32_MAX;
 }
 
 // The next clip node of group g from node from on, or UINT32_MAX.
@@ -186,11 +195,11 @@ MANI_NODISCARD static bool InAll(const Update* u, uint32_t g, uint64_t hash)
 {
     for (uint32_t p = NextMember(u, g, 0); p != UINT32_MAX; p = NextMember(u, g, p + 1))
     {
-        const maniClip* clip = u->binding->clips[Word(u, maniLoadU32(Record(u, p) + 12))];
+        maniClip clip = ClipOf(u, maniLoadU32(Record(u, p) + 12));
         bool found = false;
-        for (uint32_t k = 0; k < clip->markerCount && !found; ++k)
+        for (uint32_t k = 0; k < clip.markerCount && !found; ++k)
         {
-            found = MarkerName(u, p, clip, k) == hash;
+            found = MarkerName(u, p, &clip, k) == hash;
         }
         if (!found)
         {
@@ -506,13 +515,13 @@ static Motion Follow(const Update* u, uint32_t g, uint32_t p, const maniClip* cl
 
 // A clip node's move. One no parent reached and in no sync group stays
 // where it is: its time factor 0, no seek, no weight, so no events and
-// no root motion.
+// no root motion. So does one in a graph without clips.
 void maniGraphAdvanceClip(maniGraphUpdate* u, uint32_t p)
 {
     const uint8_t* record = Record(u, p);
     maniGraphNodeState* s = Node(u, p);
     uint32_t group = GroupOf(u, record);
-    if (!Reached(s) && group >= u->graph->syncGroupCount)
+    if ((!Reached(s) && group >= u->graph->syncGroupCount) || u->graph->clipCount == 0)
     {
         s->from = s->time;
         s->step = 0.0;
@@ -534,12 +543,12 @@ void maniGraphAdvanceClip(maniGraphUpdate* u, uint32_t p)
         if (m.events && s->weight > MANI_GRAPH_EVENT_THRESHOLD)
         {
             s->flags |= MANI_GRAPH_LISTED;
-            Events(u, p, Word(u, data), &clip, m.t0, m.step);
+            Events(u, p, Slot(u, data), &clip, m.t0, m.step);
         }
         if (s->rootWeight > 0.0f)
         {
             (void)maniClipRootMotionEntered(&clip, (float)m.t0, (float)m.step, &move);
-            move = maniGraphNodeMove(u, p, Carried(u, Word(u, data), &clip, move));
+            move = maniGraphNodeMove(u, p, Carried(u, Slot(u, data), &clip, move));
         }
     }
     s->time = Place(&clip, m.t0 + m.step);

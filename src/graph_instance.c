@@ -48,9 +48,14 @@ MANI_NODISCARD static bool BindingValid(const maniGraphBinding* binding)
 }
 
 // The nodes that sample clips through a cursor: clip and motion matching
-// nodes.
+// nodes; none in a graph without clips, where such a node is the bytes
+// changed since the open and the binding sizes no cursor.
 static uint32_t ClipNodeCount(const maniGraph* graph)
 {
+    if (graph->clipCount == 0)
+    {
+        return 0;
+    }
     uint32_t count = 0;
     for (uint32_t p = 0; p < graph->nodeCount; ++p)
     {

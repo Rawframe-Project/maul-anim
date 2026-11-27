@@ -36,22 +36,20 @@ static float TransitionFloat(const maniGraphMachine* m, uint32_t t, uint32_t k)
     return maniGraphMachineFloat(m, MANI_GRAPH_MACHINE_WORDS + MANI_GRAPH_TRANSITION_WORDS * t + k);
 }
 
-// Transition t's first condition's data word.
-static uint32_t FirstCondition(const maniGraphMachine* m, uint32_t t)
-{
-    return maniGraphMachineCondition(m, Transition(m, t, 6));
-}
-
 // A parameter condition: its parameter's value compared with the
-// condition's value.
-MANI_NODISCARD static bool Compares(const maniGraphMachine* m, const maniGraphCell* cells,
-                                    uint32_t at)
+// condition's value; one whose parameter is past the count (the bytes
+// changed since the open) does not hold.
+MANI_NODISCARD static bool Compares(const maniGraphMachine* m, maniGraphCell* cells, uint32_t at)
 {
     uint32_t parameter = maniGraphMachineWord(m, at + 1);
     uint32_t compare = maniGraphMachineWord(m, at + 2);
     uint32_t word = maniGraphMachineWord(m, at + 3);
+    const maniGraphValue* v = maniGraphParameterValue(m->graph, cells, parameter);
+    if (v == NULL)
+    {
+        return false;
+    }
     const uint8_t* entry = m->graph->parameters + (size_t)parameter * MANI_GRAPH_PARAMETER_SIZE;
-    const maniGraphValue* v = &cells[parameter].value;
     uint32_t type = maniLoadU32(entry);
     if (type == maniGraphParameterBool)
     {
@@ -99,15 +97,18 @@ MANI_NODISCARD static bool Passed(const uint32_t* block, double v)
     return move < 0.0 && floor(-after) - floor(-before) - wraps > 0.0;
 }
 
-MANI_NODISCARD static bool Holds(const maniGraphMachine* m, const maniGraphCell* cells,
+// Condition c at its data word at; a trigger past the count is not set.
+MANI_NODISCARD static bool Holds(const maniGraphMachine* m, maniGraphCell* cells,
                                  const uint32_t* block, uint32_t at, uint32_t c)
 {
+    const maniGraphValue* trigger = NULL;
     switch (maniGraphMachineWord(m, at))
     {
     case maniGraphConditionParameter:
         return Compares(m, cells, at);
     case maniGraphConditionTrigger:
-        return cells[maniGraphMachineWord(m, at + 1)].value.b != 0;
+        trigger = maniGraphParameterValue(m->graph, cells, maniGraphMachineWord(m, at + 1));
+        return trigger != NULL && trigger->b != 0;
     case maniGraphConditionTimeInState:
         return maniGraphBlockDouble(block, maniGraphBlockTime) >=
                (double)maniGraphMachineFloat(m, at + 3);
@@ -121,12 +122,13 @@ MANI_NODISCARD static bool Holds(const maniGraphMachine* m, const maniGraphCell*
 }
 
 // Whether transition t's conditions all hold.
-MANI_NODISCARD static bool AllHold(const maniGraphMachine* m, const maniGraphCell* cells,
+MANI_NODISCARD static bool AllHold(const maniGraphMachine* m, maniGraphCell* cells,
                                    const uint32_t* block, uint32_t t)
 {
-    uint32_t first = Transition(m, t, 6);
+    uint32_t first = 0;
+    uint32_t count = maniGraphMachineConditionsOf(m, t, &first);
     bool holds = true;
-    for (uint32_t c = first; c < first + Transition(m, t, 7) && holds; ++c)
+    for (uint32_t c = first; c < first + count && holds; ++c)
     {
         holds = Holds(m, cells, block, maniGraphMachineCondition(m, c), c);
     }
@@ -134,12 +136,14 @@ MANI_NODISCARD static bool AllHold(const maniGraphMachine* m, const maniGraphCel
 }
 
 // Whether t may fire now: a candidate of the current state, past its
-// cooldown, allowed by the running transition's interruption.
+// cooldown, allowed by the running transition's interruption. One into a
+// state past the machine's (the bytes changed since the open) never is.
 MANI_NODISCARD static bool Candidate(const maniGraphMachine* m, const uint32_t* block, uint32_t t)
 {
     uint32_t current = block[maniGraphBlockCurrent];
     uint32_t from = Transition(m, t, 0);
-    if ((from != current && from != MANI_GRAPH_ANY_STATE) || Transition(m, t, 1) == current ||
+    uint32_t to = Transition(m, t, 1);
+    if ((from != current && from != MANI_GRAPH_ANY_STATE) || to == current || to >= m->states ||
         maniGraphMachineSince(m, block, t) < TransitionFloat(m, t, 5))
     {
         return false;
@@ -186,13 +190,14 @@ static void Fade(const maniGraphMachine* m, uint32_t* block)
 static void Fire(const maniGraphMachine* m, maniGraphCell* cells, uint32_t* block, uint32_t t,
                  maniGraphEntered* entered)
 {
-    uint32_t first = FirstCondition(m, t);
-    for (uint32_t c = 0; c < Transition(m, t, 7); ++c)
+    uint32_t first = 0;
+    uint32_t count = maniGraphMachineConditionsOf(m, t, &first);
+    for (uint32_t c = first; c < first + count; ++c)
     {
-        uint32_t at = first + MANI_GRAPH_CONDITION_WORDS * c;
+        uint32_t at = maniGraphMachineCondition(m, c);
         if (maniGraphMachineWord(m, at) == maniGraphConditionTrigger)
         {
-            cells[maniGraphMachineWord(m, at + 1)].value.b = 0;
+            (void)maniGraphTakeTrigger(m->graph, cells, maniGraphMachineWord(m, at + 1));
         }
     }
     uint32_t to = Transition(m, t, 1);
@@ -241,7 +246,10 @@ void maniGraphStepMachine(const maniGraphMachine* m, maniGraphCell* cells, uint3
     entered->inertia = HUGE_VALF;
     Advance(m, block, seconds);
     uint32_t count = maniGraphMachineCount(m);
+    // The opener bounds the chain; the bytes stay in the caller's hands,
+    // and each fire may enter a state.
     uint32_t limit = maniGraphMachineWord(m, 1);
+    limit = limit < MANI_MAX_GRAPH_CHAIN ? limit : MANI_MAX_GRAPH_CHAIN;
     for (uint32_t chain = 0; chain < limit; ++chain)
     {
         uint32_t t = 0;

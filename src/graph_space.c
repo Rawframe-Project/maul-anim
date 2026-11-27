@@ -6,7 +6,10 @@
 // corners of the triangle holding it, or the ends of the nearest edge; a
 // banded space weighs each point by Johansen's gradient bands (2009,
 // section 6.3), cartesian or polar, normalized. Binary32 in a fixed
-// order.
+// order. The bytes stay in the caller's hands after the open: a
+// parameter past the count is none, a weight for an input past the
+// node's is dropped, and a space reads at most the triangles its data
+// words could hold.
 
 #include "graph_space.h"
 
@@ -32,7 +35,23 @@ typedef struct Space
 
 static uint32_t Word(const Space* s, uint32_t at)
 {
-    return maniLoadU32(s->graph->data + 4 * (size_t)(s->data + at));
+    return maniGraphWord(s->graph, s->data + at);
+}
+
+// Input k's weight, dropped for an input past the node's.
+static void Put(const Space* s, float* weights, uint32_t k, float weight)
+{
+    if (k < s->count)
+    {
+        weights[k] = weight;
+    }
+}
+
+// A parameter's value, or NULL for none: MANI_NO_PARAMETER or past the
+// count.
+static const maniGraphValue* Value(const Space* s, uint32_t parameter)
+{
+    return parameter < s->graph->parameterCount ? &s->cells[parameter].value : NULL;
 }
 
 static float Float(const Space* s, uint32_t at)
@@ -45,18 +64,18 @@ static float Float(const Space* s, uint32_t at)
 
 static float Scalar(const Space* s, uint32_t at)
 {
-    uint32_t parameter = Word(s, at);
-    return parameter != MANI_NO_PARAMETER ? s->cells[parameter].value.f[0] : Float(s, at + 1);
+    const maniGraphValue* v = Value(s, Word(s, at));
+    return v != NULL ? v->f[0] : Float(s, at + 1);
 }
 
 // The position: a vec2 parameter's, or the two scalars'.
 static void Position(const Space* s, float* x, float* y)
 {
-    uint32_t vector = Word(s, 0);
-    if (vector != MANI_NO_PARAMETER)
+    const maniGraphValue* v = Value(s, Word(s, 0));
+    if (v != NULL)
     {
-        *x = s->cells[vector].value.f[0];
-        *y = s->cells[vector].value.f[1];
+        *x = v->f[0];
+        *y = v->f[1];
         return;
     }
     *x = Scalar(s, 1);
@@ -75,12 +94,13 @@ static float Point(const Space* s, uint32_t k)
 }
 
 // Between inputs a and b (points pa < pb), at x within them.
-static void Between(float* weights, uint32_t a, uint32_t b, float pa, float pb, float x)
+static void Between(const Space* s, float* weights, uint32_t a, uint32_t b, float pa, float pb,
+                    float x)
 {
     // pa <= x <= pb, and rounding keeps the order, so t is in [0, 1].
     float t = (x - pa) / (pb - pa);
-    weights[a] = 1.0f - t;
-    weights[b] = t;
+    Put(s, weights, a, 1.0f - t);
+    Put(s, weights, b, t);
 }
 
 static void Line(const Space* s, float x, float* weights)
@@ -103,13 +123,13 @@ static void Line(const Space* s, float x, float* weights)
         if (x > high)
         {
             // Across the seam, from the last point to the first a period on.
-            Between(weights, last, first, high, low + period, x);
+            Between(s, weights, last, first, high, low + period, x);
             return;
         }
     }
     if (x <= low || x >= high)
     {
-        weights[x <= low ? first : last] = 1.0f;
+        Put(s, weights, x <= low ? first : last, 1.0f);
         return;
     }
     // The last point at or below x, by halves.
@@ -129,7 +149,7 @@ static void Line(const Space* s, float x, float* weights)
     }
     uint32_t a = Ordered(s, lo);
     uint32_t b = Ordered(s, hi);
-    Between(weights, a, b, Point(s, a), Point(s, b), x);
+    Between(s, weights, a, b, Point(s, a), Point(s, b), x);
 }
 
 // The signed turn from direction a to direction b, in [-pi, pi]; 0 when
@@ -221,6 +241,7 @@ static void Corners(const Space* s, const uint32_t* v, const float* at, float* w
 static void Triangulated(const Space* s, const float* at, float* weights)
 {
     uint32_t count = Word(s, MANI_GRAPH_POSITION_WORDS);
+    count = count < s->graph->dataWords / 3 ? count : s->graph->dataWords / 3;
     uint32_t corners = MANI_GRAPH_SPACE_WORDS + 2 * s->count;
     for (uint32_t t = 0; t < count; ++t)
     {
@@ -230,9 +251,9 @@ static void Triangulated(const Space* s, const float* at, float* weights)
         Corners(s, v, at, w);
         if (w[0] >= 0.0f && w[1] >= 0.0f && w[2] >= 0.0f)
         {
-            weights[v[0]] = w[0];
-            weights[v[1]] = w[1];
-            weights[v[2]] = w[2];
+            Put(s, weights, v[0], w[0]);
+            Put(s, weights, v[1], w[1]);
+            Put(s, weights, v[2], w[2]);
             return;
         }
     }
@@ -261,8 +282,8 @@ static void Triangulated(const Space* s, const float* at, float* weights)
             best = d;
         }
     }
-    weights[ends[0]] = 1.0f - along;
-    weights[ends[1]] = along;
+    Put(s, weights, ends[0], 1.0f - along);
+    Put(s, weights, ends[1], along);
 }
 
 static void Banded(const Space* s, const float* at, float* weights)
@@ -326,6 +347,10 @@ void maniGraphSpaceWeights(const maniGraph* graph, const maniGraphCell* cells, u
     for (uint32_t k = 0; k < count; ++k)
     {
         weights[k] = 0.0f;
+    }
+    if (count == 0)
+    {
+        return;
     }
     float at[2];
     Position(&s, &at[0], &at[1]);

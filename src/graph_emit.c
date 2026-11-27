@@ -13,6 +13,7 @@
 #include "graph_file.h"
 #include "graph_inertia.h"
 #include "graph_instance.h"
+#include "invariant.h"
 
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
@@ -78,9 +79,10 @@ void maniGraphRequest(const maniGraphUpdate* u, uint32_t node, float seconds)
     {
         return;
     }
-    uint32_t data = maniLoadU32(u->graph->nodes + (size_t)node * MANI_GRAPH_NODE_SIZE + 12);
-    uint32_t* block = (uint32_t*)((uint8_t*)u->instance + u->instance->machinesAt) +
-                      maniGraphUpdateWord(u, data + maniGraphInertiaBlock);
+    // The node is an inertialize node of this update's bytes whose block
+    // fits them: ShareInertia names a node above only then.
+    uint32_t* block = maniGraphNodeBlock(u->instance, node);
+    MANI_ASSERT(block != NULL);
     float pending = maniGraphInertiaGet(block, maniGraphInertiaPending);
     maniGraphInertiaSet(block, maniGraphInertiaPending, seconds < pending ? seconds : pending);
 }

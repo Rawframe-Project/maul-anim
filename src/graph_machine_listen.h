@@ -18,8 +18,7 @@
 #include "maul-anim/graph.h"
 
 // Records every listening machine and every one-shot of an instance
-// whose clips moved, clips the binding's in slot order.
-void maniGraphListen(const maniGraph* graph, const maniClip* const* clips,
-                     maniGraphInstance* instance);
+// whose clips moved.
+void maniGraphListen(maniGraphInstance* instance);
 
 #endif // MAUL_ANIM_SRC_GRAPH_MACHINE_LISTEN_H

@@ -256,6 +256,38 @@ struct maniGraphInstance
     maniGraphCell cells[];
 };
 
+// A parameter read from the graph's bytes: its value among the cells;
+// NULL past the count (the bytes changed since the open), which every
+// reader takes as no parameter.
+static inline maniGraphValue* maniGraphParameterValue(const maniGraph* graph, maniGraphCell* cells,
+                                                      uint32_t parameter)
+{
+    return parameter < graph->parameterCount ? &cells[parameter].value : NULL;
+}
+
+// A trigger read from the graph's bytes, consumed: whether it was set;
+// false for MANI_NO_PARAMETER and a parameter past the count.
+MANI_NODISCARD static inline bool maniGraphTakeTrigger(const maniGraph* graph, maniGraphCell* cells,
+                                                       uint32_t parameter)
+{
+    maniGraphValue* v = maniGraphParameterValue(graph, cells, parameter);
+    bool set = v != NULL && v->b != 0;
+    if (set)
+    {
+        v->b = 0;
+    }
+    return set;
+}
+
+// The clip a clip slot read from the graph's bytes binds, the slot
+// clamped (maniGraphBoundSlot); NULL for a graph without clips. Bind
+// refuses a graph with a clip slot left unbound.
+static inline const maniClip* maniGraphBoundClip(const maniGraphBinding* binding, uint32_t slot)
+{
+    uint32_t count = binding->graph.clipCount;
+    return count > 0 ? binding->clips[maniGraphBoundSlot(slot, count)] : NULL;
+}
+
 // A pose parameter's locals in the instance, in a pose's layout (groups
 // of MANI_POSE_GROUP_BONES bones, MANI_POSE_COMPONENTS floats each);
 // NULL for a parameter past the count, of another type, or past the pose

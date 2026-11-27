@@ -474,6 +474,73 @@ static void TestIdleSlot(void)
           "the idle slot bound, the node playing its own");
 }
 
+// After the bind, a node made to play a model its block or the room bind
+// measured does not hold does not move: its playhead stays. The room is
+// the narrow model's, which the node plays; the wider model, of the same
+// counts, sits in a slot no node plays.
+static void TestHoused(void)
+{
+    const maniGraphModelSource slots[2] = {kModelSlot[0], {&s_wide, "wide", 4}};
+    MatchParameters();
+    maniGraphNodeSource nodes[2] = {LearnedNode(0.1f, 0.0f), Above(0)};
+    maniGraphSource source = {.parameters = s_matchParameters,
+                              .nodes = nodes,
+                              .parameterCount = 4,
+                              .nodeCount = 2,
+                              .output = 1,
+                              .modelCount = 2,
+                              .models = slots};
+    maniGraph g;
+    maniGraphInstance* instance = MakeLearned(source, &g);
+    CHECK(maniGraphRoom(instance->binding) < Need(&s_wide) &&
+              s_wide.featureCount == s_learned.featureCount &&
+              s_wide.latentCount == s_learned.latentCount &&
+              s_wide.eventCount == s_learned.eventCount && s_learned.eventCount > 0,
+          "the wider model of the same counts needs more than the room");
+    Update(instance, 0.0f);
+    Update(instance, 0.05f);
+    double time = State(instance, &g, 0)->time;
+    CHECK(LearnedBlock(instance, &g, 0)[maniGraphLearnedHas] == 1 && time > 0.0, "playing");
+    uint32_t data = maniLoadU32(g.nodes + 12);
+    const struct
+    {
+        uint32_t word;
+        uint32_t value;
+        const char* what;
+    } kChanges[3] = {
+        {maniGraphLearnedModel, 1, "a model the room does not hold: the node stays"},
+        {maniGraphLearnedStates, s_learned.featureCount + s_learned.latentCount - 1,
+         "fewer states than the model's: the node stays"},
+        {maniGraphLearnedEvents, s_learned.eventCount - 1,
+         "fewer events than the model's: the node stays"},
+    };
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        uint8_t* word = (uint8_t*)(uintptr_t)g.data + 4 * (size_t)(data + kChanges[k].word);
+        uint32_t kept = maniLoadU32(word);
+        maniStoreU32(word, kChanges[k].value);
+        Update(instance, 0.05f);
+        CHECK(State(instance, &g, 0)->time == time, kChanges[k].what);
+        maniStoreU32(word, kept);
+    }
+    Update(instance, 0.05f);
+    CHECK(State(instance, &g, 0)->time > time, "put back, it plays on");
+    // A block the bytes moved onto other words holds any clock (a fuzz
+    // finding: one past 2^900 stepped without end): it starts at 0.
+    uint32_t* block = LearnedBlock(instance, &g, 0);
+    double huge = 0x1p900;
+    uint64_t bits = 0;
+    memcpy(&bits, &huge, sizeof bits);
+    block[maniGraphLearnedClock] = (uint32_t)bits;
+    block[maniGraphLearnedClock + 1] = (uint32_t)(bits >> 32);
+    Update(instance, 0.05f);
+    bits = block[maniGraphLearnedClock] | (uint64_t)block[maniGraphLearnedClock + 1] << 32;
+    double clock = 0.0;
+    memcpy(&clock, &bits, sizeof clock);
+    CHECK(clock >= 0.0 && clock < 1.0 / (double)s_learned.stepRate,
+          "a clock past a step starts at 0");
+}
+
 // Files that open but name a model the node does not fit.
 static void TestUnfit(void)
 {
@@ -804,6 +871,7 @@ int main(int argc, char** argv)
     TestRoom(true);
     TestRoom(false);
     TestIdleSlot();
+    TestHoused();
     TestSubgraph();
     TestJson();
     TestJsonForms();
