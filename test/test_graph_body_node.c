@@ -229,6 +229,23 @@ static void TestXpbd(void)
     CHECK(Matches(true), "weight -1 clamped to 0: the walk");
 }
 
+// After the bind, the XPBD node's effector count made the least whose
+// effectors' bytes pass 2^32, which wraps to a few in a 32-bit size: the
+// node gives its input, its effectors never laid in the room.
+static void TestChanged(void)
+{
+    maniGraph g;
+    maniGraphNodeSource nodes[2] = {ClipNode(0, 1.0f, maniGraphLoopRepeat),
+                                    BodyNode(maniGraphNodeBodyXpbd, kFirst, kXpbd)};
+    maniGraphInstance* instance = Make(BodySource(nodes, 2), &g);
+    Update(instance, 0.3f);
+    uint32_t data = maniLoadU32(g.nodes + MANI_GRAPH_NODE_SIZE + 12);
+    uint8_t* count = (uint8_t*)(uintptr_t)g.data + 4 * ((size_t)data + maniGraphBodyEffectorCount);
+    maniStoreU32(count, (uint32_t)(((uint64_t)1 << 32) / sizeof(maniBodyEffector) + 1));
+    Evaluate(instance);
+    CHECK(Matches(true), "an effector count past the most: the walk");
+}
+
 static void TestSdls(void)
 {
     maniGraph g;
@@ -765,6 +782,7 @@ int main(int argc, char** argv)
           "poses");
     Walk();
     TestXpbd();
+    TestChanged();
     TestSdls();
     TestSubgraph();
     TestBuildRefusals();

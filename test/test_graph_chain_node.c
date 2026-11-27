@@ -159,6 +159,26 @@ static void TestCcd(void)
     CHECK(Matches(true), "weight -1 clamped to 0: the walk");
 }
 
+// After the bind, the CCD node's root made past the bones, so its path
+// is empty, and its limit count made 2^32 - 1, one less than the path's
+// length in 32 bits: the node gives its input, its limits past the most
+// never read (AddressSanitizer sees their array).
+static void TestChanged(void)
+{
+    maniGraph g;
+    maniGraphNodeSource nodes[2] = {ClipNode(0, 1.0f, maniGraphLoopRepeat),
+                                    ChainNode(maniGraphNodeCcd, kFirst, kCcd)};
+    maniGraphInstance* instance = Make(ChainSource(nodes, 2), &g);
+    Update(instance, 0.3f);
+    uint32_t data = maniLoadU32(g.nodes + MANI_GRAPH_NODE_SIZE + 12);
+    uint8_t* root = (uint8_t*)(uintptr_t)g.data + 4 * (size_t)data;
+    uint8_t* limits = root + 4 * (size_t)maniGraphChainLimitCount;
+    maniStoreU32(root, 1000);
+    maniStoreU32(limits, UINT32_MAX);
+    Evaluate(instance);
+    CHECK(Matches(true), "a limit count past the most: the walk");
+}
+
 static void TestFabrik(void)
 {
     maniGraph g;
@@ -537,6 +557,7 @@ int main(int argc, char** argv)
           "poses");
     Walk();
     TestCcd();
+    TestChanged();
     TestFabrik();
     TestSubgraph();
     TestBuildRefusals();

@@ -371,6 +371,106 @@ static void TestNoClips(void)
     free(block);
 }
 
+// size bytes at a MANI_GRAPH_SCRATCH_ALIGNMENT address that end where
+// their heap block ends, so AddressSanitizer sees an evaluation write
+// past its scratch. malloc gives 16-byte aligned blocks on the desktop
+// targets: a block of size bytes when it is so aligned, else one of 16
+// bytes more used from its 16th byte when that is; else (rarely) that
+// block from its start, 16 bytes short of its end. Where malloc aligns
+// to less (Emscripten's 8), a static block, as no sanitizer runs there.
+// *blockOut is what to free.
+static uint8_t* ExactScratch(size_t size, uint8_t** blockOut)
+{
+    static _Alignas(32) uint8_t fallback[1 << 16];
+    const uintptr_t align = MANI_GRAPH_SCRATCH_ALIGNMENT;
+    uint8_t* block = (uint8_t*)malloc(size);
+    if (block != NULL && (uintptr_t)block % align == 0)
+    {
+        *blockOut = block;
+        return block;
+    }
+    free(block);
+    block = (uint8_t*)malloc(size + 16);
+    if (block != NULL && (uintptr_t)block % 16 == 0)
+    {
+        *blockOut = block;
+        return (uintptr_t)block % align == 16 ? block + 16 : block;
+    }
+    free(block);
+    CHECK(!TEST_ADDRESS_SANITIZER && size <= sizeof fallback, "a scratch");
+    *blockOut = NULL;
+    return fallback;
+}
+
+// A chain of 40 blends of two inputs each over clips, so the scratch
+// holds two layers: after the bind the deepest blend's input count made
+// every input from its first on, which the inputs section holds; an
+// evaluation blends at most the layers the scratch holds, in a scratch
+// of its exact size.
+static void TestLayers(void)
+{
+    enum
+    {
+        BLENDS = 40,
+        NODES = 2 * BLENDS + 1
+    };
+    static uint32_t inputs[BLENDS][2];
+    static const maniGraphScalar kWeights[2] = {LITERAL(1.0f), LITERAL(1.0f)};
+    static maniGraphNodeSource nodes[NODES];
+    for (uint32_t i = 0; i < BLENDS; ++i)
+    {
+        inputs[i][0] = i + 1;
+        inputs[i][1] = BLENDS + 1 + i;
+        nodes[i] = (maniGraphNodeSource){maniGraphNodeBlend, 2, inputs[i], .blend = {kWeights, 0}};
+    }
+    for (uint32_t i = BLENDS; i < NODES; ++i)
+    {
+        nodes[i] = ClipNode((i % 2) * 3, 1.0f, maniGraphLoopRepeat);
+    }
+    maniGraphSource source = {.nodes = nodes,
+                              .nodeCount = NODES,
+                              .output = 0,
+                              .skeleton = &s_skeleton,
+                              .clips = kSlots,
+                              .clipCount = CLIPS};
+    size_t size = 0;
+    uint8_t* fileBlock = NULL;
+    uint8_t* file = Built(source, &size, &fileBlock);
+    maniGraph g;
+    maniGraphBinding* binding = NULL;
+    maniGraphAssets assets = {&s_skeleton, Clips(), NULL, NULL, NULL, CLIPS, 0,
+                              0,           0,       NULL, NULL, 0,    0,     NULL};
+    CHECK(maniOpenGraph(file, size, &g).result == mani_success &&
+              maniBindGraph(&g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
+                  mani_success,
+          "bound");
+    size_t instanceSize = maniGraphBinding_GetInstanceSize(binding);
+    uint8_t* instanceBlock = NULL;
+    uint8_t* memory = TestExactCopy(instanceSize, &instanceBlock);
+    maniGraphInstance* instance = NULL;
+    CHECK(maniInitGraphInstance(binding, memory, instanceSize, &instance) == mani_success, "made");
+    uint32_t deepest = 0;
+    while (deepest < g.nodeCount &&
+           !(maniLoadU16(g.nodes + (size_t)deepest * MANI_GRAPH_NODE_SIZE) == maniGraphNodeBlend &&
+             maniLoadU32(g.nodes + (size_t)deepest * MANI_GRAPH_NODE_SIZE + 4) == 0))
+    {
+        ++deepest;
+    }
+    CHECK(deepest < g.nodeCount, "the deepest blend's inputs first");
+    Update(instance, 0.1f);
+    uint8_t* count = (uint8_t*)(uintptr_t)g.nodes + (size_t)deepest * MANI_GRAPH_NODE_SIZE + 8;
+    maniStoreU32(count, g.inputCount);
+    uint8_t* scratchBlock = NULL;
+    size_t scratchSize = maniGraphBinding_GetScratchSize(binding);
+    uint8_t* scratch = ExactScratch(scratchSize, &scratchBlock);
+    CHECK(maniGraphInstance_Evaluate(instance, scratch, scratchSize, s_out) == mani_success,
+          "a blend of more inputs than the scratch's layers blends the layers it holds");
+    maniStoreU32(count, 2);
+    free(scratchBlock);
+    free(instanceBlock);
+    free(fileBlock);
+}
+
 int main(void)
 {
     Open();
@@ -384,5 +484,6 @@ int main(void)
     TestUpdated();
     TestChain();
     TestNoClips();
+    TestLayers();
     return s_failures == 0 ? 0 : 1;
 }

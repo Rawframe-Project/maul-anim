@@ -474,8 +474,27 @@ static void TestIdleSlot(void)
           "the idle slot bound, the node playing its own");
 }
 
+// Whether the instance evaluates to the skeleton's rest.
+static bool EvaluatesRest(maniGraphInstance* instance)
+{
+    static _Alignas(32) uint8_t scratch[1 << 16];
+    static _Alignas(32) uint8_t memory[4096];
+    maniPose* pose = NULL;
+    bool rest = maniInitPose(&s_skeleton, memory, sizeof memory, &pose) == mani_success &&
+                maniGraphBinding_GetScratchSize(instance->binding) <= sizeof scratch &&
+                maniGraphInstance_Evaluate(instance, scratch, sizeof scratch, pose) == mani_success;
+    for (uint32_t b = 0; rest && b < maniSkeleton_GetBoneCount(&s_skeleton); ++b)
+    {
+        maniTransform t = maniPose_GetLocal(pose, b);
+        maniTransform r = maniSkeleton_GetRest(&s_skeleton, b);
+        rest = memcmp(&t, &r, sizeof t) == 0;
+    }
+    return rest;
+}
+
 // After the bind, a node made to play a model its block or the room bind
-// measured does not hold does not move: its playhead stays. The room is
+// measured does not hold does not move: its playhead stays, and it
+// evaluates to the rest. The room is
 // the narrow model's, which the node plays; the wider model, of the same
 // counts, sits in a slot no node plays.
 static void TestHoused(void)
@@ -521,6 +540,7 @@ static void TestHoused(void)
         maniStoreU32(word, kChanges[k].value);
         Update(instance, 0.05f);
         CHECK(State(instance, &g, 0)->time == time, kChanges[k].what);
+        CHECK(k != 0 || EvaluatesRest(instance), "a model the room does not hold: the rest");
         maniStoreU32(word, kept);
     }
     Update(instance, 0.05f);

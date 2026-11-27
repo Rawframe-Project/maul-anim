@@ -4,9 +4,10 @@
 // A graph's bytes changed after the open, for the graph suites: each
 // word of every node record, input, data word, parameter, clip record
 // and database clip run set in turn to values a crafted file could hold.
-// After each change, every call (parameters and poses set and read,
-// every node inspected, the state saved and restored into another
-// instance) runs on new instances of a binding made before any change,
+// After each change, every call (parameters and poses set and read, the
+// instance updated and evaluated, whole and for a subset, every node
+// inspected, the state saved and restored into another instance) runs on
+// new instances of a binding made before any change,
 // on an instance made then, and on instances of the graph bound again;
 // then the getters are read. The bytes are not checked again after the
 // open, so the results are some values and states; no call reads or
@@ -58,12 +59,17 @@ typedef struct ChangedRun
     ChangedState reference;
 } ChangedRun;
 
-// Every call on an instance: its parameters and poses set and read,
-// every node inspected, and the state saved into out and restored into
-// other.
-static inline void ChangedCalls(ChangedRun* c, maniGraphInstance* instance,
-                                maniGraphInstance* other, ChangedState* out)
+// Every call on an instance of binding: its parameters and poses set
+// and read, updated, evaluated whole and for a subset planned on the
+// bytes as they are, every node inspected, and the state saved into out
+// and restored into other. The scratch and the plan are the library's to
+// size from the binding, so they are static blocks large enough.
+static inline void ChangedCalls(ChangedRun* c, const maniGraphBinding* binding,
+                                maniGraphInstance* instance, maniGraphInstance* other,
+                                ChangedState* out)
 {
+    static _Alignas(32) uint8_t scratch[1 << 17];
+    static _Alignas(8) uint8_t planMemory[16384];
     const maniGraph* g = c->graph;
     for (uint32_t p = 0; p < maniGraph_GetParameterCount(g); ++p)
     {
@@ -82,6 +88,19 @@ static inline void ChangedCalls(ChangedRun* c, maniGraphInstance* instance,
         maniRootMove move;
         (void)maniGraphInstance_Update(instance, kDeltas[k], events, k % 2 == 0 ? 4u : 0u,
                                        &eventCount, &move);
+        if (maniGraphBinding_GetScratchSize(binding) <= sizeof scratch)
+        {
+            (void)maniGraphInstance_Evaluate(instance, scratch, sizeof scratch, c->spare);
+        }
+    }
+    static const uint32_t kPlanned[1] = {0};
+    maniGraphSubset* plan = NULL;
+    if (maniGraphBinding_GetSubsetSize(binding) <= sizeof planMemory &&
+        maniGraphBinding_GetScratchSize(binding) <= sizeof scratch &&
+        maniPlanGraphSubset(binding, kPlanned, 1, planMemory, sizeof planMemory, &plan) ==
+            mani_success)
+    {
+        (void)maniGraphInstance_EvaluateSubset(instance, plan, scratch, sizeof scratch, c->spare);
     }
     for (uint32_t p = 0; p < maniGraph_GetNodeCount(g); ++p)
     {
@@ -113,7 +132,7 @@ static inline bool ChangedInstances(ChangedRun* c, const maniGraphBinding* bindi
         maniInitGraphInstance(binding, otherMemory, instanceSize, &other) == mani_success;
     if (made)
     {
-        ChangedCalls(c, instance, other, out);
+        ChangedCalls(c, binding, instance, other, out);
     }
     free(otherFree);
     free(instanceFree);
@@ -164,7 +183,7 @@ static inline bool ChangedOnce(ChangedRun* c)
     if (c->binding != NULL)
     {
         (void)ChangedInstances(c, c->binding, &c->kept);
-        ChangedCalls(c, c->instance, c->instance, &c->other);
+        ChangedCalls(c, c->binding, c->instance, c->instance, &c->other);
     }
     size_t bindingSize = maniGraph_GetBindingSize(g);
     uint8_t* bindingFree = NULL;
