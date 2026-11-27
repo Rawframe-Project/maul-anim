@@ -23,6 +23,7 @@
 #include "ik_frame.h"
 #include "invariant.h"
 #include "mirror_view.h"
+#include "retarget_view.h"
 #include "sort.h"
 #include "text.h"
 #include "vecmath.h"
@@ -285,7 +286,7 @@ MANI_NODISCARD static bool ClipFits(const maniGraphSource* source, const maniGra
     {
         return maniClip_GetSkeletonIdentity(c->clip) == skeleton;
     }
-    return map->targetIdentity == skeleton &&
+    return maniRetargetMapValid(map) && map->targetIdentity == skeleton &&
            map->targetBoneCount == maniSkeleton_GetBoneCount(source->skeleton) &&
            maniClip_GetSkeletonIdentity(c->clip) == map->sourceIdentity &&
            c->clip->skeletonBoneCount == map->sourceBoneCount;

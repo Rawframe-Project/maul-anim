@@ -21,11 +21,13 @@
 #include "file_tag.h"
 #include "negative_kinds.h"
 #include "retarget_file.h"
+#include "retarget_view.h"
 #include "source_padding.h"
 #include "test_harness.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/build.h"
+#include "maul-anim/pose.h"
 #include "maul-anim/retarget.h"
 #include "maul-anim/retargetbuild.h"
 #include "maul-anim/skeleton.h"
@@ -34,6 +36,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static _Alignas(16) uint8_t s_skeletonFiles[2][4096];
@@ -42,6 +45,8 @@ static _Alignas(16) uint8_t s_crafted[16384];
 static maniSkeleton s_source;
 static maniSkeleton s_target;
 static size_t s_size;
+static _Alignas(MANI_POSE_ALIGNMENT) uint8_t s_poseMemory[3][4096];
+static _Alignas(16) uint8_t s_scratch[4096];
 
 typedef struct Bone
 {
@@ -172,7 +177,7 @@ static float LoadF32(const uint8_t* p)
 static bool PlanIs(const maniRetargetMap* m, uint32_t b, uint32_t kind, uint32_t a, uint32_t b2,
                    float t, float weight, uint32_t translation, uint32_t flags)
 {
-    const uint8_t* e = m->plan + (size_t)b * MANI_RETARGET_PLAN_SIZE;
+    const uint8_t* e = maniRetargetPlan(m, b);
     return maniLoadU32(e + maniRetargetPlanKind) == kind &&
            maniLoadU32(e + maniRetargetPlanA) == a && maniLoadU32(e + maniRetargetPlanB) == b2 &&
            fabsf(LoadF32(e + maniRetargetPlanT) - t) <= 1e-6f &&
@@ -222,7 +227,7 @@ static void TestPlan(void)
               PlanIs(&m, 8, maniRetargetPlanReference, none, none, 0.0f, 0.0f, 0, 0),
           "one to one: the extra target bone at its reference");
     CHECK(PlanIs(&m, 9, one, 7, none, 0.0f, 1.0f, 0, 0), "the head by name");
-    const uint8_t* h = m.pelvis;
+    const uint8_t* h = maniRetargetPelvisOf(&m);
     CHECK(!TestSectionAbsent(s_file, maniRetargetTagPelvis) &&
               maniLoadU32(h + maniRetargetPelvisSourceBone) == 1 &&
               maniLoadU32(h + maniRetargetPelvisTargetBone) == 1 &&
@@ -255,15 +260,16 @@ static void TestPlan(void)
               PlanIs(&m, 8, one, 6, none, 0.0f, 0.5f, maniRetargetTranslationScaled, 1) &&
               PlanIs(&m, 0, maniRetargetPlanReference, none, none, 0.0f, 0.0f, 0, 0),
           "one to one reversed; nothing by name");
-    CHECK(TestSectionAbsent(s_file, maniRetargetTagPelvis) &&
-              maniLoadU32(m.pelvis + maniRetargetPelvisSourceBone) == none &&
-              maniLoadU32(m.pelvis + maniRetargetPelvisTargetBone) == none &&
-              LoadF32(m.pelvis + maniRetargetPelvisUp) == 0.0f &&
-              LoadF32(m.pelvis + maniRetargetPelvisUp + 4) == 1.0f &&
-              LoadF32(m.pelvis + maniRetargetPelvisUp + 8) == 0.0f &&
-              LoadF32(m.pelvis + maniRetargetPelvisHorizontal) == 1.0f &&
-              LoadF32(m.pelvis + maniRetargetPelvisVertical) == 1.0f &&
-              LoadF32(m.pelvis + maniRetargetPelvisRatio) == 1.0f &&
+    const uint8_t* defaults = maniRetargetPelvisOf(&m);
+    CHECK(TestSectionAbsent(s_file, maniRetargetTagPelvis) && m.pelvis == 0 &&
+              maniLoadU32(defaults + maniRetargetPelvisSourceBone) == none &&
+              maniLoadU32(defaults + maniRetargetPelvisTargetBone) == none &&
+              LoadF32(defaults + maniRetargetPelvisUp) == 0.0f &&
+              LoadF32(defaults + maniRetargetPelvisUp + 4) == 1.0f &&
+              LoadF32(defaults + maniRetargetPelvisUp + 8) == 0.0f &&
+              LoadF32(defaults + maniRetargetPelvisHorizontal) == 1.0f &&
+              LoadF32(defaults + maniRetargetPelvisVertical) == 1.0f &&
+              LoadF32(defaults + maniRetargetPelvisRatio) == 1.0f &&
               maniRetargetMap_RetargetRootMotion(&m, (maniVec3){0.5f, 2.0f, -3.0f}).y == 2.0f,
           "no pelvis: its section absent, read as its defaults");
 }
@@ -287,8 +293,8 @@ static void TestReference(void)
     CHECK(Build(&source).result == mani_success &&
               maniOpenRetargetMap(s_file, s_size, &m).result == mani_success,
           "a given reference");
-    const uint8_t* e3 = m.targetBones + 3 * MANI_RETARGET_TARGET_SIZE;
-    const uint8_t* e4 = m.targetBones + 4 * MANI_RETARGET_TARGET_SIZE;
+    const uint8_t* e3 = maniRetargetTargetBone(&m, 3);
+    const uint8_t* e4 = maniRetargetTargetBone(&m, 4);
     CHECK(LoadF32(e3 + 36) == 0.45f && fabsf(LoadF32(e3 + 8) - 0.38268343f) <= 1e-6f &&
               fabsf(LoadF32(e4 + 8) - 0.38268343f) <= 1e-6f,
           "its locals and model rotations stored");
@@ -538,10 +544,10 @@ static void TestFile(void)
     CHECK(maniOpenRetargetMap(s_file, s_size, &m).result == mani_success, "the original");
     // The header is the first section.
     size_t h = (size_t)maniLoadU64(s_file + MANI_CONTAINER_HEADER_SIZE + 8);
-    size_t pv = (size_t)(m.pelvis - s_file);
-    size_t sb = (size_t)(m.sourceBones - s_file);
-    size_t tb = (size_t)(m.targetBones - s_file);
-    size_t p = (size_t)(m.plan - s_file);
+    size_t pv = (size_t)m.sections[maniRetargetPelvisSection];
+    size_t sb = (size_t)m.sections[maniRetargetSources];
+    size_t tb = (size_t)m.sections[maniRetargetTargets];
+    size_t p = (size_t)m.sections[maniRetargetPlans];
     CHECK(WordRefused(h + maniRetargetHeaderSourceBones, 0, h + maniRetargetHeaderSourceBones) &&
               WordRefused(h + maniRetargetHeaderTargetBones, 9, h + maniRetargetHeaderTargetBones),
           "bone counts zero or not the sections'");
@@ -636,6 +642,169 @@ static void TestFile(void)
 }
 
 // The map of TestPlan written to path.
+// A heap block of exactly the map just built, opened from it.
+static uint8_t* OpenCopy(maniRetargetMap* out, uint8_t** blockOut)
+{
+    uint8_t* bytes = TestExactCopy(s_size, blockOut);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    CHECK(maniOpenRetargetMap(bytes, s_size, out).result == mani_success, "opens the copy");
+    return bytes;
+}
+
+static maniPose* Pose(const maniSkeleton* skeleton, uint32_t i)
+{
+    maniPose* pose = NULL;
+    CHECK(maniInitPose(skeleton, s_poseMemory[i], sizeof s_poseMemory[i], &pose) == mani_success,
+          "a pose");
+    return pose;
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, a move as it is, the pose refused.
+static bool ViewRefused(const maniRetargetMap* map)
+{
+    maniPose* in = Pose(&s_source, 0);
+    maniPose* out = Pose(&s_target, 1);
+    maniVec3 delta = {0.5f, 2.0f, -3.0f};
+    maniVec3 moved = maniRetargetMap_RetargetRootMotion(map, delta);
+    return maniRetargetMap_GetIdentity(map) == 0 && maniRetargetMap_GetSourceIdentity(map) == 0 &&
+           maniRetargetMap_GetTargetIdentity(map) == 0 &&
+           maniRetargetMap_GetScratchSize(map) == 0 && memcmp(&moved, &delta, sizeof delta) == 0 &&
+           maniRetargetMap_RetargetPose(map, &s_source, in, &s_target, out, s_scratch,
+                                        sizeof s_scratch) == mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: counts edited past the file or the
+// most, a pelvis count of 2, sections placed past the file, one view's
+// counts and sections over a smaller map's bytes, a zeroed view and
+// another kind's cookie are each refused.
+static void TestViewChecked(void)
+{
+    const maniRetargetChainSource chains[2] = {kSpine, kArm};
+    maniRetargetMapSource source = Map(chains, 2);
+    CHECK(Build(&source).result == mani_success, "a map builds");
+    maniRetargetMap big;
+    uint8_t* bigBlock = NULL;
+    (void)OpenCopy(&big, &bigBlock);
+    source.pelvis = NULL;
+    source.chainCount = 1;
+    source.matchNames = false;
+    CHECK(Build(&source).result == mani_success, "a map without a pelvis builds");
+    maniRetargetMap small;
+    uint8_t* smallBlock = NULL;
+    (void)OpenCopy(&small, &smallBlock);
+    CHECK(big.pelvis == 1 && small.pelvis == 0, "the pelvis flags");
+    maniRetargetMap edited = big;
+    edited.targetBoneCount = 60000;
+    CHECK(ViewRefused(&edited), "a target count edited past the file");
+    edited = big;
+    edited.sourceBoneCount = 60000;
+    CHECK(ViewRefused(&edited), "a source count edited past the file");
+    edited.sourceBoneCount = MANI_MAX_BONES + 1;
+    CHECK(ViewRefused(&edited), "a source count past the most");
+    edited.sourceBoneCount = 0;
+    CHECK(ViewRefused(&edited), "no source bones");
+    edited = big;
+    edited.targetBoneCount = 0;
+    CHECK(ViewRefused(&edited), "no target bones");
+    edited = big;
+    edited.pelvis = 2;
+    CHECK(ViewRefused(&edited), "a pelvis count of 2, its records past the file");
+    edited = big;
+    edited.base = NULL;
+    CHECK(ViewRefused(&edited), "no base");
+    const char* what[4] = {"source bones past the file", "target bones past the file",
+                           "plans past the file", "a pelvis past the file"};
+    for (uint32_t k = 0; k < 4; ++k)
+    {
+        edited = big;
+        edited.sections[k] = big.size - 8;
+        CHECK(ViewRefused(&edited), what[k]);
+    }
+    maniRetargetMap mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(ViewRefused(&mixed), "counts and sections over another view's bytes");
+    maniRetargetMap zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniRetargetMap other = big;
+    other.cookie ^= 1u;
+    CHECK(ViewRefused(&zeroed) && ViewRefused(&other) && ViewRefused(NULL),
+          "zeroed, another cookie, NULL");
+    CHECK(!ViewRefused(&big) && !ViewRefused(&small), "the views as opened");
+    free(bigBlock);
+    free(smallBlock);
+}
+
+// Whether the map gives the same target pose as out from in.
+static bool SamePose(const maniRetargetMap* map, const maniPose* in, const maniPose* out,
+                     maniPose* got)
+{
+    bool same = maniRetargetMap_RetargetPose(map, &s_source, in, &s_target, got, s_scratch,
+                                             sizeof s_scratch) == mani_success;
+    for (uint32_t b = 0; b < 10; ++b)
+    {
+        maniTransform x = maniPose_GetLocal(out, b);
+        maniTransform y = maniPose_GetLocal(got, b);
+        same = same && memcmp(&x, &y, sizeof x) == 0;
+    }
+    return same;
+}
+
+// Bytes changed after the open are read only within the map, the poses
+// and the scratch, and give what the header says: a plan's source bone
+// past the source's bones is the source's root, for a one-source and a
+// two-source plan alike.
+static void TestChangedBytes(void)
+{
+    const maniRetargetChainSource chains[2] = {kSpine, kArm};
+    maniRetargetMapSource source = Map(chains, 2);
+    CHECK(Build(&source).result == mani_success, "a map builds");
+    maniRetargetMap map;
+    uint8_t* block = NULL;
+    uint8_t* bytes = OpenCopy(&map, &block);
+    maniPose* in = Pose(&s_source, 0);
+    maniPose* out = Pose(&s_target, 1);
+    maniPose* got = Pose(&s_target, 2);
+    for (uint32_t b = 0; b < 8; ++b)
+    {
+        maniPose_SetLocal(in, b,
+                          (maniTransform){{0.1f * (float)b, 0.2f, 0.0f},
+                                          {0.0f, 0.6f, 0.0f, 0.8f},
+                                          {1.0f, 1.0f + 0.1f * (float)b, 1.0f}});
+    }
+    uint8_t* plans = bytes + map.sections[2];
+    uint32_t two = MANI_NO_BONE;
+    uint32_t one = MANI_NO_BONE;
+    for (uint32_t b = 0; b < 10; ++b)
+    {
+        uint32_t kind = maniLoadU32(plans + (size_t)b * MANI_RETARGET_PLAN_SIZE);
+        two = two == MANI_NO_BONE && kind == maniRetargetPlanTwo ? b : two;
+        one = one == MANI_NO_BONE && kind == maniRetargetPlanOne ? b : one;
+    }
+    CHECK(two != MANI_NO_BONE && one != MANI_NO_BONE, "a one-source and a two-source plan");
+    const uint32_t words[3][2] = {
+        {one, maniRetargetPlanA}, {two, maniRetargetPlanA}, {two, maniRetargetPlanB}};
+    const char* what[3] = {"a one-source plan's bone past the bones is the root",
+                           "a two-source plan's first bone past the bones is the root",
+                           "a two-source plan's second bone past the bones is the root"};
+    for (uint32_t k = 0; k < 3 && two != MANI_NO_BONE && one != MANI_NO_BONE; ++k)
+    {
+        uint8_t* word = plans + (size_t)words[k][0] * MANI_RETARGET_PLAN_SIZE + words[k][1];
+        uint32_t kept = maniLoadU32(word);
+        maniStoreU32(word, 0);
+        CHECK(maniRetargetMap_RetargetPose(&map, &s_source, in, &s_target, out, s_scratch,
+                                           sizeof s_scratch) == mani_success,
+              "the root in its place");
+        maniStoreU32(word, 1000);
+        CHECK(SamePose(&map, in, out, got), what[k]);
+        maniStoreU32(word, kept);
+    }
+    free(block);
+}
+
 static bool Seed(const char* path)
 {
     const maniRetargetChainSource chains[2] = {kSpine, kArm};
@@ -667,5 +836,7 @@ int main(int argc, char** argv)
     TestRefusals();
     TestChainPastBound();
     TestFile();
+    TestViewChecked();
+    TestChangedBytes();
     return s_failures == 0 ? 0 : 1;
 }

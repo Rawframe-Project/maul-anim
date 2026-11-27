@@ -698,7 +698,11 @@ static void TestRefusals(void)
     CHECK(maniBuildRetargetedClip(builder, NULL).result == mani_errorInvalid, "a NULL source");
     s = Source(NULL, &source);
     CHECK(maniBuildRetargetedClip(builder, &s).result == mani_errorInvalid, "a NULL map");
-    CHECK(maniBuilder_GetMisuse(builder) == 2, "misuses counted");
+    maniRetargetMap unopened = s_map;
+    unopened.cookie ^= 1u;
+    s = Source(&unopened, &source);
+    CHECK(maniBuildRetargetedClip(builder, &s).result == mani_errorInvalid, "a map no open wrote");
+    CHECK(maniBuilder_GetMisuse(builder) == 3, "misuses counted");
     maniDestroyBuilder(builder);
     s = Source(&s_map, &source);
     s.source = &s_otherSource;

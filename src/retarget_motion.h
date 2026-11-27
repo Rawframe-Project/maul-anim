@@ -28,8 +28,8 @@ typedef struct maniRetargetMotion
     maniQuat turn;
 } maniRetargetMotion;
 
-// The first target bone whose plan follows source bone a alone;
-// MANI_NO_BONE for none.
+// The first target bone whose plan follows source bone a alone, the map
+// checked; MANI_NO_BONE for none.
 uint32_t maniRetargetFollower(const maniRetargetMap* map, uint32_t a);
 
 // The frames for a source bone and a target bone of the map's

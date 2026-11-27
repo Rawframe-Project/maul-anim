@@ -11,6 +11,7 @@
 #include "fpenv.h"
 #include "retarget_file.h"
 #include "retarget_motion.h"
+#include "retarget_view.h"
 #include "skeleton_view.h"
 #include "vecmath.h"
 
@@ -106,7 +107,7 @@ static maniRootMotionSource Declared(const Bake* b, maniRootMotionSource s)
 
 MANI_NODISCARD static bool Usable(const maniRetargetClipSource* s)
 {
-    return s != NULL && s->map != NULL && maniSkeletonValid(s->source) &&
+    return s != NULL && maniRetargetMapValid(s->map) && maniSkeletonValid(s->source) &&
            maniSkeletonValid(s->target) && s->clip != NULL;
 }
 

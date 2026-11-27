@@ -11,6 +11,7 @@
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "graph_file.h"
 #include "test_harness.h"
 
@@ -31,6 +32,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static _Alignas(16) uint8_t s_skeletonFiles[4][4096];
@@ -406,6 +408,81 @@ static void TestPlayback(void)
     CHECK(moves, "each move the walk's scaled");
 }
 
+// A bound map's view changed after the bind, as the caller's memory may
+// be. The walk's root motion is on the first spine bone, whose parents
+// carry its moves, and the map's bytes are a heap block of exactly their
+// length. Its base made NULL, or its counts made 1 with each section moved
+// to the file's end, the update carries the moves without a turn and the
+// evaluation leaves the carried poses as they were; both read only within
+// the caller's memory.
+static void TestViewChangedAfterBind(void)
+{
+    static _Alignas(16) uint8_t file[65536];
+    const maniBoneTrackSource tracks[3] = {{0, Keys(kRootMove), Keys(kYaw), kNone},
+                                           {1, Keys(kHipsMove), kNone, kNone},
+                                           {2, Keys(kHipsMove), Keys(kSpine), kNone}};
+    const maniRootMotionSource spine = {2, maniRootAxisX | maniRootAxisZ, maniRootRotationTwist,
+                                        1, maniRootReferenceRest,         maniRootReferenceRest,
+                                        0};
+    const maniClipSource w = {.skeleton = &s_source,
+                              .boneTracks = tracks,
+                              .boneTrackCount = 3,
+                              .loop = maniLoopRepeat,
+                              .sampleRate = 30.0f,
+                              .rootMotion = &spine};
+    maniBuilder* builder = NewBuilder();
+    size_t size = 0;
+    maniClip walk;
+    CHECK(maniBuildClip(builder, &w).result == mani_success &&
+              maniBuilder_CopyBuilt(builder, file, sizeof file, &size) == mani_success &&
+              maniOpenClip(file, size, &walk).result == mani_success,
+          "a walk moving the hips");
+    maniDestroyBuilder(builder);
+    maniGraphSource source = Graph(&s_map, &s_map);
+    s_clips[0].clip = &walk;
+    CHECK(BuildGraph(&source).result == mani_success, "a graph of mapped clips builds");
+    maniGraph g;
+    CHECK(maniOpenGraph(s_graphFile, s_graphSize, &g).result == mani_success, "opened");
+    uint8_t* block = NULL;
+    uint8_t* bytes = TestExactCopy((size_t)s_map.size, &block);
+    CHECK(bytes != NULL, "a block of the map's length");
+    memcpy(bytes, s_map.base, (size_t)s_map.size);
+    static maniRetargetMap held;
+    CHECK(maniOpenRetargetMap(bytes, (size_t)s_map.size, &held).result == mani_success,
+          "the map's copy opened");
+    const maniRetargetMap* maps[1] = {&held};
+    const maniSkeleton* sources[1] = {&s_source};
+    const maniClip* clips[2] = {&walk, &s_lean};
+    maniGraphAssets assets = Assets(maps, 1, sources, 1);
+    assets.clips = clips;
+    maniGraphBinding* binding = NULL;
+    maniGraphInstance* instance = NULL;
+    CHECK(maniBindGraph(&g, &assets, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
+                  mani_success &&
+              maniInitGraphInstance(binding, s_instanceMemory, sizeof s_instanceMemory,
+                                    &instance) == mani_success,
+          "bound");
+    const maniRetargetMap opened = held;
+    held.base = NULL;
+    maniRootMove move;
+    CHECK(maniGraphInstance_Update(instance, 0.1f, NULL, 0, NULL, &move) == mani_success &&
+              maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) ==
+                  mani_success,
+          "updated and evaluated without a base");
+    held = opened;
+    held.sourceBoneCount = 1;
+    held.targetBoneCount = 1;
+    held.sections[0] = held.size - 40;
+    held.sections[1] = held.size - 56;
+    held.sections[2] = held.size - 28;
+    CHECK(maniRetargetMap_GetScratchSize(&held) != 0 &&
+              maniGraphInstance_Update(instance, 0.1f, NULL, 0, NULL, &move) == mani_success &&
+              maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_out) ==
+                  mani_success,
+          "updated and evaluated with parents past the counts");
+    free(block);
+}
+
 static void TestBuildRefusals(void)
 {
     maniGraphSource source = Graph(&s_elsewhere, &s_map);
@@ -414,6 +491,11 @@ static void TestBuildRefusals(void)
     source = Graph(NULL, &s_map);
     r = BuildGraph(&source);
     CHECK(r.reason == maniBuildReasonClip && r.item == 0, "a source clip without a map");
+    maniRetargetMap unopened = s_map;
+    unopened.cookie ^= 1u;
+    source = Graph(&unopened, &s_map);
+    r = BuildGraph(&source);
+    CHECK(r.reason == maniBuildReasonClip && r.item == 0, "a map no open wrote");
     // Clips of the target and of a rig of the source's count through a
     // map from the source.
     const maniSkeleton* rigs[2] = {&s_target, &s_otherSource};
@@ -507,6 +589,15 @@ static void TestBindRefusals(void)
                   unbound == 2,
               what[i]);
     }
+    maniRetargetMap unopened = s_map;
+    unopened.cookie ^= 1u;
+    const maniRetargetMap* unopenedMaps[1] = {&unopened};
+    maniGraphAssets refused = Assets(unopenedMaps, 1, sources + 1, 1);
+    uint32_t unboundMap = 0;
+    CHECK(maniBindGraph(&g, &refused, s_bindingMemory, sizeof s_bindingMemory, &binding,
+                        &unboundMap) == mani_errorInvalid &&
+              unboundMap == 2,
+          "a map no open wrote");
     maniGraphAssets wrong = Assets(maps + 1, 1, sources + 1, 1);
     wrong.retargetMaps = NULL;
     CHECK(maniBindGraph(&g, &wrong, s_bindingMemory, sizeof s_bindingMemory, &binding, NULL) ==
@@ -808,6 +899,7 @@ int main(void)
     Setup();
     TestPlayback();
     TestBuildRefusals();
+    TestViewChangedAfterBind();
     TestTooManyMaps();
     TestBindRefusals();
     TestSharedScratch();

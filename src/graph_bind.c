@@ -17,6 +17,7 @@
 #include "graph_spring.h"
 #include "mirror_view.h"
 #include "retarget_motion.h"
+#include "retarget_view.h"
 #include "skeleton_view.h"
 
 #include "maul-anim/base.h"
@@ -203,7 +204,8 @@ static const maniRetargetMap* FindMap(const maniGraph* graph, uint32_t slot,
     for (uint32_t i = 0; i < assets->retargetMapCount; ++i)
     {
         const maniRetargetMap* m = assets->retargetMaps[i];
-        if (m != NULL && m->identity == maniGraph_GetRetargetMapIdentity(graph, slot) &&
+        if (maniRetargetMapValid(m) &&
+            m->identity == maniGraph_GetRetargetMapIdentity(graph, slot) &&
             m->targetIdentity == graph->skeletonIdentity &&
             m->targetBoneCount == graph->skeletonBoneCount)
         {

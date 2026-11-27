@@ -52,19 +52,31 @@ extern "C"
         maniRetargetTranslationAbsolute = 2,
     };
 
-    // An opened map: a view over the caller's bytes, which must outlive
-    // it.
+    // A map over a file's bytes, which the caller keeps alive while the
+    // view is used. Its fields are the library's; read a map through the
+    // functions below. A view is immutable and copyable. Its base and size
+    // are the bytes the open was given; a view whose base or size the
+    // caller changed is outside the contract. Every call checks everything
+    // else the view holds, its counts and sections, against those bytes,
+    // and refuses a view that does not fit them; the bytes are read only
+    // within the extents recorded at open, whatever they become. Bytes
+    // changed after the open give some target pose and root motion: a
+    // plan's source bone past the source's bones is the source's root.
     typedef struct maniRetargetMap
     {
-        const uint8_t* pelvis;
-        const uint8_t* sourceBones;
-        const uint8_t* targetBones;
-        const uint8_t* plan;
+        const uint8_t* base;
+        uint64_t size;
+        // The source bones, the target bones, the plans and the pelvis:
+        // each one's offset from base (the pelvis's 0 without one).
+        uint64_t sections[4];
         uint64_t identity;
         uint64_t sourceIdentity;
         uint64_t targetIdentity;
         uint32_t sourceBoneCount;
         uint32_t targetBoneCount;
+        // The pelvis records: 1 with a pelvis, 0 without.
+        uint32_t pelvis;
+        uint32_t cookie;
     } maniRetargetMap;
 
     /// Opens a retargeting map file in place: checks the container, the
@@ -89,24 +101,27 @@ extern "C"
 
     /// Returns a map's identity: the hash of its sections.
     ///
-    /// @param map  An opened map, or NULL.
-    /// @return The identity; 0 for NULL.
+    /// @param map  An opened map.
+    /// @return The identity; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniRetargetMap_GetIdentity(const maniRetargetMap* map);
 
     /// Returns the identity of the skeleton a map takes poses from.
     ///
-    /// @param map  An opened map, or NULL.
-    /// @return The source skeleton's identity; 0 for NULL.
+    /// @param map  An opened map.
+    /// @return The source skeleton's identity; 0 for a view
+    /// no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniRetargetMap_GetSourceIdentity(const maniRetargetMap* map);
 
     /// Returns the identity of the skeleton a map makes poses for.
     ///
-    /// @param map  An opened map, or NULL.
-    /// @return The target skeleton's identity; 0 for NULL.
+    /// @param map  An opened map.
+    /// @return The target skeleton's identity; 0 for a view
+    /// no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniRetargetMap_GetTargetIdentity(const maniRetargetMap* map);
@@ -114,8 +129,9 @@ extern "C"
     /// Returns the scratch maniRetargetMap_RetargetPose takes with a map: a rotation
     /// for every bone of both skeletons.
     ///
-    /// @param map  An opened map, or NULL.
-    /// @return The bytes; 0 for NULL.
+    /// @param map  An opened map.
+    /// @return The bytes; 0 for a view no open wrote or whose counts do
+    /// not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API size_t maniRetargetMap_GetScratchSize(const maniRetargetMap* map);
@@ -151,7 +167,8 @@ extern "C"
     /// @param scratch        Scratch memory, 16-byte aligned.
     /// @param scratchSize    Its size: at least maniRetargetMap_GetScratchSize.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// skeleton whose identity is not the map's, a pose of another
+    /// map no open wrote or whose counts do not fit its file, a skeleton
+    /// whose identity is not the map's, a pose of another
     /// skeleton, a source pose of differences, targetPoseOut's memory overlapping
     /// sourcePose's, misaligned or too little scratch.
     /// @par Thread safety
@@ -165,7 +182,8 @@ extern "C"
     /// target: its part along the map's up axis by the vertical scale,
     /// the rest by the horizontal scale (both 1 without a pelvis).
     ///
-    /// @param map    An opened map, or NULL (the delta unchanged).
+    /// @param map    An opened map; a view no open wrote or whose counts
+    ///               do not fit its file leaves the delta unchanged.
     /// @param delta  The source's root motion translation.
     /// @return The target's.
     /// @par Thread safety

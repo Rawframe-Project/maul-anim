@@ -7,7 +7,7 @@
 // its one form, and the identity. Whether the plan
 // fits the skeletons (chains being paths, the pelvis's heights) needs
 // them: their identities, checked where the map is used, stand for the
-// builder's checks.
+// builder's checks. Every call checks the view (maniRetargetMapValid).
 
 #include "maul-anim/retarget.h"
 
@@ -15,6 +15,8 @@
 #include "container.h"
 #include "fpenv.h"
 #include "retarget_file.h"
+#include "retarget_view.h"
+#include "view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/skeleton.h"
@@ -103,7 +105,7 @@ typedef struct Sections
 
 // A map without a pelvis: MANI_NO_BONE (0xFFFF) both, the axis +y, the
 // scales and the ratio 1 (binary32 0x3F800000), the rest 0; little-endian.
-static const uint8_t kNoPelvis[MANI_RETARGET_PELVIS_SIZE] = {
+const uint8_t maniRetargetNoPelvis[MANI_RETARGET_PELVIS_SIZE] = {
     [maniRetargetPelvisSourceBone] = 0xFF,     [maniRetargetPelvisSourceBone + 1] = 0xFF,
     [maniRetargetPelvisTargetBone] = 0xFF,     [maniRetargetPelvisTargetBone + 1] = 0xFF,
     [maniRetargetPelvisUp + 6] = 0x80,         [maniRetargetPelvisUp + 7] = 0x3F,
@@ -265,8 +267,9 @@ static maniFileResult Plans(const Sections* s, const maniRetargetMap* m)
     {
         return Fail(s->at[0] + maniRetargetHeaderTargetBones);
     }
-    uint32_t pelvisSource = maniLoadU32(m->pelvis + maniRetargetPelvisSourceBone);
-    uint32_t pelvisTarget = maniLoadU32(m->pelvis + maniRetargetPelvisTargetBone);
+    const uint8_t* pelvis = s->sizes[4] != 0 ? s->data[4] : maniRetargetNoPelvis;
+    uint32_t pelvisSource = maniLoadU32(pelvis + maniRetargetPelvisSourceBone);
+    uint32_t pelvisTarget = maniLoadU32(pelvis + maniRetargetPelvisTargetBone);
     for (uint32_t b = 0; b < m->targetBoneCount; ++b)
     {
         const uint8_t* e = s->data[3] + (size_t)b * MANI_RETARGET_PLAN_SIZE;
@@ -304,7 +307,6 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
     }
     maniRetargetMap map;
     memset(&map, 0, sizeof map);
-    map.pelvis = s.sizes[4] != 0 ? s.data[4] : kNoPelvis;
     r = Header(&s, &map);
     r = r.result == mani_success ? References(&s, &map) : r;
     r = r.result == mani_success && s.sizes[4] != 0 ? Pelvis(&s, c.sectionCount, &map) : r;
@@ -317,10 +319,15 @@ static MANI_NOINLINE maniFileResult OpenRetargetMapWork(const void* bytes, size_
     {
         return Fail(40);
     }
-    map.sourceBones = s.data[1];
-    map.targetBones = s.data[2];
-    map.plan = s.data[3];
+    map.base = bytes;
+    map.size = size;
+    for (uint32_t t = 0; t < 4; ++t)
+    {
+        map.sections[t] = s.at[t + 1];
+    }
+    map.pelvis = s.sizes[4] != 0 ? 1u : 0u;
     map.identity = c.identity;
+    map.cookie = MANI_VIEW_COOKIE(maniKindRetargetMap);
     *mapOut = map;
     return kOk;
 }
@@ -333,17 +340,31 @@ maniFileResult maniOpenRetargetMap(const void* bytes, size_t size, maniRetargetM
     return result;
 }
 
+MANI_NOINLINE bool maniRetargetMapValid(const maniRetargetMap* m)
+{
+    return m != NULL && m->cookie == MANI_VIEW_COOKIE(maniKindRetargetMap) && m->base != NULL &&
+           m->sourceBoneCount - 1u < MANI_MAX_BONES && m->targetBoneCount - 1u < MANI_MAX_BONES &&
+           maniViewFits(m->sections[maniRetargetSources],
+                        MANI_RETARGET_SOURCE_SIZE * (uint64_t)m->sourceBoneCount, m->size) &&
+           maniViewFits(m->sections[maniRetargetTargets],
+                        MANI_RETARGET_TARGET_SIZE * (uint64_t)m->targetBoneCount, m->size) &&
+           maniViewFits(m->sections[maniRetargetPlans],
+                        MANI_RETARGET_PLAN_SIZE * (uint64_t)m->targetBoneCount, m->size) &&
+           maniViewFits(m->sections[maniRetargetPelvisSection],
+                        MANI_RETARGET_PELVIS_SIZE * (uint64_t)m->pelvis, m->size);
+}
+
 uint64_t maniRetargetMap_GetIdentity(const maniRetargetMap* map)
 {
-    return map != NULL ? map->identity : 0;
+    return maniRetargetMapValid(map) ? map->identity : 0;
 }
 
 uint64_t maniRetargetMap_GetSourceIdentity(const maniRetargetMap* map)
 {
-    return map != NULL ? map->sourceIdentity : 0;
+    return maniRetargetMapValid(map) ? map->sourceIdentity : 0;
 }
 
 uint64_t maniRetargetMap_GetTargetIdentity(const maniRetargetMap* map)
 {
-    return map != NULL ? map->targetIdentity : 0;
+    return maniRetargetMapValid(map) ? map->targetIdentity : 0;
 }
