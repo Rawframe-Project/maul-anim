@@ -38,12 +38,24 @@ extern "C"
         maniRagdollBox = 2,
     };
 
-    // An opened profile: a view over the caller's bytes, which must
-    // outlive it.
+    // A profile over a file's bytes, which the caller keeps alive while
+    // the view is used. Its fields are the library's; read a profile
+    // through the functions below. A view is immutable and copyable. Its
+    // base and size are the bytes the open was given; a view whose base or
+    // size the caller changed is outside the contract. Every call checks
+    // everything else the view holds, its counts and sections, against
+    // those bytes, and refuses a view that does not fit them; the bytes are
+    // read only within the extents recorded at open, whatever they become.
+    // Bytes changed after the open give some bodies and targets: a body's
+    // bone past the skeleton is none, its parent past or after it the root
+    // body, a shape past the three a sphere, and a name past the names
+    // empty.
     typedef struct maniRagdoll
     {
-        const uint8_t* bodies;
-        const uint8_t* names;
+        const uint8_t* base;
+        uint64_t size;
+        // The bodies and the names: each one's offset from base.
+        uint64_t sections[2];
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint32_t boneCount;
@@ -51,6 +63,7 @@ extern "C"
         uint32_t nameBytes;
         maniVec3 facing;
         maniVec3 up;
+        uint32_t cookie;
     } maniRagdoll;
 
     // A body as a host creates it. Frames are rigid (translation and unit
@@ -114,24 +127,27 @@ extern "C"
 
     /// Returns a profile's identity: the hash of its sections.
     ///
-    /// @param ragdoll  An opened profile, or NULL.
-    /// @return The identity; 0 for NULL.
+    /// @param ragdoll  An opened profile.
+    /// @return The identity; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniRagdoll_GetIdentity(const maniRagdoll* ragdoll);
 
     /// Returns the identity of the skeleton a profile was built for.
     ///
-    /// @param ragdoll  An opened profile, or NULL.
-    /// @return The identity; 0 for NULL.
+    /// @param ragdoll  An opened profile.
+    /// @return The identity; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniRagdoll_GetSkeletonIdentity(const maniRagdoll* ragdoll);
 
     /// Returns the number of bodies in a profile.
     ///
-    /// @param ragdoll  An opened profile, or NULL.
-    /// @return The count, at least 1; 0 for NULL.
+    /// @param ragdoll  An opened profile.
+    /// @return The count, at least 1; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniRagdoll_GetBodyCount(const maniRagdoll* ragdoll);
@@ -142,8 +158,9 @@ extern "C"
     /// @param ragdoll  An opened profile.
     /// @param body     The body's index.
     /// @param bodyOut  Receives the body.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// an index past the bodies.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// profile no open wrote or whose counts do not fit its file, or an
+    /// index past the bodies.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniRagdoll_GetBody(const maniRagdoll* ragdoll,
@@ -199,8 +216,9 @@ extern "C"
     /// @param countOut   Receives the body count. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is under
     /// the body count, with the count still written and nothing else;
-    /// `mani_errorInvalid` for a NULL argument, a NULL array with a
-    /// positive capacity, a pose of another skeleton, a difference or one
+    /// `mani_errorInvalid` for a NULL argument, a profile no open wrote or
+    /// whose counts do not fit its file, a NULL array with a positive
+    /// capacity, a pose of another skeleton, a difference or one
     /// whose model is not current, a placement not finite, seconds out of
     /// range.
     /// @par Thread safety
@@ -223,8 +241,9 @@ extern "C"
     /// @param countOut   Receives the body count. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is under
     /// the body count, with the count still written and nothing else;
-    /// `mani_errorInvalid` for a NULL argument or a NULL array with a
-    /// positive capacity.
+    /// `mani_errorInvalid` for a NULL argument, a profile no open wrote or
+    /// whose counts do not fit its file, or a NULL array with a positive
+    /// capacity.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniRagdoll_ComputeJointTargets(
@@ -247,6 +266,7 @@ extern "C"
     ///                   bodies and the scales; may be poseOut.
     /// @param poseOut    Receives the pose.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// profile no open wrote or whose counts do not fit its file, a
     /// skeleton or pose of another skeleton, a difference, a placement or
     /// a body's place not finite or a rotation not of length 1;
     /// `mani_errorCapacity` when count is under the body count.
@@ -297,6 +317,7 @@ extern "C"
     /// @param ground        The ground and the character's axes.
     /// @param placementOut  Receives the placement and whether it lies face up.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// profile no open wrote or whose counts do not fit its file, a
     /// body's place not finite or its rotation not of length 1, the
     /// ground not finite, its normal or the axes not of length 1 within a
     /// thousandth or the axes not perpendicular within a thousandth;

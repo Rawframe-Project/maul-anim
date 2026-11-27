@@ -8,6 +8,7 @@
 // character's model axes turned onto the normal and the heading.
 
 #include "fpenv.h"
+#include "ragdoll_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -70,7 +71,7 @@ static MANI_NOINLINE maniResult RagdollGetUpPlacementWork(const maniRagdoll* rag
                                                           const maniRagdollGround* ground,
                                                           maniRagdollGetUp* out)
 {
-    if (ragdoll == NULL || bodies == NULL || ground == NULL || out == NULL)
+    if (!maniRagdollValid(ragdoll) || bodies == NULL || ground == NULL || out == NULL)
     {
         return mani_errorInvalid;
     }

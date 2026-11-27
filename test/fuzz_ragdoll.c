@@ -6,7 +6,9 @@
 // names within the name bytes; then the same bytes with the payload's
 // hash made right, and then the identity too, so that mutations reach
 // the checks behind them. Run as fuzz_ragdoll <corpus dir>; the seed
-// comes from test_ragdoll --seed <file>.
+// comes from test_ragdoll --seed <file>. After each open, up to 16 of
+// the file's bytes change and every body is read again: within the file,
+// whatever it gives.
 
 #include "bytes.h"
 #include "container.h"
@@ -22,20 +24,78 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 
-static void Exercise(const uint8_t* bytes, size_t size)
+// Up to 16 bytes inside an opened file changed, picked from its own
+// bytes, as a host's memory may change after the open. Restore puts them
+// back.
+typedef struct Changed
+{
+    uint64_t at[16];
+    uint8_t kept[16];
+} Changed;
+
+static Changed Change(uint8_t* bytes, uint64_t size)
+{
+    Changed c;
+    uint64_t state = size * 0x9E3779B97F4A7C15u;
+    for (uint64_t i = 0; i < size && i < 64; ++i)
+    {
+        state = (state ^ bytes[i]) * 0x100000001B3u;
+    }
+    for (int i = 0; i < 16; ++i)
+    {
+        state ^= state >> 29;
+        state *= 0xBF58476D1CE4E5B9u;
+        c.at[i] = state % size;
+        c.kept[i] = bytes[c.at[i]];
+        bytes[c.at[i]] ^= (uint8_t)(state >> 56) | 1u;
+    }
+    return c;
+}
+
+static void Restore(uint8_t* bytes, const Changed* c)
+{
+    for (int i = 15; i >= 0; --i)
+    {
+        bytes[c->at[i]] = c->kept[i];
+    }
+}
+
+// Every body read, its name's bytes within the names, its parent before
+// it, its bone within the skeleton or none.
+static void Bodies(const maniRagdoll* ragdoll)
+{
+    const char* names = (const char*)ragdoll->base + ragdoll->sections[1];
+    for (uint32_t i = 0; i < maniRagdoll_GetBodyCount(ragdoll); ++i)
+    {
+        maniRagdollBody b;
+        if (maniRagdoll_GetBody(ragdoll, i, &b) != 0 || b.name < names ||
+            b.nameLength > ragdoll->nameBytes ||
+            (uint64_t)(b.name - names) > ragdoll->nameBytes - b.nameLength ||
+            (i == 0) != (b.parent == MANI_NO_BONE) || (i > 0 && b.parent >= i) ||
+            (b.bone != MANI_NO_BONE && b.bone >= ragdoll->boneCount))
+        {
+            abort();
+        }
+    }
+}
+
+static void Exercise(uint8_t* bytes, size_t size)
 {
     maniRagdoll ragdoll;
     if (maniOpenRagdoll(bytes, size, &ragdoll).result != 0)
     {
         return;
     }
+    Changed c = Change(bytes, ragdoll.size);
+    Bodies(&ragdoll);
+    Restore(bytes, &c);
     uint64_t names = 0;
     for (uint32_t i = 0; i < maniRagdoll_GetBodyCount(&ragdoll); ++i)
     {
         maniRagdollBody b;
         if (maniRagdoll_GetBody(&ragdoll, i, &b) != 0 || b.bone >= ragdoll.boneCount ||
             (i == 0) != (b.parent == MANI_NO_BONE) || (i > 0 && b.parent >= i) ||
-            b.name != (const char*)ragdoll.names + names || !(b.mass > 0.0f))
+            b.name != (const char*)ragdoll.base + ragdoll.sections[1] + names || !(b.mass > 0.0f))
         {
             abort();
         }

@@ -68,8 +68,9 @@ learned_build: allocator builder bytes container fpenv learned_file match_file s
 spring_build: allocator builder bytes container fpenv scalar skeleton_view spring_file spring_frame text vecmath
 spring_frame: vecmath
 ragdoll_file:
-ragdoll: bytes container fpenv ragdoll_file text
-ragdoll_pose: bytes decompose fpenv pose_memory ragdoll_file skeleton_view vecmath
+ragdoll_view: bytes ragdoll_file view
+ragdoll: bytes container fpenv ragdoll_file ragdoll_view text view
+ragdoll_pose: bytes decompose fpenv pose_memory ragdoll_file ragdoll_view skeleton_view vecmath
 ik: fpenv ik_frame skeleton_view vecmath
 ik_frame: decompose pose_memory skeleton_view vecmath
 ik_aim: fpenv ik_frame scalar skeleton_view vecmath
@@ -83,7 +84,7 @@ body_sdls: body_ik fpenv jacobi_svd vecmath
 jacobi_svd:
 graph_chain: bytes graph_file ik_limit
 graph_body: bytes graph_chain graph_file
-ragdoll_getup: fpenv vecmath
+ragdoll_getup: fpenv ragdoll_view vecmath
 ragdoll_build: allocator builder bytes container decompose fpenv ragdoll_file skeleton_view text vecmath
 retarget_file:
 retarget_view: retarget_file view
