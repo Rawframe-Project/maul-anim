@@ -115,7 +115,7 @@ cmake --preset linux-clang-20 && cmake --build --preset linux-clang-20 --target 
 tools/bench.sh out/linux-clang-20
 ```
 
-`tools/bench.sh` prints the machine and its load average before and after, each case's nanoseconds a call (the best of five runs) and, where `perf` counts user instructions, its instructions a call. Name cases to run only those; `maul-anim_bench --list` prints them. Wall time on the shared machine moves with its load: quote instruction counts for a change's effect, and timings only from a quiet machine with the load beside them. Run it through the workspace's heavy-job wrapper on the shared development machine. It is never a test: timings are not repeatable enough for a gate.
+`tools/bench.sh` prints the machine and its load average before and after, each case's nanoseconds a call (the best of five runs) and, where valgrind is installed, its instructions a call, counted by cachegrind without a cache simulation, so they need no hardware counter and the machine's load does not move them. Name cases to run only those; `maul-anim_bench --list` prints them. Wall time on the shared machine moves with its load: quote instruction counts for a change's effect, and timings only from a quiet machine with the load beside them. Run it through the workspace's heavy-job wrapper on the shared development machine. It is never a test: timings are not repeatable enough for a gate.
 
 ## Code size
 

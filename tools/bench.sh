@@ -8,11 +8,14 @@
 #
 # Prints the machine (CPU, kernel, logical CPUs) and its load average
 # before and after, the program's timings (nanoseconds a call, the best
-# of five runs) and, where `perf` can count user instructions, each
-# case's instructions a call: the count of 1,001 calls less that of one,
-# over 1,000, so the scenes' build drops out. Without a case name, every
-# case. Run it through the workspace's heavy-job wrapper, on a quiet
-# machine when the timings are to be compared.
+# of five runs) and, where valgrind is installed, each case's
+# instructions a call: the count of 1,001 calls less that of one, over
+# 1,000, so the scenes' build drops out. Cachegrind counts them without
+# simulating a cache, so the count needs no hardware counter (a virtual
+# machine or WSL has none) and does not move with the machine's load.
+# Without a case name, every case. Run it through the workspace's
+# heavy-job wrapper, on a quiet machine when the timings are to be
+# compared.
 set -euo pipefail
 
 usage() {
@@ -43,14 +46,16 @@ echo "# load before: $(load)"
 echo "# load after: $(load)"
 
 count() {
-    perf stat -x, -e instructions:u "$bench" --count "$1" "$2" 2>&1 >/dev/null | tail -1 | cut -d, -f1
+    valgrind --tool=cachegrind --cache-sim=no --cachegrind-out-file=/dev/null \
+        "$bench" --count "$1" "$2" 2>&1 >/dev/null |
+        sed -n 's/.*I *refs: *//p' | tr -d ,
 }
 
-if ! command -v perf >/dev/null || ! [[ $(count "${cases[0]}" 1) =~ ^[0-9]+$ ]]; then
-    echo "# instructions: perf cannot count user instructions here"
+if ! command -v valgrind >/dev/null || ! [[ $(count "${cases[0]}" 1) =~ ^[0-9]+$ ]]; then
+    echo "# instructions: valgrind cannot count instructions here"
     exit 0
 fi
-echo "# instructions a call"
+echo "# instructions a call (valgrind $(valgrind --version | sed 's/^valgrind-//'), cachegrind)"
 for name in "${cases[@]}"; do
     one=$(count "$name" 1)
     many=$(count "$name" 1001)
