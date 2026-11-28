@@ -13,6 +13,7 @@
 #include "fpenv.h"
 #include "pose_memory.h"
 #include "ragdoll_file.h"
+#include "ragdoll_view.h"
 #include "skeleton_view.h"
 #include "vecmath.h"
 
@@ -63,7 +64,7 @@ static Rigid LoadRigid(const uint8_t* p)
 
 static const uint8_t* Record(const maniRagdoll* ragdoll, uint32_t body)
 {
-    return ragdoll->bodies + (size_t)body * MANI_RAGDOLL_BODY_SIZE;
+    return maniRagdollRecord(ragdoll, body);
 }
 
 MANI_NODISCARD static bool Finite(float v)
@@ -130,8 +131,9 @@ static MANI_NOINLINE maniResult RagdollBodiesFromPoseWork(
 {
     Rigid place;
     Rigid before;
-    if (ragdoll == NULL || (bodiesOut == NULL && capacity > 0) || !PoseUsable(ragdoll, pose) ||
-        !Placement(placement, &place) || !Placement(previousPlacement, &before) ||
+    if (!maniRagdollValid(ragdoll) || (bodiesOut == NULL && capacity > 0) ||
+        !PoseUsable(ragdoll, pose) || !Placement(placement, &place) ||
+        !Placement(previousPlacement, &before) ||
         (previous != NULL &&
          (!PoseUsable(ragdoll, previous) || !(seconds > 0.0f) || !Finite(seconds))))
     {
@@ -184,7 +186,7 @@ static MANI_NOINLINE maniResult RagdollJointTargetsWork(const maniRagdoll* ragdo
                                                         maniRagdollJointTarget* jointsOut,
                                                         uint32_t capacity, uint32_t* countOut)
 {
-    if (ragdoll == NULL || bodies == NULL || (jointsOut == NULL && capacity > 0))
+    if (!maniRagdollValid(ragdoll) || bodies == NULL || (jointsOut == NULL && capacity > 0))
     {
         return mani_errorInvalid;
     }
@@ -201,7 +203,7 @@ static MANI_NOINLINE maniResult RagdollJointTargetsWork(const maniRagdoll* ragdo
     {
         const uint8_t* e = Record(ragdoll, i);
         const maniRagdollBodyState* child = &bodies[i];
-        const maniRagdollBodyState* parent = &bodies[maniLoadU32(e + maniRagdollBodyParent)];
+        const maniRagdollBodyState* parent = &bodies[maniRagdollParentOf(ragdoll, i)];
         Rigid inChild =
             Compose((Rigid){child->position, child->rotation}, LoadRigid(e + maniRagdollBodyJoint));
         Rigid inParent = Compose((Rigid){parent->position, parent->rotation},
@@ -263,7 +265,7 @@ static MANI_NOINLINE maniResult RagdollPoseFromBodiesWork(
     uint32_t count, const maniTransform* placement, const maniPose* reference, maniPose* poseOut)
 {
     Rigid place;
-    if (ragdoll == NULL || bodies == NULL || !maniSkeletonValid(skeleton) ||
+    if (!maniRagdollValid(ragdoll) || bodies == NULL || !maniSkeletonValid(skeleton) ||
         maniSkeleton_GetIdentity(skeleton) != ragdoll->skeletonIdentity ||
         !maniPoseOfSkeleton(reference, ragdoll->skeletonIdentity, ragdoll->boneCount) ||
         !maniPoseOfSkeleton(poseOut, ragdoll->skeletonIdentity, ragdoll->boneCount) ||

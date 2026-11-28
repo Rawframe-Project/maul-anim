@@ -455,6 +455,143 @@ static void TestOpen(void)
     CHECK(maniOpenRagdoll(s_crafted, s_size, &ragdoll).offset == 40, "another identity");
 }
 
+// A heap block of exactly the profile just built, opened from it.
+static uint8_t* OpenCopy(maniRagdoll* out, uint8_t** blockOut)
+{
+    uint8_t* bytes = TestExactCopy(s_size, blockOut);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    CHECK(maniOpenRagdoll(bytes, s_size, out).result == mani_success, "opens the copy");
+    return bytes;
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, every computation refused.
+static bool ViewRefused(const maniRagdoll* ragdoll)
+{
+    maniRagdollBodyState bodies[5];
+    memset(bodies, 0, sizeof bodies);
+    for (uint32_t i = 0; i < 5; ++i)
+    {
+        bodies[i].rotation = (maniQuat){0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    maniRagdollJointTarget joints[5];
+    maniRagdollBody body;
+    const maniRagdollGround ground = {
+        {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}};
+    maniRagdollGetUp up;
+    return maniRagdoll_GetIdentity(ragdoll) == 0 && maniRagdoll_GetSkeletonIdentity(ragdoll) == 0 &&
+           maniRagdoll_GetBodyCount(ragdoll) == 0 &&
+           maniRagdoll_GetBody(ragdoll, 0, &body) == mani_errorInvalid &&
+           maniRagdoll_ComputeBodiesFromPose(ragdoll, s_pose, NULL, NULL, NULL, 0.0f, bodies, 5,
+                                             NULL) == mani_errorInvalid &&
+           maniRagdoll_ComputeJointTargets(ragdoll, bodies, joints, 5, NULL) == mani_errorInvalid &&
+           maniRagdoll_ComputePoseFromBodies(ragdoll, &s_skeleton, bodies, 5, NULL, s_pose,
+                                             s_pose) == mani_errorInvalid &&
+           maniRagdoll_ComputeGetUpPlacement(ragdoll, bodies, 5, &ground, &up) == mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: counts edited past the file, the
+// skeleton or the most, sections placed past the file, one view's counts
+// and sections over a smaller profile's bytes, a zeroed view and another
+// kind's cookie are each refused.
+static void TestViewChecked(void)
+{
+    maniRagdollSource source = Source();
+    CHECK(Build(&source).result == mani_success, "a profile builds");
+    maniRagdoll big;
+    uint8_t* bigBlock = NULL;
+    (void)OpenCopy(&big, &bigBlock);
+    source = Source();
+    source.bodies = &s_bodies[1];
+    source.bodyCount = 1;
+    CHECK(Build(&source).result == mani_success, "a profile of one body builds");
+    maniRagdoll small;
+    uint8_t* smallBlock = NULL;
+    (void)OpenCopy(&small, &smallBlock);
+    maniRagdoll edited = big;
+    edited.nameBytes = 60000;
+    CHECK(ViewRefused(&edited), "name bytes edited past the file");
+    edited = big;
+    edited.bodyCount = edited.boneCount + 1;
+    CHECK(ViewRefused(&edited), "more bodies than bones");
+    edited.bodyCount = 0;
+    CHECK(ViewRefused(&edited), "no bodies");
+    edited = big;
+    edited.boneCount = MANI_MAX_BONES + 1;
+    CHECK(ViewRefused(&edited), "a bone count past the most");
+    edited = big;
+    edited.base = NULL;
+    CHECK(ViewRefused(&edited), "no base");
+    edited = big;
+    edited.sections[0] = big.size - 8;
+    CHECK(ViewRefused(&edited), "bodies past the file");
+    edited = big;
+    edited.sections[1] = big.size - 2;
+    CHECK(ViewRefused(&edited), "names past the file");
+    maniRagdoll mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(ViewRefused(&mixed), "counts and sections over another view's bytes");
+    maniRagdoll zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniRagdoll other = big;
+    other.cookie ^= 1u;
+    CHECK(ViewRefused(&zeroed) && ViewRefused(&other) && ViewRefused(NULL),
+          "zeroed, another cookie, NULL");
+    CHECK(maniRagdoll_GetBodyCount(&big) == 5 && maniRagdoll_GetBodyCount(&small) == 1,
+          "the views as opened");
+    free(bigBlock);
+    free(smallBlock);
+}
+
+// Bytes changed after the open are read only within the profile and the
+// caller's arrays, and give what the header says: a parent after its body
+// or past the bodies is the root body, a bone past the skeleton none, a
+// shape past the three a sphere, a name past the names empty.
+static void TestChangedBytes(void)
+{
+    maniRagdollSource source = Source();
+    CHECK(Build(&source).result == mani_success, "a profile builds");
+    maniRagdoll ragdoll;
+    uint8_t* block = NULL;
+    uint8_t* bytes = OpenCopy(&ragdoll, &block);
+    maniRagdollBodyState bodies[5];
+    maniRagdollJointTarget want[5];
+    maniRagdollJointTarget got[5];
+    uint8_t* e = bytes + ragdoll.sections[0] + 2 * (size_t)MANI_RAGDOLL_BODY_SIZE;
+    maniStoreU32(e + maniRagdollBodyParent, 0);
+    CHECK(maniRagdoll_ComputeBodiesFromPose(&ragdoll, s_pose, NULL, NULL, NULL, 0.0f, bodies, 5,
+                                            NULL) == mani_success &&
+              maniRagdoll_ComputeJointTargets(&ragdoll, bodies, want, 5, NULL) == mani_success,
+          "the targets with the third body under the root");
+    maniStoreU32(e + maniRagdollBodyParent, 1000);
+    maniStoreU32(e + maniRagdollBodyBone, 1000);
+    maniStoreU32(e + maniRagdollBodyShape, 7);
+    maniStoreU32(e + maniRagdollBodyName, (uint32_t)ragdoll.nameBytes);
+    maniStoreU32(e + maniRagdollBodyNameLength, 1);
+    maniRagdollBody b;
+    CHECK(maniRagdoll_GetBody(&ragdoll, 2, &b) == mani_success && b.parent == 0 &&
+              b.bone == MANI_NO_BONE && b.shape == maniRagdollSphere && b.nameLength == 0,
+          "a parent, bone, shape and name past theirs");
+    maniStoreU32(e + maniRagdollBodyNameLength, (uint32_t)ragdoll.nameBytes);
+    maniStoreU32(e + maniRagdollBodyName, 1);
+    CHECK(maniRagdoll_GetBody(&ragdoll, 2, &b) == mani_success && b.nameLength == 0,
+          "a name running past the names");
+    CHECK(maniRagdoll_ComputeJointTargets(&ragdoll, bodies, got, 5, NULL) == mani_success &&
+              memcmp(got, want, sizeof got) == 0,
+          "the targets of a parent past the bodies those of the root");
+    maniStoreU32(e + maniRagdollBodyParent, 3);
+    CHECK(maniRagdoll_ComputeJointTargets(&ragdoll, bodies, got, 5, NULL) == mani_success &&
+              memcmp(got, want, sizeof got) == 0,
+          "the targets of a parent after its body those of the root");
+    CHECK(maniRagdoll_ComputeBodiesFromPose(&ragdoll, s_pose, NULL, NULL, NULL, 0.0f, bodies, 5,
+                                            NULL) == mani_success,
+          "a bone past the skeleton read within the pose");
+    free(block);
+}
+
 static int WriteSeed(const char* path)
 {
     maniRagdollSource source = Source();
@@ -501,6 +638,8 @@ int main(int argc, char** argv)
     TestAxesAndMisuse();
     TestOpen();
     TestPaddingIgnored();
+    TestViewChecked();
+    TestChangedBytes();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;
 }

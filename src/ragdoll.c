@@ -8,7 +8,9 @@
 // rotations, the root's joint empty, limits and drives in range), the
 // names, and the identity. That each parent is its child's nearest
 // ancestor with a body needs the skeleton: its identity, checked where
-// the profile is used with a pose, stands for the builder's check.
+// the profile is used with a pose, stands for the builder's check. Every
+// call checks the view (maniRagdollValid) and bounds what it reads from
+// the bytes, which may have changed since the open.
 
 #include "maul-anim/ragdoll.h"
 
@@ -16,7 +18,9 @@
 #include "container.h"
 #include "fpenv.h"
 #include "ragdoll_file.h"
+#include "ragdoll_view.h"
 #include "text.h"
+#include "view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/skeleton.h"
@@ -306,9 +310,12 @@ static MANI_NOINLINE maniFileResult OpenRagdollWork(const void* bytes, size_t si
     {
         return Fail(40);
     }
-    ragdoll.bodies = s.data[1];
-    ragdoll.names = s.data[2];
+    ragdoll.base = bytes;
+    ragdoll.size = size;
+    ragdoll.sections[maniRagdollBodies] = s.at[1];
+    ragdoll.sections[maniRagdollNames] = s.at[2];
     ragdoll.identity = c.identity;
+    ragdoll.cookie = MANI_VIEW_COOKIE(maniKindRagdoll);
     *ragdollOut = ragdoll;
     return kOk;
 }
@@ -321,36 +328,54 @@ maniFileResult maniOpenRagdoll(const void* bytes, size_t size, maniRagdoll* ragd
     return result;
 }
 
+MANI_NOINLINE bool maniRagdollValid(const maniRagdoll* r)
+{
+    return r != NULL && r->cookie == MANI_VIEW_COOKIE(maniKindRagdoll) && r->base != NULL &&
+           r->boneCount - 1u < MANI_MAX_BONES && r->bodyCount - 1u < r->boneCount &&
+           maniViewFits(r->sections[maniRagdollBodies],
+                        MANI_RAGDOLL_BODY_SIZE * (uint64_t)r->bodyCount, r->size) &&
+           maniViewFits(r->sections[maniRagdollNames], r->nameBytes, r->size);
+}
+
 uint64_t maniRagdoll_GetIdentity(const maniRagdoll* ragdoll)
 {
-    return ragdoll != NULL ? ragdoll->identity : 0;
+    return maniRagdollValid(ragdoll) ? ragdoll->identity : 0;
 }
 
 uint64_t maniRagdoll_GetSkeletonIdentity(const maniRagdoll* ragdoll)
 {
-    return ragdoll != NULL ? ragdoll->skeletonIdentity : 0;
+    return maniRagdollValid(ragdoll) ? ragdoll->skeletonIdentity : 0;
 }
 
 uint32_t maniRagdoll_GetBodyCount(const maniRagdoll* ragdoll)
 {
-    return ragdoll != NULL ? ragdoll->bodyCount : 0;
+    return maniRagdollValid(ragdoll) ? ragdoll->bodyCount : 0;
 }
 
 maniResult maniRagdoll_GetBody(const maniRagdoll* ragdoll, uint32_t body, maniRagdollBody* bodyOut)
 {
-    if (ragdoll == NULL || bodyOut == NULL || body >= ragdoll->bodyCount)
+    if (!maniRagdollValid(ragdoll) || bodyOut == NULL || body >= ragdoll->bodyCount)
     {
         return mani_errorInvalid;
     }
-    const uint8_t* e = ragdoll->bodies + (size_t)body * MANI_RAGDOLL_BODY_SIZE;
+    const uint8_t* e = maniRagdollRecord(ragdoll, body);
     const uint8_t* l = e + maniRagdollBodyLimits;
     const uint8_t* d = e + maniRagdollBodyDrive;
+    // Values in bytes changed since the open, bounded: a name past the
+    // names is empty, a bone past the skeleton none, a shape past the
+    // three a sphere.
+    uint64_t name = maniLoadU32(e + maniRagdollBodyName);
+    uint64_t nameLength = maniLoadU32(e + maniRagdollBodyNameLength);
+    bool named = maniViewFits(name, nameLength, ragdoll->nameBytes);
+    uint32_t bone = maniLoadU32(e + maniRagdollBodyBone);
+    uint32_t shape = maniLoadU32(e + maniRagdollBodyShape);
     *bodyOut = (maniRagdollBody){
-        .name = (const char*)(ragdoll->names + maniLoadU32(e + maniRagdollBodyName)),
-        .nameLength = maniLoadU32(e + maniRagdollBodyNameLength),
-        .bone = maniLoadU32(e + maniRagdollBodyBone),
-        .parent = maniLoadU32(e + maniRagdollBodyParent),
-        .shape = maniLoadU32(e + maniRagdollBodyShape),
+        .name =
+            (const char*)(ragdoll->base + ragdoll->sections[maniRagdollNames] + (named ? name : 0)),
+        .nameLength = named ? (size_t)nameLength : 0,
+        .bone = bone < ragdoll->boneCount ? bone : MANI_NO_BONE,
+        .parent = maniRagdollParentOf(ragdoll, body),
+        .shape = shape <= (uint32_t)maniRagdollBox ? (maniRagdollShape)shape : maniRagdollSphere,
         .size = LoadVec(e + maniRagdollBodySize),
         .mass = LoadF32(e + maniRagdollBodyMass),
         .frameTranslation = LoadVec(e + maniRagdollBodyFrame),
