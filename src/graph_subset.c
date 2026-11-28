@@ -18,6 +18,7 @@
 #include "graph_spring.h"
 #include "pose_memory.h"
 #include "spring_file.h"
+#include "spring_view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/bodyik.h"
@@ -138,7 +139,7 @@ static void Springs(Visit* v, const maniSpringSet* set, bool reads)
 {
     for (uint32_t j = 0; set != NULL && j < set->jointCount; ++j)
     {
-        const uint8_t* joint = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
+        const uint8_t* joint = maniSpringJoint(set, j);
         See(v, maniLoadU32(joint + maniSpringJointHead));
         if (reads)
         {
@@ -147,11 +148,11 @@ static void Springs(Visit* v, const maniSpringSet* set, bool reads)
     }
     for (uint32_t k = 0; set != NULL && reads && k < set->colliderCount; ++k)
     {
-        See(v, maniLoadU32(set->colliders + (size_t)k * MANI_SPRING_COLLIDER_SIZE));
+        See(v, maniLoadU32(maniSpringCollider(set, k)));
     }
     for (uint32_t s = 0; set != NULL && reads && s < set->springCount; ++s)
     {
-        See(v, maniLoadU32(set->springs + (size_t)s * MANI_SPRING_SPRING_SIZE + 16));
+        See(v, maniLoadU32(maniSpringRecord(set, s) + 16));
     }
 }
 

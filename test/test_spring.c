@@ -19,6 +19,7 @@
 #include "negative_kinds.h"
 #include "source_padding.h"
 #include "spring_file.h"
+#include "spring_view.h"
 #include "test_harness.h"
 
 #include "maul-anim/build.h"
@@ -166,7 +167,7 @@ static float LoadFloat(const uint8_t* p)
 
 static const uint8_t* JointRecord(const maniSpringSet* set, uint32_t j)
 {
-    return set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
+    return maniSpringJoint(set, j);
 }
 
 static void TestBuild(void)
@@ -192,14 +193,14 @@ static void TestBuild(void)
               maniSpringSet_GetSpringName(NULL, 0, NULL) == NULL,
           "past the springs, and NULL");
     // The hair's colliders: its groups' in order, the head's sphere once.
-    const uint8_t* hair = set.springs;
+    const uint8_t* hair = maniSpringRecord(&set, 0);
     const uint32_t want[4] = {0, 1, 2, 3};
     bool links = maniLoadU32(hair + 8) == 0 && maniLoadU32(hair + 12) == 4;
     for (uint32_t k = 0; k < 4 && links; ++k)
     {
-        links = maniLoadU32(set.links + 4 * k) == want[k];
+        links = maniLoadU32(maniSpringSection(&set, maniSpringLinks) + 4 * k) == want[k];
     }
-    const uint8_t* tail = set.springs + MANI_SPRING_SPRING_SIZE;
+    const uint8_t* tail = maniSpringRecord(&set, 1);
     CHECK(links && maniLoadU32(tail + 8) == 4 && maniLoadU32(tail + 12) == 3 &&
               maniLoadU32(tail + 16) == s_hips && maniLoadU32(hair + 16) == MANI_NO_BONE,
           "each spring's colliders without repeats, and its center");
@@ -210,10 +211,10 @@ static void TestBuild(void)
               LoadFloat(j + maniSpringJointStiffness) == (float)(1.0 / 60.0) &&
               LoadFloat(j + maniSpringJointGravity + 4) == -(float)(0.5 / 60.0),
           "at the reference's own rate: its values, stiffness and gravity a frame's");
-    const uint8_t* plane = set.colliders + 2 * MANI_SPRING_COLLIDER_SIZE;
+    const uint8_t* plane = maniSpringCollider(&set, 2);
     CHECK(maniLoadU32(plane + 4) == maniColliderPlane &&
               LoadFloat(plane + maniSpringColliderTail + 4) == 1.0f &&
-              maniLoadU32(set.colliders + 3 * MANI_SPRING_COLLIDER_SIZE + 8) == 1,
+              maniLoadU32(maniSpringCollider(&set, 3) + 8) == 1,
           "a plane's normal, an inside sphere");
 }
 
@@ -360,8 +361,7 @@ static void TestColliderRefusals(void)
     maniSpringSet set;
     CHECK(Build(&s).result == mani_success &&
               maniOpenSpringSet(s_file, s_size, &set).result == mani_success &&
-              LoadFloat(set.colliders + 2 * MANI_SPRING_COLLIDER_SIZE + maniSpringColliderTail +
-                        4) == 1.0f,
+              LoadFloat(maniSpringCollider(&set, 2) + maniSpringColliderTail + 4) == 1.0f,
           "a normal within a thousandth, made unit");
     s = Source();
     s_groupLists[1][2] = 4;
@@ -703,6 +703,123 @@ static void TestTooManySprings(void)
     free(records);
 }
 
+// A heap block of exactly the set just built, opened from it.
+static uint8_t* OpenCopy(maniSpringSet* out, uint8_t** blockOut)
+{
+    uint8_t* bytes = TestExactCopy(s_size, blockOut);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, s_size);
+    CHECK(maniOpenSpringSet(bytes, s_size, out).result == mani_success, "opens the copy");
+    return bytes;
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, no state.
+static bool ViewRefused(const maniSpringSet* set)
+{
+    static _Alignas(MANI_SPRING_STATE_ALIGNMENT) uint8_t memory[8192];
+    float reference = 1.0f;
+    size_t length = 1;
+    maniSpringState* state = NULL;
+    return maniSpringSet_GetIdentity(set) == 0 && maniSpringSet_GetSkeletonIdentity(set) == 0 &&
+           maniSpringSet_GetSpringCount(set) == 0 &&
+           maniSpringSet_GetSpringName(set, 0, &length) == NULL && length == 0 &&
+           maniSpringSet_GetStepRate(set, &reference) == 0.0f && reference == 0.0f &&
+           maniSpringSet_GetStateSize(set) == 0 &&
+           maniInitSpringState(set, &s_skeleton, memory, sizeof memory, &state) ==
+               mani_errorInvalid &&
+           state == NULL;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: counts edited past the file or the
+// most, a step rate out of range, sections placed past the file, one
+// view's counts and sections over a smaller set's bytes, a zeroed view
+// and another kind's cookie are each refused.
+static void TestViewChecked(void)
+{
+    maniSpringSetSource source = Source();
+    CHECK(Build(&source).result == mani_success, "a set builds");
+    maniSpringSet big;
+    uint8_t* bigBlock = NULL;
+    (void)OpenCopy(&big, &bigBlock);
+    source.springCount = 1;
+    CHECK(Build(&source).result == mani_success, "a set of one spring builds");
+    maniSpringSet small;
+    uint8_t* smallBlock = NULL;
+    (void)OpenCopy(&small, &smallBlock);
+    const char* counts[5] = {"colliders", "springs", "joints", "links", "name bytes"};
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        maniSpringSet edited = big;
+        uint32_t* count[5] = {&edited.colliderCount, &edited.springCount, &edited.jointCount,
+                              &edited.linkCount, &edited.nameBytes};
+        *count[k] = 60000;
+        CHECK(ViewRefused(&edited), counts[k]);
+    }
+    const char* sections[5] = {"colliders past the file", "springs past the file",
+                               "joints past the file", "links past the file",
+                               "names past the file"};
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        maniSpringSet edited = big;
+        edited.sections[k] = big.size - 2;
+        CHECK(ViewRefused(&edited), sections[k]);
+    }
+    maniSpringSet edited = big;
+    edited.boneCount = 0;
+    CHECK(ViewRefused(&edited), "no bones");
+    edited.boneCount = MANI_MAX_BONES + 1;
+    CHECK(ViewRefused(&edited), "bones past the most");
+    edited = big;
+    edited.stepRate = 0.0f;
+    CHECK(ViewRefused(&edited), "no step rate");
+    edited.stepRate = MANI_MAX_SPRING_RATE * 2.0f;
+    CHECK(ViewRefused(&edited), "a step rate past the most");
+    edited.stepRate = NAN;
+    CHECK(ViewRefused(&edited), "a step rate not a number");
+    edited = big;
+    edited.base = NULL;
+    CHECK(ViewRefused(&edited), "no base");
+    maniSpringSet mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(ViewRefused(&mixed), "counts and sections over another view's bytes");
+    maniSpringSet zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniSpringSet other = big;
+    other.cookie ^= 1u;
+    CHECK(ViewRefused(&zeroed) && ViewRefused(&other) && ViewRefused(NULL),
+          "zeroed, another cookie, NULL");
+    CHECK(maniSpringSet_GetSpringCount(&big) == 2 && maniSpringSet_GetSpringCount(&small) == 1,
+          "the views as opened");
+    free(bigBlock);
+    free(smallBlock);
+}
+
+// A spring's name in bytes changed after the open, starting or running
+// past the names, is empty.
+static void TestChangedName(void)
+{
+    maniSpringSetSource source = Source();
+    CHECK(Build(&source).result == mani_success, "a set builds");
+    maniSpringSet set;
+    uint8_t* block = NULL;
+    uint8_t* bytes = OpenCopy(&set, &block);
+    uint8_t* e = bytes + set.sections[1] + MANI_SPRING_SPRING_SIZE;
+    size_t length = 0;
+    const char* names = (const char*)bytes + set.sections[4];
+    maniStoreU32(e + 20, set.nameBytes);
+    maniStoreU32(e + 24, 1);
+    CHECK(maniSpringSet_GetSpringName(&set, 1, &length) == names && length == 0,
+          "a name starting past the names");
+    maniStoreU32(e + 20, 1);
+    maniStoreU32(e + 24, set.nameBytes);
+    CHECK(maniSpringSet_GetSpringName(&set, 1, &length) == names && length == 0,
+          "a name running past the names");
+    free(block);
+}
+
 static int WriteSeed(const char* path)
 {
     maniSpringSetSource source = Source();
@@ -769,6 +886,8 @@ int main(int argc, char** argv)
     TestOpen();
     TestTooManySprings();
     TestPaddingIgnored();
+    TestViewChecked();
+    TestChangedName();
     maniDestroyBuilder(s_builder);
     return s_failures == 0 ? 0 : 1;
 }

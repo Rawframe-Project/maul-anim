@@ -26,6 +26,7 @@
 #include "spring_file.h"
 #include "spring_shape.h"
 #include "spring_state.h"
+#include "spring_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -128,7 +129,7 @@ static void ReadInputs(const maniSpringSet* set, uint32_t* work, const maniPose*
 {
     for (uint32_t j = 0; j < set->jointCount; ++j)
     {
-        const uint8_t* e = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
+        const uint8_t* e = maniSpringJoint(set, j);
         maniTransform head =
             maniPoseModelTransformEntered(pose, maniLoadU32(e + maniSpringJointHead));
         uint64_t at = maniSpringNowJointAt(j);
@@ -141,13 +142,13 @@ static void ReadInputs(const maniSpringSet* set, uint32_t* work, const maniPose*
     }
     for (uint32_t c = 0; c < set->colliderCount; ++c)
     {
-        uint32_t bone = maniLoadU32(set->colliders + (size_t)c * MANI_SPRING_COLLIDER_SIZE);
+        uint32_t bone = maniLoadU32(maniSpringCollider(set, c));
         SetBoneWords(work, maniSpringNowColliderAt(set, c),
                      maniPoseModelTransformEntered(pose, bone));
     }
     for (uint32_t i = 0; i < set->springCount; ++i)
     {
-        uint32_t center = maniLoadU32(set->springs + (size_t)i * MANI_SPRING_SPRING_SIZE + 16);
+        uint32_t center = maniLoadU32(maniSpringRecord(set, i) + 16);
         uint64_t at = maniSpringNowCenterAt(set, i);
         if (center != MANI_NO_BONE)
         {
@@ -191,7 +192,7 @@ static Head HeadAt(const Step* s, uint32_t joint)
 // A collider in model space at the step.
 static maniSpringShape ShapeOf(const Step* s, uint32_t collider)
 {
-    const uint8_t* e = s->set->colliders + (size_t)collider * MANI_SPRING_COLLIDER_SIZE;
+    const uint8_t* e = maniSpringCollider(s->set, collider);
     maniTransform now = maniSpringBoneWords(s->work, maniSpringNowColliderAt(s->set, collider));
     return maniSpringShapeOf(
         e, LerpTransform(maniSpringBoneWords(s->block, maniSpringColliderAt(s->set, collider)), now,
@@ -241,7 +242,7 @@ static maniVec3 Keep(const uint8_t* joint, maniQuat frame, maniVec3 head, maniVe
 static maniVec3 MoveTail(const Step* s, uint32_t joint, const uint8_t* spring, const Rigid* chain,
                          maniVec3 now, maniVec3 before, maniVec3* pullOut, maniVec3* headOut)
 {
-    const uint8_t* e = s->set->joints + (size_t)joint * MANI_SPRING_JOINT_SIZE;
+    const uint8_t* e = maniSpringJoint(s->set, joint);
     Head h = HeadAt(s, joint);
     maniVec3 head = Move(chain, h.position);
     maniVec3 tail = Move(chain, h.tail);
@@ -268,10 +269,17 @@ static maniVec3 MoveTail(const Step* s, uint32_t joint, const uint8_t* spring, c
     next = maniVec3Add(next, maniVec3Scale(gravity, h.scale));
     next = Keep(e, frame, head, next, pull, length);
     float radius = maniSpringFileFloat(e + maniSpringJointHitRadius) * h.scale;
-    uint32_t first = maniLoadU32(spring + 8);
-    for (uint32_t k = 0; k < maniLoadU32(spring + 12); ++k)
+    uint32_t first = 0;
+    uint32_t end = 0;
+    maniSpringLinksOf(s->set, spring, &first, &end);
+    for (uint32_t k = first; k < end; ++k)
     {
-        maniSpringShape shape = ShapeAt(s, maniLoadU32(s->set->links + 4 * (size_t)(first + k)));
+        uint32_t collider = maniSpringLinkCollider(s->set, k);
+        if (collider == UINT32_MAX)
+        {
+            continue;
+        }
+        maniSpringShape shape = ShapeAt(s, collider);
         maniVec3 direction;
         float distance = 0.0f;
         if (maniSpringCollide(&shape, next, radius, &direction, &distance))
@@ -288,7 +296,7 @@ static maniVec3 MoveTail(const Step* s, uint32_t joint, const uint8_t* spring, c
 // A spring's center at the step, or none.
 MANI_NODISCARD static bool CenterOf(const Step* s, uint32_t spring, maniAffine* centerOut)
 {
-    const uint8_t* e = s->set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE;
+    const uint8_t* e = maniSpringRecord(s->set, spring);
     uint32_t center = maniLoadU32(e + 16);
     if (center == MANI_NO_BONE)
     {
@@ -303,13 +311,15 @@ MANI_NODISCARD static bool CenterOf(const Step* s, uint32_t spring, maniAffine* 
 
 static void StepSpring(const Step* s, uint32_t spring)
 {
-    const uint8_t* e = s->set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE;
+    const uint8_t* e = maniSpringRecord(s->set, spring);
     maniAffine center;
     maniAffine inverse;
     bool centered = CenterOf(s, spring, &center) && maniAffineInverse(&center, &inverse);
     Rigid chain = {maniQuatIdentity(), maniVec3Make(0.0f, 0.0f, 0.0f)};
-    uint32_t first = maniLoadU32(e);
-    for (uint32_t j = first; j < first + maniLoadU32(e + 4); ++j)
+    uint32_t first = 0;
+    uint32_t end = 0;
+    maniSpringJointsOf(s->set, e, &first, &end);
+    for (uint32_t j = first; j < end; ++j)
     {
         uint64_t at = maniSpringJointAt(j);
         maniVec3 now = maniSpringVec(s->block, at + maniSpringTailNow);
@@ -361,7 +371,7 @@ static void Begin(const maniSpringSet* set, uint32_t* block, const uint32_t* wor
     StorePlace(block, maniSpringStepPlacement, now);
     for (uint32_t i = 0; i < set->springCount; ++i)
     {
-        const uint8_t* e = set->springs + (size_t)i * MANI_SPRING_SPRING_SIZE;
+        const uint8_t* e = maniSpringRecord(set, i);
         uint32_t center = maniLoadU32(e + 16);
         maniAffine inverse = {
             {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f}};
@@ -370,9 +380,12 @@ static void Begin(const maniSpringSet* set, uint32_t* block, const uint32_t* wor
             maniAffine m = maniPose_GetModel(pose, center);
             (void)maniAffineInverse(&m, &inverse);
         }
-        for (uint32_t j = maniLoadU32(e); j < maniLoadU32(e) + maniLoadU32(e + 4); ++j)
+        uint32_t first = 0;
+        uint32_t end = 0;
+        maniSpringJointsOf(set, e, &first, &end);
+        for (uint32_t j = first; j < end; ++j)
         {
-            const uint8_t* r = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
+            const uint8_t* r = maniSpringJoint(set, j);
             maniVec3 tail = PosePosition(pose, maniLoadU32(r + maniSpringJointTail));
             tail = maniAffineTransformPoint(&inverse, tail);
             maniSpringSetVec(block, maniSpringJointAt(j) + maniSpringTailNow, tail);

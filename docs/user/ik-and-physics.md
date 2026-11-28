@@ -55,5 +55,6 @@ A graph blends the physics pose with animation through a pose parameter (`maniGr
 
 - Solvers leave the model stale; call `maniPose_ComputeModel` before reading model matrices or computing a palette.
 - Masses and drive strengths pass through in the engine's own units; lengths are the skeleton's.
+- Spring set views are checked by every call that takes them, as skeleton views are ([Skeletons and clips](skeletons-and-clips.md)); a spring state keeps copies of its set's and skeleton's views, so only their bytes must outlive it. A set's bytes changed after the open give some motion, read only within the file, the state and the pose.
 - On a teleport or a camera cut, pass the current placement as the previous one to `maniRagdoll_ComputeBodiesFromPose` (no velocity spike) and reset the springs.
 - Ragdoll profile views are checked by every call that takes them, as skeleton views are ([Skeletons and clips](skeletons-and-clips.md)). Their bytes changed after the open give some bodies and joint targets, read only within the file and the caller's arrays.

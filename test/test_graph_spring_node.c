@@ -251,6 +251,51 @@ static void TestOtherSet(void)
     maniStoreU32(word, 0);
 }
 
+// After the bind, the bound set's view, the caller's, made to fail its
+// check (its base made NULL): the spring node gives its input and leaves
+// its block, and saving and planning a subset read nothing through it.
+static void TestViewChangedAfterBind(void)
+{
+    static maniSpringSet held;
+    held = s_set;
+    maniGraphSource source = SpringGraph(kSpring);
+    Made* m = &s_made[2];
+    const maniClip* clips[CLIPS];
+    for (uint32_t c = 0; c < CLIPS; ++c)
+    {
+        clips[c] = &s_clips[c];
+    }
+    const maniSpringSet* sets[1] = {&held};
+    maniGraphAssets assets = {.skeleton = &s_skeleton,
+                              .clips = clips,
+                              .springSets = sets,
+                              .clipCount = CLIPS,
+                              .springSetCount = 1};
+    size_t size = 0;
+    CHECK(Build(&source, m, &size).result == mani_success &&
+              maniOpenGraph(m->file, size, &m->graph).result == mani_success &&
+              maniBindGraph(&m->graph, &assets, m->binding, sizeof m->binding, &m->bound, NULL) ==
+                  mani_success &&
+              maniInitGraphInstance(m->bound, m->instance, sizeof m->instance, &m->live) ==
+                  mani_success,
+          "bound to a copy of the set's view");
+    maniPose* played = PoseAt(0);
+    CHECK(Evaluated(m, 0.1f, played), "evaluated");
+    held.base = NULL;
+    uint32_t p = SpringAt(&m->graph);
+    CHECK(maniGraphInstance_Update(m->live, 0.1f, NULL, 0, NULL, NULL) == mani_success, "updated");
+    const uint32_t* block = maniGraphNodeBlockRead(m->live, p);
+    uint32_t pending[2] = {block[maniGraphSpringPending], block[maniGraphSpringPending + 1]};
+    maniPose* given = PoseAt(1);
+    size_t saved = 0;
+    CHECK(maniGraphInstance_Evaluate(m->live, s_scratch, sizeof s_scratch, given) == mani_success &&
+              (pending[0] | pending[1]) != 0 && block[maniGraphSpringPending] == pending[0] &&
+              block[maniGraphSpringPending + 1] == pending[1],
+          "a view that no longer checks: the block untouched");
+    CHECK(maniGraphInstance_Save(m->live, s_saved[0], sizeof s_saved[0], &saved) == mani_success,
+          "saved");
+}
+
 // The placement of frame i, set on the graph's parameters.
 static maniTransform Place(Made* m, uint32_t i)
 {
@@ -545,14 +590,16 @@ static void TestRefusals(void)
     source = SpringGraph(kSpring);
     s_nodes[1].inputCount = 0;
     CHECK(RefusedFor(&source, maniBuildReasonNode, 1), "no input");
-    // A set whose state passes the limit (its counts are all the size
-    // reads).
+    // A set view counting a state past the limit: its counts pass its
+    // file, so the view is refused as its slot's set before the limit is
+    // reached (a file holding such a state is past 60 MiB).
     maniSpringSet huge = s_set;
     huge.jointCount = MANI_GRAPH_SPRING_MAX_WORDS / 17 + 1;
     const maniGraphSpringSetSource slot[1] = {{&huge, "hair", 4}};
     source = SpringGraph(kSpring);
     source.springSets = slot;
-    CHECK(RefusedFor(&source, maniBuildReasonNode, 1), "a state past the limit");
+    CHECK(RefusedFor(&source, maniBuildReasonSpringSetSlot, 0),
+          "a view counting a state past the limit");
 }
 
 static void WriteHash(uint8_t* file, size_t size)
@@ -935,5 +982,6 @@ int main(int argc, char** argv)
     TestSubgraph();
     TestChangedBytes();
     TestOtherSet();
+    TestViewChangedAfterBind();
     return s_failures == 0 ? 0 : 1;
 }
