@@ -183,10 +183,19 @@ extern "C"
 // fixed-step simulations lose time past their limit.
 #define MANI_GRAPH_LEARNED_MAX_STEPS 20u
 
-    // A graph over a file's bytes, which the caller keeps alive and
-    // unchanged while the view is used. Its fields are the library's; read
-    // a graph through the functions below. A view is immutable and
-    // copyable.
+    // A graph over a file's bytes, which the caller keeps alive while
+    // the view is used. Its fields are the library's; read a graph
+    // through the functions below. A view is immutable and copyable.
+    // Opening checks every byte once, and no later call checks them
+    // again. Bytes changed after the open, or after a bind, give some
+    // results: some names and inputs from the getters, some weights,
+    // events and root motion from an update, some pose from an
+    // evaluation, some state from a save. What a call reads from them (a
+    // node's inputs and data, a parameter, a slot, a block, a count) is
+    // bounded where it is read, so no call reads or writes outside the
+    // file, the binding, the instance, the scratch or the plan, traps or
+    // runs without end; the binding's and the instance's layout is what
+    // bind counted.
     typedef struct maniGraph
     {
         const uint8_t* parameters;

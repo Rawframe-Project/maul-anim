@@ -204,6 +204,53 @@ static uint32_t SpringAt(const maniGraph* g)
     return p;
 }
 
+// After the bind, the spring node made to play the other set, which sits
+// in a slot no node plays and whose state is larger than the node's
+// block: the node gives its input, its block untouched (the time the
+// update kept for it still pending).
+static void TestOtherSet(void)
+{
+    const maniGraphSpringSetSource slots[2] = {kSetSlot[0], {&s_other, "other", 5}};
+    maniGraphSource source = SpringGraph(kSpring);
+    source.springSetCount = 2;
+    source.springSets = slots;
+    Made* m = &s_made[2];
+    const maniClip* clips[CLIPS];
+    for (uint32_t c = 0; c < CLIPS; ++c)
+    {
+        clips[c] = &s_clips[c];
+    }
+    const maniSpringSet* sets[2] = {&s_set, &s_other};
+    maniGraphAssets assets = {.skeleton = &s_skeleton,
+                              .clips = clips,
+                              .springSets = sets,
+                              .clipCount = CLIPS,
+                              .springSetCount = 2};
+    size_t size = 0;
+    CHECK(Build(&source, m, &size).result == mani_success &&
+              maniOpenGraph(m->file, size, &m->graph).result == mani_success &&
+              maniBindGraph(&m->graph, &assets, m->binding, sizeof m->binding, &m->bound, NULL) ==
+                  mani_success &&
+              maniInitGraphInstance(m->bound, m->instance, sizeof m->instance, &m->live) ==
+                  mani_success,
+          "bound with the other set in a slot of its own");
+    maniPose* played = PoseAt(0);
+    maniPose* given = PoseAt(1);
+    CHECK(Evaluated(m, 0.1f, played), "evaluated");
+    uint32_t p = SpringAt(&m->graph);
+    uint32_t data = maniLoadU32(m->graph.nodes + (size_t)p * MANI_GRAPH_NODE_SIZE + 12);
+    uint8_t* word = (uint8_t*)(uintptr_t)m->graph.data + 4 * ((size_t)data + maniGraphSpringSet);
+    maniStoreU32(word, 1);
+    CHECK(maniGraphInstance_Update(m->live, 0.1f, NULL, 0, NULL, NULL) == mani_success, "updated");
+    const uint32_t* block = maniGraphNodeBlockRead(m->live, p);
+    uint32_t pending[2] = {block[maniGraphSpringPending], block[maniGraphSpringPending + 1]};
+    CHECK(maniGraphInstance_Evaluate(m->live, s_scratch, sizeof s_scratch, given) == mani_success &&
+              (pending[0] | pending[1]) != 0 && block[maniGraphSpringPending] == pending[0] &&
+              block[maniGraphSpringPending + 1] == pending[1],
+          "the other set: the block untouched");
+    maniStoreU32(word, 0);
+}
+
 // The placement of frame i, set on the graph's parameters.
 static maniTransform Place(Made* m, uint32_t i)
 {
@@ -887,5 +934,6 @@ int main(int argc, char** argv)
     TestJson();
     TestSubgraph();
     TestChangedBytes();
+    TestOtherSet();
     return s_failures == 0 ? 0 : 1;
 }

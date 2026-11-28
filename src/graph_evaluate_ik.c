@@ -28,26 +28,26 @@
 #include <stdint.h>
 #include <string.h>
 
-// A vec3 parameter's value, or zero for none.
+// A vec3 parameter's value, or zero for none (also past the count).
 static maniVec3 Vector(const maniGraphEvaluation* e, uint32_t parameter)
 {
-    if (parameter == MANI_NO_PARAMETER)
+    const maniGraphValue* v = maniGraphEvalValue(e, parameter);
+    if (v == NULL)
     {
         return (maniVec3){0.0f, 0.0f, 0.0f};
     }
-    const float* f = e->instance->cells[parameter].value.f;
-    return (maniVec3){f[0], f[1], f[2]};
+    return (maniVec3){v->f[0], v->f[1], v->f[2]};
 }
 
-// A quat parameter's value, or no turn for none.
+// A quat parameter's value, or no turn for none (also past the count).
 static maniQuat Rotation(const maniGraphEvaluation* e, uint32_t parameter)
 {
-    if (parameter == MANI_NO_PARAMETER)
+    const maniGraphValue* v = maniGraphEvalValue(e, parameter);
+    if (v == NULL)
     {
         return (maniQuat){0.0f, 0.0f, 0.0f, 1.0f};
     }
-    const float* f = e->instance->cells[parameter].value.f;
-    return (maniQuat){f[0], f[1], f[2], f[3]};
+    return (maniQuat){v->f[0], v->f[1], v->f[2], v->f[3]};
 }
 
 // A binary32 data word.
@@ -158,7 +158,7 @@ void maniGraphEvaluateChain(const maniGraphEvaluation* e, const uint8_t* record,
     uint32_t path =
         maniIkChainPath(skeleton, maniGraphEvalWord(e, d), maniGraphEvalWord(e, d + 1), bones);
     uint32_t count = maniGraphEvalWord(e, d + maniGraphChainLimitCount);
-    if (count != 0 && count + 1 != path)
+    if (count != 0 && (count >= MANI_MAX_IK_CHAIN_BONES || count + 1 != path))
     {
         return;
     }
@@ -204,7 +204,9 @@ static maniBodyEffector Effector(const maniGraphEvaluation* e, uint32_t d, uint3
 // A full-body node: its input with the body solved, its effectors,
 // settings and the solve's scratch laid in the instance's room from a
 // 16-byte boundary; the input when the solve refuses (a crafted file's
-// bones not a part the solve takes, a goal not finite, a room short).
+// bones not a part the solve takes, a goal not finite, a room short), or
+// when its effectors or settings are more than the solve takes (the bytes
+// changed since the open).
 void maniGraphEvaluateBody(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out,
                            bool sdls)
 {
@@ -215,6 +217,10 @@ void maniGraphEvaluateBody(const maniGraphEvaluation* e, const uint8_t* record, 
     }
     uint32_t count = maniGraphEvalWord(e, d + maniGraphBodyEffectorCount);
     uint32_t settings = maniGraphEvalWord(e, d + maniGraphBodySettingCount);
+    if (count > MANI_MAX_BODY_IK_EFFECTORS || settings > MANI_MAX_BODY_IK_BONES)
+    {
+        return;
+    }
     uint8_t* room = (uint8_t*)e->instance + e->instance->roomAt;
     size_t at = (16u - (uintptr_t)room % 16u) % 16u;
     maniBodyEffector* effectors = (void*)(room + at);

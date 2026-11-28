@@ -20,7 +20,9 @@
 #include "spring_file.h"
 
 #include "maul-anim/base.h"
+#include "maul-anim/bodyik.h"
 #include "maul-anim/graph.h"
+#include "maul-anim/ik.h"
 #include "maul-anim/mirror.h"
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
@@ -82,9 +84,17 @@ MANI_NODISCARD static bool Marked(const Closure* c, uint32_t bone)
     return bone < c->bones && c->marks[bone] != 0;
 }
 
+// Data word at, 0 past the words (maniGraphWord): the bytes stay in the
+// caller's hands after the open.
 static uint32_t Word(const maniGraph* graph, uint32_t at)
 {
-    return maniLoadU32(graph->data + 4 * (size_t)at);
+    return maniGraphWord(graph, at);
+}
+
+// A count read from the bytes, at most the most the opener takes.
+static uint32_t AtMost(uint32_t count, uint32_t most)
+{
+    return count < most ? count : most;
 }
 
 // What a node does with a bone: asks whether it is marked, or marks it.
@@ -122,10 +132,11 @@ static void Path(Visit* v, uint32_t from, uint32_t to)
 }
 
 // A spring node's set: its joints' heads (writing, writes false) and,
-// reading, their tails, its colliders' bones and its springs' centers.
+// reading, their tails, its colliders' bones and its springs' centers;
+// no bones for none (a graph without sets).
 static void Springs(Visit* v, const maniSpringSet* set, bool reads)
 {
-    for (uint32_t j = 0; j < set->jointCount; ++j)
+    for (uint32_t j = 0; set != NULL && j < set->jointCount; ++j)
     {
         const uint8_t* joint = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
         See(v, maniLoadU32(joint + maniSpringJointHead));
@@ -134,11 +145,11 @@ static void Springs(Visit* v, const maniSpringSet* set, bool reads)
             See(v, maniLoadU32(joint + maniSpringJointTail));
         }
     }
-    for (uint32_t k = 0; reads && k < set->colliderCount; ++k)
+    for (uint32_t k = 0; set != NULL && reads && k < set->colliderCount; ++k)
     {
         See(v, maniLoadU32(set->colliders + (size_t)k * MANI_SPRING_COLLIDER_SIZE));
     }
-    for (uint32_t s = 0; reads && s < set->springCount; ++s)
+    for (uint32_t s = 0; set != NULL && reads && s < set->springCount; ++s)
     {
         See(v, maniLoadU32(set->springs + (size_t)s * MANI_SPRING_SPRING_SIZE + 16));
     }
@@ -160,7 +171,7 @@ MANI_NODISCARD static bool Bones(Visit* v, const maniGraph* graph, uint32_t p, b
     }
     else if (kind == maniGraphNodeAim)
     {
-        for (uint32_t k = 0; k < Word(graph, d); ++k)
+        for (uint32_t k = 0; k < AtMost(Word(graph, d), MANI_MAX_AIM_BONES); ++k)
         {
             See(v, Word(graph, d + maniGraphAimBones + k));
         }
@@ -172,7 +183,9 @@ MANI_NODISCARD static bool Bones(Visit* v, const maniGraph* graph, uint32_t p, b
     else if (kind == maniGraphNodeBodyXpbd || kind == maniGraphNodeBodySdls)
     {
         uint32_t top = Word(graph, d + maniGraphBodyTop);
-        for (uint32_t k = 0; k < Word(graph, d + maniGraphBodyEffectorCount); ++k)
+        uint32_t count =
+            AtMost(Word(graph, d + maniGraphBodyEffectorCount), MANI_MAX_BODY_IK_EFFECTORS);
+        for (uint32_t k = 0; k < count; ++k)
         {
             Path(v, Word(graph, d + MANI_GRAPH_BODY_WORDS + k * MANI_GRAPH_EFFECTOR_WORDS), top);
         }

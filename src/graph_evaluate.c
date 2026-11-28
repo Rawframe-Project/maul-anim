@@ -91,9 +91,7 @@ static void Blend(const maniGraphEvaluation* e, const uint8_t* record, maniPose*
                   bool difference)
 {
     uint32_t d = maniLoadU32(record + 12);
-    uint32_t n = maniLoadU32(record + 8);
-    // The layers hold the binding's most inputs of a node.
-    MANI_ASSERT(n <= e->binding->maxInputs);
+    uint32_t n = maniGraphEvalInputCount(e, record);
     bool direct = maniGraphEvalWord(e, d) != 0;
     float total = 0.0f;
     for (uint32_t k = 0; k < n; ++k)
@@ -124,8 +122,8 @@ static void Blend(const maniGraphEvaluation* e, const uint8_t* record, maniPose*
 static void Space(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out,
                   bool difference)
 {
-    uint32_t n = maniLoadU32(record + 8);
-    MANI_ASSERT(n <= MANI_MAX_GRAPH_SPACE_POINTS && n <= e->binding->maxInputs);
+    uint32_t n = maniGraphEvalInputCount(e, record);
+    n = n < MANI_MAX_GRAPH_SPACE_POINTS ? n : MANI_MAX_GRAPH_SPACE_POINTS;
     float weights[MANI_MAX_GRAPH_SPACE_POINTS];
     maniGraphSpaceWeights(e->graph, e->instance->cells, maniLoadU16(record),
                           maniLoadU32(record + 12), n, weights);
@@ -145,18 +143,18 @@ static void Space(const maniGraphEvaluation* e, const uint8_t* record, maniPose*
     }
 }
 
-// A state machine: its states of weight above 0, blended by its weights.
-static void Machine(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out,
+// A state machine: its states of weight above 0, blended by its weights
+// (a state past its inputs, or past the layers the scratch holds, has
+// none); the neutral pose without a block that fits.
+static void Machine(const maniGraphEvaluation* e, uint32_t p, const uint8_t* record, maniPose* out,
                     bool difference)
 {
     maniGraphMachine m = {e->graph, maniLoadU32(record + 12), maniLoadU32(record + 8)};
-    MANI_ASSERT(m.states <= e->binding->maxInputs &&
-                maniGraphMachineBlockAt(&m) < e->graph->machineWords);
-    const uint32_t* block =
-        (const uint32_t*)((const uint8_t*)e->instance + e->instance->machinesAt) +
-        maniGraphMachineBlockAt(&m);
+    const uint32_t* block = maniGraphNodeBlockRead(e->instance, p);
+    uint32_t n = maniGraphEvalInputCount(e, record);
+    n = block != NULL && m.states < n ? m.states : (block != NULL ? n : 0u);
     uint32_t count = 0;
-    for (uint32_t k = 0; k < m.states; ++k)
+    for (uint32_t k = 0; k < n; ++k)
     {
         float weight = maniGraphMachineWeight(block, k);
         const maniPose* input = maniGraphEvalInput(e, record, k);
@@ -176,12 +174,18 @@ static void Mask(const maniGraphEvaluation* e, const uint8_t* record, maniPose* 
                  bool difference)
 {
     uint32_t bones = e->graph->skeletonBoneCount;
-    uint32_t mask = maniGraphEvalWord(e, maniLoadU32(record + 12));
-    MANI_ASSERT(mask < e->graph->maskCount);
-    memcpy(e->inside, e->graph->maskWeights + 4 * (size_t)mask * bones, 4 * (size_t)bones);
+    // A mask past the count (maniGraphMaskWeights): the whole body inside.
+    const uint8_t* weights =
+        maniGraphMaskWeights(e->graph, maniGraphEvalWord(e, maniLoadU32(record + 12)));
     for (uint32_t b = 0; b < bones; ++b)
     {
-        e->outside[b] = 1.0f - e->inside[b];
+        float m = 1.0f;
+        if (weights != NULL)
+        {
+            memcpy(&m, weights + 4 * (size_t)b, sizeof m);
+        }
+        e->inside[b] = m;
+        e->outside[b] = 1.0f - m;
     }
     uint32_t count = 0;
     const maniPose* inside = maniGraphEvalInput(e, record, 0);
@@ -202,26 +206,27 @@ static void Mask(const maniGraphEvaluation* e, const uint8_t* record, maniPose* 
 }
 
 // A one-shot: per bone the shot at its weight times the mask's (1
-// without one), the base at the rest, as a mask node of those weights.
-static void Shot(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out,
+// without one, or for one past the masks), the base at the rest, as a
+// mask node of those weights; the shot at 0 without a block that fits.
+static void Shot(const maniGraphEvaluation* e, uint32_t p, const uint8_t* record, maniPose* out,
                  bool difference)
 {
     maniGraphShot shot = {e->graph, maniLoadU32(record + 12), 0};
-    const uint32_t* block =
-        (const uint32_t*)((const uint8_t*)e->instance + e->instance->machinesAt) +
-        maniGraphShotWord(&shot, maniGraphShotBlock);
+    const uint32_t* block = maniGraphNodeBlockRead(e->instance, p);
     float w = 0.0f;
-    memcpy(&w, &block[maniGraphShotWeight], sizeof w);
+    if (block != NULL)
+    {
+        memcpy(&w, &block[maniGraphShotWeight], sizeof w);
+    }
     uint32_t bones = e->graph->skeletonBoneCount;
-    uint32_t mask = maniGraphShotWord(&shot, maniGraphShotMask);
-    MANI_ASSERT(maniGraphShotWord(&shot, maniGraphShotBlock) < e->graph->machineWords &&
-                (mask == MANI_GRAPH_NO_MASK || mask < e->graph->maskCount));
+    const uint8_t* weights =
+        maniGraphMaskWeights(e->graph, maniGraphShotWord(&shot, maniGraphShotMask));
     for (uint32_t b = 0; b < bones; ++b)
     {
         float m = 1.0f;
-        if (mask != MANI_GRAPH_NO_MASK)
+        if (weights != NULL)
         {
-            memcpy(&m, e->graph->maskWeights + 4 * ((size_t)mask * bones + b), sizeof m);
+            memcpy(&m, weights + 4 * (size_t)b, sizeof m);
         }
         e->inside[b] = w * m;
         e->outside[b] = 1.0f - w * m;
@@ -245,18 +250,21 @@ static void Shot(const maniGraphEvaluation* e, const uint8_t* record, maniPose* 
 }
 
 // An inertialize node: its input eased by its block, which keeps the
-// output.
-static void Inertia(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out,
+// output; its input as it is without a block that fits.
+static void Inertia(const maniGraphEvaluation* e, uint32_t p, const uint8_t* record, maniPose* out,
                     bool difference)
 {
     uint32_t data = maniLoadU32(record + 12);
-    MANI_ASSERT(maniGraphEvalWord(e, data + maniGraphInertiaBlock) < e->graph->machineWords);
-    uint32_t* block = (uint32_t*)((uint8_t*)e->instance + e->instance->machinesAt) +
-                      maniGraphEvalWord(e, data + maniGraphInertiaBlock);
+    uint32_t* block = maniGraphNodeBlock(e->instance, p);
     const maniPose* input = maniGraphEvalInput(e, record, 0);
     if (input == NULL)
     {
         maniGraphEvalNeutral(e, out, difference);
+        return;
+    }
+    if (block == NULL)
+    {
+        maniPoseCopy(out, input);
         return;
     }
     maniGraphInertia node = maniGraphInertiaOf(e->graph, data);
@@ -267,9 +275,7 @@ static void Inertia(const maniGraphEvaluation* e, const uint8_t* record, maniPos
 static void Additive(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out)
 {
     uint32_t d = maniLoadU32(record + 12);
-    uint32_t n = maniLoadU32(record + 8);
-    // A base and its layers, the layers within the binding's most inputs.
-    MANI_ASSERT(n >= 1 && n <= e->binding->maxInputs);
+    uint32_t n = maniGraphEvalInputCount(e, record);
     const maniPose* base = maniGraphEvalInput(e, record, 0);
     if (base == NULL)
     {
@@ -341,17 +347,26 @@ static void SampleClip(const maniGraphEvaluation* e, maniClipCursor* c, const ma
                                      e->plan->count, out);
 }
 
+// Whether a clip or matching node has its cursor: one each, in node
+// order, as bind counted them (the bytes may since make more).
+MANI_NODISCARD static bool HasCursor(const maniGraphEvaluation* e, uint32_t cursor)
+{
+    return cursor < e->instance->clipNodeCount;
+}
+
 // A clip node's pose: its clip at its playhead, through its cursor (and
-// its map).
+// its map); the neutral pose without a clip or a cursor.
 static void Sample(const maniGraphEvaluation* e, const uint8_t* record, uint32_t cursor,
                    maniPose* out, const maniGraphNodeState* s)
 {
-    uint32_t slot = maniGraphEvalWord(e, maniLoadU32(record + 12));
-    // Binding bound every slot; each clip node and matching node has its
-    // cursor, in order.
-    MANI_ASSERT(slot < e->graph->clipCount && e->binding->clips[slot] != NULL);
-    MANI_ASSERT(cursor < e->instance->clipNodeCount);
-    const maniClip* clip = e->binding->clips[slot];
+    uint32_t word = maniGraphEvalWord(e, maniLoadU32(record + 12));
+    const maniClip* clip = maniGraphBoundClip(e->binding, word);
+    if (clip == NULL || !HasCursor(e, cursor))
+    {
+        maniGraphEvalNeutral(e, out, false);
+        return;
+    }
+    uint32_t slot = maniGraphBoundSlot(word, e->graph->clipCount);
     void* memory =
         (uint8_t*)e->instance + e->instance->cursorsAt + (size_t)cursor * e->binding->cursorSize;
     maniClipCursor* c = memory;
@@ -365,30 +380,41 @@ static void Sample(const maniGraphEvaluation* e, const uint8_t* record, uint32_t
 }
 
 // A motion matching node's pose: its entry's clip at its playhead,
-// through its cursor; the neutral pose with no entry.
-static void SampleMatch(const maniGraphEvaluation* e, const uint8_t* record, uint32_t cursor,
-                        maniPose* out, const maniGraphNodeState* s)
+// through its cursor; the neutral pose with no entry, and without a
+// database, a block that fits, a cursor, or a clip within its database's
+// clip run (the database record as maniGraphBoundDatabase clamps it).
+static void SampleMatch(const maniGraphEvaluation* e, uint32_t p, const uint8_t* record,
+                        uint32_t cursor, maniPose* out, const maniGraphNodeState* s)
 {
     uint32_t data = maniLoadU32(record + 12);
-    uint32_t slot = maniGraphEvalWord(e, data + maniGraphMatchDatabase);
-    MANI_ASSERT(slot < e->graph->databaseCount && cursor < e->instance->clipNodeCount);
-    uint32_t entry = ((const uint32_t*)((const uint8_t*)e->instance + e->instance->machinesAt))
-        [maniGraphEvalWord(e, data + maniGraphMatchBlock) + maniGraphMatchEntry];
+    uint32_t word = maniGraphEvalWord(e, data + maniGraphMatchDatabase);
+    const maniMotionDatabase* database = maniGraphBoundDatabase(e->binding, word);
+    const uint32_t* block = maniGraphNodeBlockRead(e->instance, p);
     maniMatchEntry m;
-    if (maniMotionDatabase_GetEntry(maniGraphBoundDatabase(e->binding, slot), entry, &m) !=
-        mani_success)
+    if (database == NULL || block == NULL || !HasCursor(e, cursor) ||
+        maniMotionDatabase_GetEntry(database, block[maniGraphMatchEntry], &m) != mani_success)
     {
         maniGraphEvalNeutral(e, out, false);
         return;
     }
+    uint32_t slot = maniGraphBoundSlot(word, e->graph->databaseCount);
     const uint8_t* d = e->graph->databases + (size_t)slot * MANI_GRAPH_DATABASE_SIZE;
-    uint32_t clipSlot =
-        maniLoadU32(e->graph->databaseClips + 4 * (size_t)(maniLoadU32(d + 24) + m.clip));
-    MANI_ASSERT(clipSlot < e->graph->clipCount && e->binding->clips[clipSlot] != NULL);
+    uint32_t run = maniLoadU32(d + 24);
+    const maniClip* clip = NULL;
+    if (run < e->graph->databaseClipCount && m.clip < e->graph->databaseClipCount - run)
+    {
+        clip = maniGraphBoundClip(
+            e->binding, maniLoadU32(e->graph->databaseClips + 4 * (size_t)(run + m.clip)));
+    }
+    if (clip == NULL)
+    {
+        maniGraphEvalNeutral(e, out, false);
+        return;
+    }
     void* memory =
         (uint8_t*)e->instance + e->instance->cursorsAt + (size_t)cursor * e->binding->cursorSize;
     maniClipCursor* c = memory;
-    SampleClip(e, c, e->binding->clips[clipSlot], (float)s->time, out);
+    SampleClip(e, c, clip, (float)s->time, out);
     // A mirrored entry plays mirrored (its map bound as the graph's).
     if ((m.flags & maniMatchEntryMirrored) != 0)
     {
@@ -397,29 +423,34 @@ static void SampleMatch(const maniGraphEvaluation* e, const uint8_t* record, uin
 }
 
 // The character's place a spring node reads: its position and rotation
-// parameters, or the origin and the identity; the rotation normalized as
-// maniSpringState_Step normalizes it.
+// parameters, or the origin and the identity (also for a parameter past
+// the count); the rotation normalized as maniSpringState_Step normalizes
+// it.
 static maniTransform Placement(const maniGraphEvaluation* e, uint32_t data)
 {
     maniTransform t = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}};
-    uint32_t position = maniGraphEvalWord(e, data + maniGraphSpringPosition);
-    uint32_t rotation = maniGraphEvalWord(e, data + maniGraphSpringRotation);
-    if (position != MANI_NO_PARAMETER)
+    const maniGraphValue* position =
+        maniGraphEvalValue(e, maniGraphEvalWord(e, data + maniGraphSpringPosition));
+    const maniGraphValue* rotation =
+        maniGraphEvalValue(e, maniGraphEvalWord(e, data + maniGraphSpringRotation));
+    if (position != NULL)
     {
-        const float* f = e->instance->cells[position].value.f;
+        const float* f = position->f;
         t.translation = (maniVec3){f[0], f[1], f[2]};
     }
-    if (rotation != MANI_NO_PARAMETER)
+    if (rotation != NULL)
     {
-        const float* f = e->instance->cells[rotation].value.f;
+        const float* f = rotation->f;
         t.rotation = maniQuatNormalize((maniQuat){f[0], f[1], f[2], f[3]});
     }
     return t;
 }
 
 // A spring node: its input with its set's joints turned toward the tails
-// its block steps to.
-static void Spring(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out)
+// its block steps to; its input as it is without a set, or with one its
+// block or the instance's room does not hold (bind checked both; the
+// bytes may since name another set).
+static void Spring(const maniGraphEvaluation* e, uint32_t p, const uint8_t* record, maniPose* out)
 {
     const maniPose* input = maniGraphEvalInput(e, record, 0);
     if (input == NULL)
@@ -429,16 +460,21 @@ static void Spring(const maniGraphEvaluation* e, const uint8_t* record, maniPose
     }
     maniPoseCopy(out, input);
     uint32_t data = maniLoadU32(record + 12);
-    uint32_t* block = (uint32_t*)((uint8_t*)e->instance + e->instance->machinesAt) +
-                      maniGraphEvalWord(e, data + maniGraphSpringBlock);
+    uint32_t* block = maniGraphNodeBlock(e->instance, p);
     const maniSpringSet* set =
         maniGraphBoundSpringSet(e->binding, maniGraphEvalWord(e, data + maniGraphSpringSet));
-    maniTransform placement = Placement(e, data);
-    uint32_t force = maniGraphEvalWord(e, data + maniGraphSpringForce);
-    maniVec3 push = {0.0f, 0.0f, 0.0f};
-    if (force != MANI_NO_PARAMETER)
+    if (block == NULL || set == NULL || !maniGraphSpringFits(e->graph, data, set) ||
+        maniGraphSpringWorkWords(set) > e->binding->room / 4)
     {
-        const float* f = e->instance->cells[force].value.f;
+        return;
+    }
+    maniTransform placement = Placement(e, data);
+    const maniGraphValue* force =
+        maniGraphEvalValue(e, maniGraphEvalWord(e, data + maniGraphSpringForce));
+    maniVec3 push = {0.0f, 0.0f, 0.0f};
+    if (force != NULL)
+    {
+        const float* f = force->f;
         push = (maniVec3){f[0], f[1], f[2]};
     }
     uint32_t* work = (uint32_t*)((uint8_t*)e->instance + e->instance->roomAt);
@@ -446,8 +482,10 @@ static void Spring(const maniGraphEvaluation* e, const uint8_t* record, maniPose
 }
 
 // A turn limit node: its input with each bone turned from the rotation
-// its block holds toward the input's by at most its budget.
-static void TurnLimit(const maniGraphEvaluation* e, const uint8_t* record, maniPose* out)
+// its block holds toward the input's by at most its budget; its input as
+// it is without a block that fits.
+static void TurnLimit(const maniGraphEvaluation* e, uint32_t p, const uint8_t* record,
+                      maniPose* out)
 {
     const maniPose* input = maniGraphEvalInput(e, record, 0);
     if (input == NULL)
@@ -457,17 +495,22 @@ static void TurnLimit(const maniGraphEvaluation* e, const uint8_t* record, maniP
     }
     maniPoseCopy(out, input);
     uint32_t data = maniLoadU32(record + 12);
-    uint32_t* block = (uint32_t*)((uint8_t*)e->instance + e->instance->machinesAt) +
-                      maniGraphEvalWord(e, data + maniGraphTurnBlock);
-    uint32_t mask = maniGraphEvalWord(e, data + maniGraphTurnMask);
-    uint32_t bones = e->graph->skeletonBoneCount;
-    if (mask != MANI_GRAPH_NO_MASK)
+    uint32_t* block = maniGraphNodeBlock(e->instance, p);
+    if (block == NULL)
     {
-        memcpy(e->inside, e->graph->maskWeights + 4 * (size_t)mask * bones, 4 * (size_t)bones);
+        return;
+    }
+    // A mask past the count (maniGraphMaskWeights): every bone.
+    const uint8_t* weights =
+        maniGraphMaskWeights(e->graph, maniGraphEvalWord(e, data + maniGraphTurnMask));
+    uint32_t bones = e->graph->skeletonBoneCount;
+    if (weights != NULL)
+    {
+        memcpy(e->inside, weights, 4 * (size_t)bones);
     }
     // Under a subset, only the planned bones: the others' inputs are not
     // computed, and their held rotations wait for an evaluation that is.
-    maniGraphTurnPose(block, mask != MANI_GRAPH_NO_MASK ? e->inside : NULL,
+    maniGraphTurnPose(block, weights != NULL ? e->inside : NULL,
                       maniGraphEvalScalar(e, data + maniGraphTurnSpeed),
                       e->plan != NULL ? maniGraphSubsetList(e->plan) : NULL,
                       e->plan != NULL ? e->plan->count : 0, out);
@@ -475,17 +518,19 @@ static void TurnLimit(const maniGraphEvaluation* e, const uint8_t* record, maniP
 
 // A learned node's pose: its model's Decompressor at its state, worked
 // in the instance's room, the hidden values its update kept taken when
-// kept at the same state (the same bits); the neutral pose with no state.
+// kept at the same state (the same bits); the neutral pose with no state,
+// and without a model, a block that fits, or a model its block or the room
+// does not hold (maniGraphLearnedHoused).
 static void SampleLearned(const maniGraphEvaluation* e, uint32_t p, const uint8_t* record,
                           maniPose* out)
 {
     uint32_t data = maniLoadU32(record + 12);
     const maniLearnedModel* m =
         maniGraphBoundModel(e->binding, maniGraphEvalWord(e, data + maniGraphLearnedModel));
-    const uint32_t* block =
-        (const uint32_t*)((const uint8_t*)e->instance + e->instance->machinesAt) +
-        maniGraphEvalWord(e, data + maniGraphLearnedBlock);
-    if (block[maniGraphLearnedHas] == 0)
+    const uint32_t* block = maniGraphNodeBlockRead(e->instance, p);
+    if (m == NULL || block == NULL ||
+        !maniGraphLearnedHoused(e->graph, data, m, e->binding->room) ||
+        block[maniGraphLearnedHas] == 0)
     {
         maniGraphEvalNeutral(e, out, false);
         return;
@@ -525,11 +570,11 @@ static void Mirror(const maniGraphEvaluation* e, const uint8_t* record, maniPose
     }
 }
 
-// Input k passed on, or the neutral pose without it.
+// Input k passed on, or the neutral pose without it (also past the
+// node's inputs).
 static void PassOn(const maniGraphEvaluation* e, const uint8_t* record, uint32_t k, maniPose* out,
                    bool difference)
 {
-    MANI_ASSERT(k < maniLoadU32(record + 8));
     const maniPose* input = maniGraphEvalInput(e, record, k);
     if (input != NULL)
     {
@@ -552,7 +597,7 @@ static void EvaluateNode(const maniGraphEvaluation* e, uint32_t p, uint32_t curs
         Sample(e, record, cursor, out, maniGraphEvalState(e, p));
         return;
     case maniGraphNodeMatch:
-        SampleMatch(e, record, cursor, out, maniGraphEvalState(e, p));
+        SampleMatch(e, p, record, cursor, out, maniGraphEvalState(e, p));
         return;
     case maniGraphNodeLearned:
         SampleLearned(e, p, record, out);
@@ -572,13 +617,13 @@ static void EvaluateNode(const maniGraphEvaluation* e, uint32_t p, uint32_t curs
         Space(e, record, out, difference);
         return;
     case maniGraphNodeOneShot:
-        Shot(e, record, out, difference);
+        Shot(e, p, record, out, difference);
         return;
     case maniGraphNodeInertialize:
-        Inertia(e, record, out, difference);
+        Inertia(e, p, record, out, difference);
         return;
     case maniGraphNodeSpring:
-        Spring(e, record, out);
+        Spring(e, p, record, out);
         return;
     case maniGraphNodePose:
         maniGraphPoseInput(e->instance, maniGraphEvalWord(e, maniLoadU32(record + 12)), out);
@@ -598,13 +643,13 @@ static void EvaluateNode(const maniGraphEvaluation* e, uint32_t p, uint32_t curs
         maniGraphEvaluateBody(e, record, out, maniLoadU16(record) == maniGraphNodeBodySdls);
         return;
     case maniGraphNodeMachine:
-        Machine(e, record, out, difference);
+        Machine(e, p, record, out, difference);
         return;
     case maniGraphNodeMirror:
         Mirror(e, record, out);
         return;
     case maniGraphNodeTurnLimit:
-        TurnLimit(e, record, out);
+        TurnLimit(e, p, record, out);
         return;
     default:
         PassOn(e, record,
@@ -703,8 +748,6 @@ static maniResult Run(maniGraphInstance* instance, const maniGraphSubset* plan, 
         }
         cursor += clip ? 1u : 0u;
     }
-    // Every clip node and matching node had its cursor.
-    MANI_ASSERT(cursor == instance->clipNodeCount);
     const maniPose* output = maniGraphEvalSlot(&e, maniLoadU32(maniGraphEvalRecord(&e, last) + 20));
     if (plan != NULL)
     {

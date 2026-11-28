@@ -20,8 +20,8 @@
 // updates and evaluates. Before them, the input's first words change the
 // graph file's words after the open and the bind: instances of the
 // binding made before and the live one, and instances of the graph
-// bound again, are set, updated, inspected, saved and restored on the
-// changed bytes, which no call reads or writes past; then the words put
+// bound again, are set, updated, evaluated, inspected, saved and
+// restored on the changed bytes, which no call reads or writes past; then the words put
 // back. Run as fuzz_graph_state
 // <corpus dir>.
 
@@ -280,8 +280,8 @@ static void Setup(void)
 }
 
 // Every call on an instance on the changed bytes: its parameters and
-// poses set and read, updated forward and back, every node inspected,
-// its state saved and restored into other.
+// poses set and read, updated forward and back, evaluated, every node
+// inspected, its state saved and restored into other.
 static void ChangedCalls(maniGraphInstance* a, maniGraphInstance* b)
 {
     static uint8_t saved[4096];
@@ -297,6 +297,7 @@ static void ChangedCalls(maniGraphInstance* a, maniGraphInstance* b)
     maniRootMove move;
     (void)maniGraphInstance_Update(a, 0.37f, events, 4, &count, &move);
     (void)maniGraphInstance_Update(a, -5.5f, NULL, 0, &count, &move);
+    (void)maniGraphInstance_Evaluate(a, s_scratch, sizeof s_scratch, s_pose);
     for (uint32_t p = 0; p < s_graph.nodeCount; ++p)
     {
         maniGraphNodeView view;

@@ -4,7 +4,8 @@
 // A graph evaluation's state, shared by the evaluation and the
 // nodes evaluated in modules of their own: where the scratch's parts
 // begin, the instance, binding and plan, and reading a node's record,
-// words and inputs.
+// words and inputs. The bytes stay in the caller's hands after the open:
+// every index read from them is bounded where it is read.
 
 #ifndef MAUL_ANIM_SRC_GRAPH_EVALUATION_H
 #define MAUL_ANIM_SRC_GRAPH_EVALUATION_H
@@ -55,10 +56,12 @@ typedef struct maniGraphEvaluation
     uint32_t* failed;
 } maniGraphEvaluation;
 
+// A pose slot read from the bytes: opening refused one past the file's
+// count, and one past it since names the last (maniGraphBoundSlot; a graph
+// has a slot for its output).
 static inline maniPose* maniGraphEvalSlot(const maniGraphEvaluation* e, uint32_t slot)
 {
-    // Opening refused a node whose slot is past the file's count.
-    MANI_ASSERT(slot < e->graph->slotCount);
+    slot = maniGraphBoundSlot(slot, e->graph->slotCount);
     void* memory = e->scratch + e->parts.posesAt + (size_t)slot * e->parts.poseSize;
     return memory;
 }
@@ -74,17 +77,27 @@ static inline maniGraphNodeState* maniGraphEvalState(const maniGraphEvaluation* 
     return &e->instance->cells[e->graph->parameterCount + p].node;
 }
 
+// Data word at, 0 past the words (maniGraphWord).
 static inline uint32_t maniGraphEvalWord(const maniGraphEvaluation* e, uint32_t at)
 {
-    return maniLoadU32(e->graph->data + 4 * (size_t)at);
+    return maniGraphWord(e->graph, at);
 }
 
+// A parameter's value; NULL for none and past the count.
+static inline const maniGraphValue* maniGraphEvalValue(const maniGraphEvaluation* e,
+                                                       uint32_t parameter)
+{
+    return maniGraphParameterValue(e->graph, e->instance->cells, parameter);
+}
+
+// A scalar's value: its float parameter's, or its literal (also for a
+// parameter past the count).
 static inline float maniGraphEvalScalar(const maniGraphEvaluation* e, uint32_t at)
 {
-    uint32_t parameter = maniGraphEvalWord(e, at);
-    if (parameter != MANI_NO_PARAMETER)
+    const maniGraphValue* v = maniGraphEvalValue(e, maniGraphEvalWord(e, at));
+    if (v != NULL)
     {
-        return e->instance->cells[parameter].value.f[0];
+        return v->f[0];
     }
     uint32_t bits = maniGraphEvalWord(e, at + 1);
     float value = 0.0f;
@@ -92,18 +105,34 @@ static inline float maniGraphEvalScalar(const maniGraphEvaluation* e, uint32_t a
     return value;
 }
 
+// A node's input k; MANI_GRAPH_NO_NODE past its inputs
+// (maniGraphInputCount) or past the nodes.
 static inline uint32_t maniGraphEvalInputOf(const maniGraphEvaluation* e, const uint8_t* record,
                                             uint32_t k)
 {
-    return maniLoadU32(e->graph->inputs + 4 * (size_t)(maniLoadU32(record + 4) + k));
+    if (k >= maniGraphInputCount(e->graph, record))
+    {
+        return MANI_GRAPH_NO_NODE;
+    }
+    uint32_t input = maniLoadU32(e->graph->inputs + 4 * (size_t)(maniLoadU32(record + 4) + k));
+    return input < e->graph->nodeCount ? input : MANI_GRAPH_NO_NODE;
 }
 
-// An input's pose, or NULL when its last update left it unweighed.
+// A node's input count, at most the layers the scratch holds (the
+// binding's most inputs).
+static inline uint32_t maniGraphEvalInputCount(const maniGraphEvaluation* e, const uint8_t* record)
+{
+    uint32_t n = maniGraphInputCount(e->graph, record);
+    return n < e->binding->maxInputs ? n : e->binding->maxInputs;
+}
+
+// An input's pose, or NULL for none or when its last update left it
+// unweighed.
 static inline const maniPose* maniGraphEvalInput(const maniGraphEvaluation* e,
                                                  const uint8_t* record, uint32_t k)
 {
     uint32_t input = maniGraphEvalInputOf(e, record, k);
-    if (!(maniGraphEvalState(e, input)->weight > 0.0f))
+    if (input == MANI_GRAPH_NO_NODE || !(maniGraphEvalState(e, input)->weight > 0.0f))
     {
         return NULL;
     }

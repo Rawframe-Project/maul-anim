@@ -465,9 +465,11 @@ static void TestChanged(void)
 }
 
 // A 1D space of the most points (its inputs four clip nodes over and
-// over) under a blend: after the bind its input count made one more,
+// over) under a blend of it and the clips again, one more input than the
+// most points: after the bind the space's input count made one more,
 // which the inputs section holds, it weighs the most points and no more
-// (AddressSanitizer sees the weights' array).
+// in an update and an evaluation, whose layers hold more (AddressSanitizer
+// sees the weights' array).
 static void TestPastMost(void)
 {
     static uint32_t inputs[MANI_MAX_GRAPH_SPACE_POINTS];
@@ -477,12 +479,17 @@ static void TestPastMost(void)
         inputs[k] = 2 + k % 4;
         points[k] = (float)k;
     }
-    static const uint32_t kBlend[2] = {1, 2};
-    static const maniGraphScalar kWeights[2] = {LITERAL(1.0f), LITERAL(1.0f)};
+    static uint32_t blended[MANI_MAX_GRAPH_SPACE_POINTS + 1];
+    static maniGraphScalar weights[MANI_MAX_GRAPH_SPACE_POINTS + 1];
+    for (uint32_t k = 0; k <= MANI_MAX_GRAPH_SPACE_POINTS; ++k)
+    {
+        blended[k] = k == 0 ? 1u : 2 + k % 4;
+        weights[k] = LITERAL(1.0f);
+    }
     static maniGraphParameterSource x;
     x = Parameter("x", maniGraphParameterFloat, Float(300.0f));
     maniGraphNodeSource nodes[6] = {
-        {maniGraphNodeBlend, 2, kBlend, .blend = {kWeights, 0}},
+        {maniGraphNodeBlend, MANI_MAX_GRAPH_SPACE_POINTS + 1, blended, .blend = {weights, 0}},
         {maniGraphNodeBlendSpace1D, MANI_MAX_GRAPH_SPACE_POINTS, inputs,
          .blendSpace1D = {{MANI_NO_PARAMETER, {0, 0.0f}, LITERAL(0.0f)}, points, 0.0f}},
         ClipNode(0, 1.0f, maniGraphLoopRepeat),
@@ -517,7 +524,10 @@ static void TestPastMost(void)
     // The points' words then run into the blend's: some weights, within
     // the most points.
     maniStoreU32(record + 8, MANI_MAX_GRAPH_SPACE_POINTS + 1);
-    CHECK(maniGraphInstance_Update(instance, 0.1f, NULL, 0, NULL, NULL) == mani_success,
+    CHECK(maniGraphInstance_Update(instance, 0.1f, NULL, 0, NULL, NULL) == mani_success &&
+              maniGraphBinding_GetScratchSize(binding) <= sizeof s_scratch &&
+              maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, PoseAt(0)) ==
+                  mani_success,
           "past the most points, the space weighs the most");
     free(block);
 }

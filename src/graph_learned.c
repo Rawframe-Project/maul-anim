@@ -177,6 +177,14 @@ size_t maniGraphLearnedRoom(const maniLearnedModel* m)
            sizeof(float) * ((size_t)m->featureCount + m->latentCount + tail);
 }
 
+bool maniGraphLearnedHoused(const maniGraph* g, uint32_t data, const maniLearnedModel* m,
+                            size_t room)
+{
+    return Word(g, data + maniGraphLearnedStates) == m->featureCount + m->latentCount &&
+           m->eventCount <= Word(g, data + maniGraphLearnedEvents) &&
+           maniGraphLearnedRoom(m) <= room;
+}
+
 void maniGraphResetLearned(const maniGraph* g, uint32_t data, uint32_t* block)
 {
     memset(block, 0, sizeof(uint32_t) * maniGraphLearnedBlockWords(g, data));

@@ -22,9 +22,9 @@
 // past 0.5 is listed (the node's weight past MANI_GRAPH_EVENT_THRESHOLD).
 // The bytes stay in the caller's hands after the open: a node does not
 // move without a block that fits, without a model, or with a model its
-// block or the instance's room does not hold (Housed); a query parameter
-// past the count leaves the state's feature, and a tag parameter past it
-// gives the literal.
+// block or the instance's room does not hold (maniGraphLearnedHoused); a
+// query parameter past the count leaves the state's feature, and a tag
+// parameter past it gives the literal.
 
 #include "graph_learned_step.h"
 
@@ -343,19 +343,6 @@ static void Outputs(const Learned* l, double step)
     }
 }
 
-// Whether the node's block and the instance's room hold the model: the
-// block as the node's states and events size it (maniGraphNodeBlock), the
-// room as bind measured it. Bind checked both; the bytes may since name
-// another model.
-MANI_NODISCARD static bool Housed(const maniGraphUpdate* u, uint32_t data,
-                                  const maniLearnedModel* m)
-{
-    return maniGraphUpdateWord(u, data + maniGraphLearnedStates) ==
-               m->featureCount + m->latentCount &&
-           m->eventCount <= maniGraphUpdateWord(u, data + maniGraphLearnedEvents) &&
-           maniGraphLearnedRoom(m) <= u->binding->room;
-}
-
 void maniGraphAdvanceLearned(maniGraphUpdate* u, uint32_t p)
 {
     maniGraphNodeState* s = maniGraphUpdateNode(u, p);
@@ -369,7 +356,7 @@ void maniGraphAdvanceLearned(maniGraphUpdate* u, uint32_t p)
     uint32_t* block = maniGraphNodeBlock(u->instance, p);
     const maniLearnedModel* m =
         maniGraphBoundModel(u->binding, maniGraphUpdateWord(u, data + maniGraphLearnedModel));
-    if (block == NULL || m == NULL || !Housed(u, data, m))
+    if (block == NULL || m == NULL || !maniGraphLearnedHoused(u->graph, data, m, u->binding->room))
     {
         return;
     }

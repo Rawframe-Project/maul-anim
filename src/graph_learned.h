@@ -80,6 +80,13 @@ MANI_NODISCARD bool maniGraphLearnedFits(const maniGraph* g, uint32_t data,
 // its scratch, its state and its Decompressor's outputs after the bones'.
 size_t maniGraphLearnedRoom(const maniLearnedModel* m);
 
+// Whether the node whose words begin at data, and a room of the given
+// bytes, hold the model: its states equal the node's and its events fit
+// the node's (the block's size), and its room fits. Bind checked both; the
+// bytes may since name another model.
+MANI_NODISCARD bool maniGraphLearnedHoused(const maniGraph* g, uint32_t data,
+                                           const maniLearnedModel* m, size_t room);
+
 // No state, the clocks at 0, no events heard.
 void maniGraphResetLearned(const maniGraph* g, uint32_t data, uint32_t* block);
 
