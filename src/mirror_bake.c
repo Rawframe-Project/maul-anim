@@ -10,7 +10,7 @@
 #include "clip_bake.h"
 #include "clip_view.h"
 #include "fpenv.h"
-#include "mirror_file.h"
+#include "mirror_view.h"
 #include "skeleton_view.h"
 #include "vecmath.h"
 
@@ -78,8 +78,11 @@ static float LoadF32(const uint8_t* p)
 static maniRootMotionSource Declared(Bake* b, maniRootMotionSource s)
 {
     const maniMirrorMap* map = b->s->map;
-    uint32_t partner = maniMirrorMap_GetPartner(map, s.bone);
-    const uint8_t* e = map->bones + (size_t)partner * MANI_MIRROR_BONE_SIZE + 8;
+    // The clip's bone is of the map's skeleton (Matches); a bone in clip
+    // bytes changed since its open past the count reads the root's record.
+    uint32_t bone = s.bone < map->boneCount ? s.bone : 0;
+    uint32_t partner = maniMirrorPartner(map, bone);
+    const uint8_t* e = maniMirrorBone(map, partner) + 8;
     b->a = (maniQuat){LoadF32(e), LoadF32(e + 4), LoadF32(e + 8), LoadF32(e + 12)};
     uint32_t axes = 0;
     for (uint32_t i = 0; i < 3; ++i)
@@ -100,7 +103,8 @@ static maniRootMotionSource Declared(Bake* b, maniRootMotionSource s)
 
 MANI_NODISCARD static bool Usable(const maniMirrorClipSource* s)
 {
-    return s != NULL && s->map != NULL && maniSkeletonValid(s->skeleton) && s->clip != NULL;
+    return s != NULL && maniMirrorMapValid(s->map) && maniSkeletonValid(s->skeleton) &&
+           s->clip != NULL;
 }
 
 // The skeleton the map's, the clip the skeleton's.

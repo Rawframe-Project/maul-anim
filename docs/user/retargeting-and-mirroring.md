@@ -56,4 +56,5 @@ A key may be left out where it reads as the value below, and the writers leave o
 
 - A bone that breaks the rig's left-right symmetry (a prop under one hand) is mirrored as well as it can be and flagged; `maniMirrorMap_GetBoneFlags` and `maniMirrorMap_GetUnmatchedBone` find such bones.
 - A rig retargeted to itself comes out bit for bit as it went in.
+- Mirror map views are checked by every call that takes them, as skeleton views are ([Skeletons and clips](skeletons-and-clips.md)). Their bytes changed after the open give some mirrored pose and names, read only within the file.
 - A map is tied to both skeletons by identity; reimporting either with a changed rest or bone set means rebuilding the map, from its JSON text if it was written as one.

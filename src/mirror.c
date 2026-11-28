@@ -7,7 +7,8 @@
 // names, UTF-8, of its hash), the identity; and the map's readers.
 // Whether the partners suit the skeleton's names needs the skeleton: its
 // identity, checked where the map is used, stands for the builder's
-// checks.
+// checks. Every call checks the view (maniMirrorMapValid) and bounds what
+// it reads from the bytes, which may have changed since the open.
 
 #include "maul-anim/mirror.h"
 
@@ -15,7 +16,9 @@
 #include "container.h"
 #include "fpenv.h"
 #include "mirror_file.h"
+#include "mirror_view.h"
 #include "text.h"
+#include "view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/skeleton.h"
@@ -223,12 +226,15 @@ static MANI_NOINLINE maniFileResult OpenMirrorMapWork(const void* bytes, size_t 
     {
         return Fail(40);
     }
-    map.header = s.data[0];
-    map.bones = s.data[1];
-    map.names = s.data[2];
-    map.strings = s.data[3];
+    map.base = bytes;
+    map.size = size;
+    for (uint32_t t = 0; t < MANI_MIRROR_SECTIONS; ++t)
+    {
+        map.sections[t] = s.at[t];
+    }
     map.stringsSize = s.sizes[3];
     map.identity = c.identity;
+    map.cookie = MANI_VIEW_COOKIE(maniKindMirrorMap);
     *mapOut = map;
     return kOk;
 }
@@ -241,55 +247,71 @@ maniFileResult maniOpenMirrorMap(const void* bytes, size_t size, maniMirrorMap* 
     return result;
 }
 
+MANI_NOINLINE bool maniMirrorMapValid(const maniMirrorMap* m)
+{
+    return m != NULL && m->cookie == MANI_VIEW_COOKIE(maniKindMirrorMap) && m->base != NULL &&
+           m->boneCount - 1u < MANI_MAX_BONES && (uint32_t)m->axis <= maniMirrorAxisZ &&
+           maniViewFits(m->sections[maniMirrorHeader], MANI_MIRROR_HEADER_SIZE, m->size) &&
+           maniViewFits(m->sections[maniMirrorBones],
+                        MANI_MIRROR_BONE_SIZE * (uint64_t)m->boneCount, m->size) &&
+           maniViewFits(m->sections[maniMirrorNames],
+                        MANI_MIRROR_NAME_SIZE * (uint64_t)m->nameCount, m->size) &&
+           maniViewFits(m->sections[maniMirrorStrings], m->stringsSize, m->size);
+}
+
 uint64_t maniMirrorMap_GetIdentity(const maniMirrorMap* map)
 {
-    return map != NULL ? map->identity : 0;
+    return maniMirrorMapValid(map) ? map->identity : 0;
 }
 
 uint64_t maniMirrorMap_GetSkeletonIdentity(const maniMirrorMap* map)
 {
-    return map != NULL ? map->skeletonIdentity : 0;
+    return maniMirrorMapValid(map) ? map->skeletonIdentity : 0;
 }
 
 maniMirrorAxis maniMirrorMap_GetAxis(const maniMirrorMap* map)
 {
-    return map != NULL ? map->axis : maniMirrorAxisX;
+    return maniMirrorMapValid(map) ? map->axis : maniMirrorAxisX;
 }
 
 uint32_t maniMirrorMap_GetPartner(const maniMirrorMap* map, uint32_t bone)
 {
-    if (map == NULL || bone >= map->boneCount)
-    {
-        return MANI_NO_BONE;
-    }
-    return maniLoadU32(map->bones + (size_t)bone * MANI_MIRROR_BONE_SIZE);
+    return maniMirrorMapValid(map) && bone < map->boneCount ? maniMirrorPartner(map, bone)
+                                                            : MANI_NO_BONE;
 }
 
 uint32_t maniMirrorMap_GetBoneFlags(const maniMirrorMap* map, uint32_t bone)
 {
-    if (map == NULL || bone >= map->boneCount)
+    if (!maniMirrorMapValid(map) || bone >= map->boneCount)
     {
         return 0;
     }
-    uint32_t flags = maniLoadU32(map->bones + (size_t)bone * MANI_MIRROR_BONE_SIZE + 4);
+    uint32_t flags = maniLoadU32(maniMirrorBone(map, bone) + 4);
     return ((flags & MANI_MIRROR_FLAG_UNMATCHED) != 0 ? MANI_MIRROR_BONE_UNMATCHED : 0u) |
            ((flags & MANI_MIRROR_FLAG_APPROXIMATE) != 0 ? MANI_MIRROR_BONE_SCALE_APPROXIMATE : 0u);
 }
 
 uint32_t maniMirrorMap_GetUnmatchedBone(const maniMirrorMap* map)
 {
-    return map != NULL ? maniLoadU32(map->header + 20) : MANI_NO_BONE;
+    if (!maniMirrorMapValid(map))
+    {
+        return MANI_NO_BONE;
+    }
+    // A bone in bytes changed since the open past the count is none.
+    uint32_t bone = maniLoadU32(maniMirrorSection(map, maniMirrorHeader) + 20);
+    return bone < map->boneCount ? bone : MANI_NO_BONE;
 }
 
-// The name record of a hash; NULL for none.
+// The name record of a hash; NULL for none. The view checked.
 static const uint8_t* Find(const maniMirrorMap* map, uint64_t hash)
 {
+    const uint8_t* names = maniMirrorSection(map, maniMirrorNames);
     uint32_t low = 0;
     uint32_t high = map->nameCount;
     while (low < high)
     {
         uint32_t mid = low + (high - low) / 2;
-        const uint8_t* e = map->names + (size_t)mid * MANI_MIRROR_NAME_SIZE;
+        const uint8_t* e = names + (size_t)mid * MANI_MIRROR_NAME_SIZE;
         uint64_t at = maniLoadU64(e);
         if (at == hash)
         {
@@ -314,24 +336,28 @@ const char* maniMirrorMap_MirrorName(const maniMirrorMap* map, const char* name,
     {
         *lengthOut = length;
     }
-    if (map == NULL || (name == NULL && length > 0))
+    if (!maniMirrorMapValid(map) || (name == NULL && length > 0))
     {
         return name;
     }
     const uint8_t* e = Find(map, maniHashBytes(MANI_HASH_INIT, (const uint8_t*)name, length));
-    if (e == NULL)
+    // A partner's name in bytes changed since the open past the names
+    // leaves the name as it is.
+    uint64_t offset = e != NULL ? maniLoadU32(e + 16) : 0;
+    uint64_t partnerLength = e != NULL ? maniLoadU32(e + 20) : 0;
+    if (e == NULL || !maniViewFits(offset, partnerLength, map->stringsSize))
     {
         return name;
     }
     if (lengthOut != NULL)
     {
-        *lengthOut = maniLoadU32(e + 20);
+        *lengthOut = (size_t)partnerLength;
     }
-    return (const char*)map->strings + maniLoadU32(e + 16);
+    return (const char*)maniMirrorSection(map, maniMirrorStrings) + offset;
 }
 
 uint64_t maniMirrorMap_MirrorNameHash(const maniMirrorMap* map, uint64_t hash)
 {
-    const uint8_t* e = map != NULL ? Find(map, hash) : NULL;
+    const uint8_t* e = maniMirrorMapValid(map) ? Find(map, hash) : NULL;
     return e != NULL ? maniLoadU64(e + 8) : hash;
 }

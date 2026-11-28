@@ -22,6 +22,7 @@
 #include "ik_chain.h"
 #include "ik_frame.h"
 #include "invariant.h"
+#include "mirror_view.h"
 #include "sort.h"
 #include "text.h"
 #include "vecmath.h"
@@ -962,10 +963,11 @@ maniBuildResult maniCheckGraphSource(const maniGraphSource* source, const maniAl
     r = r.result == mani_success ? maniCheckGraphDatabases(source, &tallyOut->databaseClips) : r;
     r = r.result == mani_success ? CheckModels(source) : r;
     r = r.result == mani_success ? CheckSpringSets(source) : r;
-    // The mirror map, of the skeleton.
+    // The mirror map, a view an open wrote, of the skeleton.
     const maniMirrorMap* mirror = source->mirrorMap;
     if (r.result == mani_success && mirror != NULL &&
-        (mirror->skeletonIdentity != maniSkeleton_GetIdentity(source->skeleton) ||
+        (!maniMirrorMapValid(mirror) ||
+         mirror->skeletonIdentity != maniSkeleton_GetIdentity(source->skeleton) ||
          mirror->boneCount != maniSkeleton_GetBoneCount(source->skeleton)))
     {
         r = maniGraphRefuse(maniBuildReasonMirrorGraph, 0, 0);

@@ -38,20 +38,32 @@ extern "C"
         maniMirrorAxisZ = 2,
     };
 
-    // An opened map: a view over the caller's bytes, which must outlive
-    // it.
+    // A map over a file's bytes, which the caller keeps alive while the
+    // view is used. Its fields are the library's; read a map through the
+    // functions below. A view is immutable and copyable. Its base and size
+    // are the bytes the open was given; a view whose base or size the
+    // caller changed is outside the contract. Every call checks everything
+    // else the view holds, its counts and sections, against those bytes,
+    // and refuses a view that does not fit them; the bytes are read only
+    // within the extents recorded at open, whatever they become. Bytes
+    // changed after the open give some mirrored pose and names: a partner
+    // past the bones is the bone itself, a scale's source axis past the
+    // three is its own axis, and a name whose partner lies past the names
+    // is left as it is.
     typedef struct maniMirrorMap
     {
-        const uint8_t* header;
-        const uint8_t* bones;
-        const uint8_t* names;
-        const uint8_t* strings;
+        const uint8_t* base;
+        uint64_t size;
+        // The header, the bones, the name pairs and the names: each one's
+        // offset from base.
+        uint64_t sections[4];
+        uint64_t stringsSize;
         uint64_t identity;
         uint64_t skeletonIdentity;
-        uint64_t stringsSize;
         uint32_t boneCount;
         uint32_t nameCount;
         maniMirrorAxis axis;
+        uint32_t cookie;
     } maniMirrorMap;
 
     /// Opens a mirror map file in place: checks the container, the header
@@ -77,24 +89,27 @@ extern "C"
 
     /// Returns a map's identity: the hash of its sections.
     ///
-    /// @param map  An opened map, or NULL.
-    /// @return The identity; 0 for NULL.
+    /// @param map  An opened map.
+    /// @return The identity; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniMirrorMap_GetIdentity(const maniMirrorMap* map);
 
     /// Returns the identity of the skeleton a map mirrors.
     ///
-    /// @param map  An opened map, or NULL.
-    /// @return The skeleton's identity; 0 for NULL.
+    /// @param map  An opened map.
+    /// @return The skeleton's identity; 0 for a view no open wrote or
+    /// whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniMirrorMap_GetSkeletonIdentity(const maniMirrorMap* map);
 
     /// Returns the axis a map's plane is normal to.
     ///
-    /// @param map  An opened map, or NULL.
-    /// @return maniMirrorAxisX, Y or Z; maniMirrorAxisX for NULL.
+    /// @param map  An opened map.
+    /// @return maniMirrorAxisX, Y or Z; maniMirrorAxisX for a view no
+    /// open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API maniMirrorAxis maniMirrorMap_GetAxis(const maniMirrorMap* map);
@@ -102,10 +117,10 @@ extern "C"
     /// Returns a bone's partner: the bone it takes its mirrored local
     /// from (itself when unpaired).
     ///
-    /// @param map   An opened map, or NULL.
+    /// @param map   An opened map.
     /// @param bone  A bone of the map's skeleton.
-    /// @return The partner; MANI_NO_BONE for NULL or a bone past the
-    /// count.
+    /// @return The partner; MANI_NO_BONE for a bone past the count or a
+    /// view no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMirrorMap_GetPartner(const maniMirrorMap* map, uint32_t bone);
@@ -120,9 +135,10 @@ extern "C"
     /// nearest axis scale (a uniform scale stays exact). Otherwise a scale
     /// is exact, each axis taking the partner's axis the turn maps to it.
     ///
-    /// @param map   An opened map, or NULL.
+    /// @param map   An opened map.
     /// @param bone  A bone of the map's skeleton.
-    /// @return The flags; 0 for NULL or a bone past the count.
+    /// @return The flags; 0 for a bone past the count or a view no open
+    /// wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMirrorMap_GetBoneFlags(const maniMirrorMap* map, uint32_t bone);
@@ -132,8 +148,9 @@ extern "C"
     /// mirrored pose is its partner's local turn mirrored rather than its
     /// partner's model turn.
     ///
-    /// @param map  An opened map, or NULL.
-    /// @return The bone; MANI_NO_BONE for a symmetric hierarchy or NULL.
+    /// @param map  An opened map.
+    /// @return The bone; MANI_NO_BONE for a symmetric hierarchy or a view
+    /// no open wrote or whose counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniMirrorMap_GetUnmatchedBone(const maniMirrorMap* map);
@@ -147,7 +164,8 @@ extern "C"
     /// @param length     The name's length in bytes.
     /// @param lengthOut  Receives the partner's length. May be NULL.
     /// @return The partner's bytes inside the map, not terminated, or
-    /// name itself when unpaired (or for a NULL map).
+    /// name itself when unpaired (or for a view no open wrote or whose
+    /// counts do not fit its file).
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMirrorMap_MirrorName(const maniMirrorMap* map, const char* name,
@@ -157,7 +175,8 @@ extern "C"
     /// names kept hashed (events, markers): the hash of the name the map
     /// pairs it with, or the hash itself.
     ///
-    /// @param map   An opened map, or NULL (the hash itself).
+    /// @param map   An opened map; a view no open wrote or whose counts
+    ///              do not fit its file gives the hash itself.
     /// @param hash  The name's hash, as maniClipEvent's nameHash holds it.
     /// @return The partner's hash.
     /// @par Thread safety
@@ -180,8 +199,9 @@ extern "C"
     /// @param in        A pose of it (not a difference).
     /// @param poseOut   A pose of it; may be in.
     /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
-    /// skeleton whose identity or bone count is not the map's, a pose of
-    /// another skeleton, or a difference.
+    /// map no open wrote or whose counts do not fit its file, a skeleton
+    /// whose identity or bone count is not the map's, a pose of another
+    /// skeleton, or a difference.
     /// @par Thread safety
     /// Safe from any thread; poseOut is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniMirrorMap_MirrorPose(const maniMirrorMap* map,
@@ -193,7 +213,8 @@ extern "C"
     /// normal negated, its rotation mirrored (the turn the reflection makes
     /// of it).
     ///
-    /// @param map   An opened map, or NULL (the move unchanged).
+    /// @param map   An opened map; a view no open wrote or whose counts
+    ///              do not fit its file leaves the move unchanged.
     /// @param move  The move.
     /// @return The mirrored move.
     /// @par Thread safety

@@ -7,11 +7,13 @@
 // and B, the scale carried by B (each axis the partner's axis B takes
 // to it, or the diagonal of R(B)^T S R(B) where B takes no axis to an
 // axis). A pair's two bones are read before either is written, so a pose
-// may be mirrored in place.
+// may be mirrored in place. A partner or a scale's source axis read from
+// bytes changed since the open is bounded where it is read.
 
 #include "bytes.h"
 #include "fpenv.h"
 #include "mirror_file.h"
+#include "mirror_view.h"
 #include "pose_memory.h"
 #include "skeleton_view.h"
 #include "vecmath.h"
@@ -68,7 +70,8 @@ static void ReadLocal(const float* locals, uint32_t bone, float local[MANI_POSE_
 
 // The partner's scale s carried by the bone's correction b: axis i takes
 // the partner's axis its flags name (a uniform scale as it is), or
-// sum_j R(b)_ji^2 s_j.
+// sum_j R(b)_ji^2 s_j. A source past the three, in bytes changed since
+// the open, is the axis itself.
 static void CarryScale(uint32_t flags, maniQuat b, const float* s, float* out)
 {
     // A uniform scale is every axis's, under any turn.
@@ -84,7 +87,8 @@ static void CarryScale(uint32_t flags, maniQuat b, const float* s, float* out)
     {
         for (uint32_t i = 0; i < 3; ++i)
         {
-            out[i] = s[((flags >> (2 * i)) & 3u) ^ i];
+            uint32_t source = ((flags >> (2 * i)) & 3u) ^ i;
+            out[i] = s[source < 3 ? source : i];
         }
         return;
     }
@@ -120,7 +124,7 @@ static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
                                                const maniSkeleton* skeleton, const maniPose* in,
                                                maniPose* out)
 {
-    if (map == NULL || !maniSkeletonValid(skeleton) ||
+    if (!maniMirrorMapValid(map) || !maniSkeletonValid(skeleton) ||
         maniSkeleton_GetIdentity(skeleton) != map->skeletonIdentity ||
         maniSkeleton_GetBoneCount(skeleton) != map->boneCount || !maniPoseMatches(in, skeleton) ||
         !maniPoseMatches(out, skeleton) || maniPose_IsDifference(in))
@@ -131,7 +135,7 @@ static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
     float* to = maniPoseLocals(out);
     for (uint32_t b = 0; b < map->boneCount; ++b)
     {
-        uint32_t m = maniLoadU32(map->bones + (size_t)b * MANI_MIRROR_BONE_SIZE);
+        uint32_t m = maniMirrorPartner(map, b);
         if (m < b)
         {
             continue;
@@ -140,12 +144,10 @@ static MANI_NOINLINE maniResult MirrorPoseWork(const maniMirrorMap* map,
         float partner[MANI_POSE_COMPONENTS];
         ReadLocal(from, b, own);
         ReadLocal(from, m, partner);
-        MirrorLocal(map->bones + (size_t)b * MANI_MIRROR_BONE_SIZE, map->axis, partner,
-                    maniPoseSlot(to, b));
+        MirrorLocal(maniMirrorBone(map, b), map->axis, partner, maniPoseSlot(to, b));
         if (m != b)
         {
-            MirrorLocal(map->bones + (size_t)m * MANI_MIRROR_BONE_SIZE, map->axis, own,
-                        maniPoseSlot(to, m));
+            MirrorLocal(maniMirrorBone(map, m), map->axis, own, maniPoseSlot(to, m));
         }
     }
     maniPoseSetKind(out, false);
@@ -164,7 +166,7 @@ maniResult maniMirrorMap_MirrorPose(const maniMirrorMap* map, const maniSkeleton
 
 static MANI_NOINLINE maniRootMove MirrorRootMotionWork(const maniMirrorMap* map, maniRootMove move)
 {
-    if (map == NULL)
+    if (!maniMirrorMapValid(map))
     {
         return move;
     }
