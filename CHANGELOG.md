@@ -5,6 +5,19 @@ Added, Changed, Fixed, Removed and Security. The project uses
 [Semantic Versioning](https://semver.org/). Before 1.0.0, any release
 may change the API, the ABI and every data format.
 
+## [0.11.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.10.0...v0.11.0) (2026-11-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **spring:** `maniSpringSet` changes its fields: a base, a size and each section's offset replace the section pointers, and a cookie is added. Every call checks the view, refusing a view no open wrote, or one whose counts do not fit its file, with `mani_errorInvalid`, 0 or the getter's documented none. A spring's joints and links that bytes changed after the open put past the set's are cut at their end, a link's collider past the colliders is skipped, and a graph whose bound set's view no longer checks passes its spring nodes' input through.
+* **ragdoll:** `maniRagdoll` changes its fields: a base, a size and each section's offset replace the section pointers, and a cookie is added. Every call checks the view, refusing a view no open wrote, or one whose counts do not fit its file, with `mani_errorInvalid` or the getter's documented none. `maniRagdoll_GetBody` gives `MANI_NO_BONE`, the root body, a sphere or an empty name for a bone, parent, shape or name that bytes changed after the open put out of range.
+
+### Fixed
+
+* **ragdoll:** check the ragdoll profile view on every call ([#278](https://github.com/Rawframe-Project/maul-anim/issues/278)) ([3c57455](https://github.com/Rawframe-Project/maul-anim/commit/3c57455ca6a61c19e7f048ea9cabc9caa3f081fb))
+* **spring:** check the spring set view on every call ([#280](https://github.com/Rawframe-Project/maul-anim/issues/280)) ([d1a9634](https://github.com/Rawframe-Project/maul-anim/commit/d1a9634b6bd552280bac5fd41a5852bad4ea5e7a))
+
 ## [0.10.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.9.0...v0.10.0) (2026-11-28)
 
 ### Changed
