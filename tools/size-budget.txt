@@ -68,7 +68,7 @@ ceiling ik         O2-avx2 31000
 ceiling bodyik     O2-avx2 27000
 ceiling springs    O2-avx2 28000
 ceiling ragdoll    O2-avx2 15000
-ceiling retarget   O2-avx2 12000
+ceiling retarget   O2-avx2 13000
 ceiling mirror     O2-avx2 6000
 ceiling match      O2-avx2 20000
 ceiling learned    O2-avx2 12000
@@ -81,7 +81,7 @@ ceiling ik         O3-avx2 34000
 ceiling bodyik     O3-avx2 36000
 ceiling springs    O3-avx2 30000
 ceiling ragdoll    O3-avx2 16000
-ceiling retarget   O3-avx2 13000
+ceiling retarget   O3-avx2 14000
 ceiling mirror     O3-avx2 7000
 ceiling match      O3-avx2 27000
 ceiling learned    O3-avx2 19000

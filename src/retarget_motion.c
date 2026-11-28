@@ -8,6 +8,7 @@
 
 #include "bytes.h"
 #include "retarget_file.h"
+#include "retarget_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -15,6 +16,7 @@
 #include "maul-anim/rootmotion.h"
 #include "maul-anim/skeleton.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -36,7 +38,7 @@ uint32_t maniRetargetFollower(const maniRetargetMap* map, uint32_t a)
 {
     for (uint32_t t = 0; t < map->targetBoneCount; ++t)
     {
-        const uint8_t* e = map->plan + (size_t)t * MANI_RETARGET_PLAN_SIZE;
+        const uint8_t* e = maniRetargetPlan(map, t);
         if (maniLoadU32(e + maniRetargetPlanKind) == maniRetargetPlanOne &&
             maniLoadU32(e + maniRetargetPlanA) == a)
         {
@@ -53,13 +55,17 @@ maniRetargetMotion maniRetargetMotionOf(const maniRetargetMap* map, const maniSk
     uint32_t parentS = maniSkeleton_GetParent(source, sourceBone);
     uint32_t parentT = maniSkeleton_GetParent(target, targetBone);
     maniRetargetMotion m = {map, maniQuatIdentity(), maniQuatIdentity(), maniQuatIdentity()};
-    if (parentS != MANI_NO_BONE)
+    // A view no open wrote, as a graph's bound map may have become, carries
+    // no turn; so does a parent past its count, as of a smaller map put in
+    // the bound one's place.
+    bool valid = maniRetargetMapValid(map);
+    if (valid && parentS < map->sourceBoneCount)
     {
-        m.sourceFrame = LoadQuat(map->sourceBones + (size_t)parentS * MANI_RETARGET_SOURCE_SIZE);
+        m.sourceFrame = LoadQuat(maniRetargetSourceBone(map, parentS));
     }
-    if (parentT != MANI_NO_BONE)
+    if (valid && parentT < map->targetBoneCount)
     {
-        m.targetFrame = LoadQuat(map->targetBones + (size_t)parentT * MANI_RETARGET_TARGET_SIZE);
+        m.targetFrame = LoadQuat(maniRetargetTargetBone(map, parentT));
     }
     m.turn = maniQuatMul(maniQuatConjugate(m.targetFrame), m.sourceFrame);
     return m;

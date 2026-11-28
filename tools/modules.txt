@@ -86,12 +86,13 @@ graph_body: bytes graph_chain graph_file
 ragdoll_getup: fpenv vecmath
 ragdoll_build: allocator builder bytes container decompose fpenv ragdoll_file skeleton_view text vecmath
 retarget_file:
-retarget: bytes container fpenv retarget_file
-retarget_pose: bytes fpenv pose_memory retarget_file skeleton_view vecmath
-retarget_motion: bytes retarget_file vecmath
+retarget_view: retarget_file view
+retarget: bytes container fpenv retarget_file retarget_view view
+retarget_pose: bytes fpenv pose_memory retarget_file retarget_view skeleton_view vecmath
+retarget_motion: bytes retarget_file retarget_view vecmath
 retarget_build: allocator builder bytes container fpenv ik_chain retarget_file skeleton_view vecmath
 clip_bake: allocator builder bytes clip_build clip_file clip_view root_motion_build vecmath
-retarget_bake: clip_bake clip_view fpenv retarget_file retarget_motion skeleton_view vecmath
+retarget_bake: clip_bake clip_view fpenv retarget_file retarget_motion retarget_view skeleton_view vecmath
 mirror_file:
 mirror_view: bytes mirror_file view
 mirror: bytes container fpenv mirror_file mirror_view text view
@@ -139,7 +140,7 @@ graph_match_step: bytes graph_emit graph_file graph_instance graph_match match_f
 graph_learned_step: bytes container graph_emit graph_file graph_instance graph_learned learned_eval match_file root_motion vecmath
 graph_machine: bytes graph_file
 graph_machine_step: bytes graph_file graph_instance graph_machine
-graph_bind: bytes fpenv graph_file graph_instance graph_learned graph_match graph_spring mirror_view retarget_motion skeleton_view
+graph_bind: bytes fpenv graph_file graph_instance graph_learned graph_match graph_spring mirror_view retarget_motion retarget_view skeleton_view
 graph_space: bytes graph_file graph_instance scalar
 graph_machine_listen: bytes clip_view graph_file graph_instance graph_machine graph_shot
 graph_clip_step: bytes graph_emit graph_file graph_instance invariant retarget_motion root_motion
@@ -158,7 +159,7 @@ clip_cursor: clip_lanes clip_view fpenv pose_memory
 clip_tracks: bytes clip_file clip_view container fpenv text
 root_motion_build: allocator bytes clip_file quat64
 clip_build: allocator builder bytes clip_file container fpenv invariant quat64 root_motion root_motion_build skeleton_view
-graph_check: allocator container graph_body_check graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring graph_turn ik_chain ik_frame invariant mirror_view sort text vecmath
+graph_check: allocator container graph_body_check graph_file graph_inertia graph_learned graph_learned_check graph_machine_check graph_match graph_match_check graph_space_check graph_spring graph_turn ik_chain ik_frame invariant mirror_view retarget_view sort text vecmath
 graph_space_check: exact graph_file
 graph_body_check: body_ik graph_file
 graph_machine_check: bytes graph_file sort text
