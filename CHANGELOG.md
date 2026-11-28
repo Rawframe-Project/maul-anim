@@ -7,61 +7,154 @@ may change the API, the ABI and every data format.
 
 ## [0.10.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.9.0...v0.10.0) (2026-11-28)
 
+### Changed
 
-### ⚠ BREAKING CHANGES
-
-* **retarget:** `maniRetargetMap` changes its fields: a base, a size, each section's offset and a pelvis count replace the section pointers, and a cookie is added. Every call checks the view, refusing a view no open wrote, or one whose counts do not fit its file, with `mani_errorInvalid` or the getter's documented none.
-* **mirror:** `maniMirrorMap` changes its fields: a base, a size and each section's offset replace the section pointers, and a cookie is added. Every call checks the view, refusing a view no open wrote, or one whose counts do not fit its file, with `mani_errorInvalid` or the getter's documented none.
-* **skin:** `maniSkin`, `maniInfluences` and `maniMorphTargets` change their fields. A base, a size and each section's offset (and size) replace the section pointers and #251's counts, and a cookie is added. Every call checks the view, refusing a view no open wrote, or one whose counts do not fit its file, with `mani_errorInvalid` or the getter's documented none.
-* **morph:** `maniMorphTargets` gains `indexCount`, `deltaCount` and `nameBytes`. `maniMorphTargets_GetChannelTargets` gives 0 targets for a range that falls outside the targets.
-* **clip:** `maniClip`'s fields change: a base, a size and each section's offset and size replace the section pointers and the names' size, and a cookie is added. Every call checks the view, refusing a view no open wrote, or one whose counts do not fit its file, with `mani_errorInvalid` or the getter's documented none; the getters, which read the fields unchecked before, now return those nones too. `maniClip_GetEventRange` writes an empty range for such a view.
-* **skeleton:** `maniSkeleton`'s fields change: base, size and section offsets replace the section pointers, and a cookie is added. Every call checks the view, refusing a view no open wrote, or one whose counts do not fit its file, with `mani_errorInvalid` or the getter's documented none. `maniPose_ComputeModel`, `maniPose_SetRest` and `maniInitPose` give `mani_errorFormat` for a parent in the skeleton's bytes that is not a lower index.
-* **ik:** `maniPose_SolveBodySdls` and `maniPose_SolveBodyXpbd` give different results for a part whose offsets' largest component is past 2^24 or below 2^-24, which they solved wrongly from about 2^64 and 2^-70 on. Other figures keep their bits.
-* **ik:** `maniPose_SolveAim` carries `forward` and `up` by the aiming bone's whole model frame. Under a bone whose model frame holds a scale other than 1 or a mirror, the turns change: the bone's real forward now points at the goal. Rigs without scales keep their bits.
-* **ik:** `maniPose_SolveAim` carries `offset` by the aiming bone's whole model frame. Under a bone whose model frame holds a scale other than 1 or a mirror, the offset now moves with that scale and mirror, and the turns change. Rigs without scales keep their bits.
-* **ik:** `maniPose_SolveAim` gives different turns where its goal from the aiming bone or its offset is longer than about 2^64 or shorter than about 2^-75, which it aimed wrongly or not at all. `maniPose_SolveCcd` and `maniPose_SolveFabrik` turn chains whose bones are shorter than about 2^-75, which they left as they were. A FABRIK pole, a two-bone hinge, or an aim's up or pole shorter than about 2^-75 now acts as given instead of as none. Other finite inputs keep their bits.
-* **ik:** `maniPose_SolveTwoBone` gives different turns for a chain whose bones' largest component is past 2^24 or below 2^-24, which main turned wrongly from about 2^32 and 2^-32 on. Every IK solver gives different turns under a mirrored parent whose determinant, a product of three scales, underflowed to zero in binary32, such as a uniform scale below about 2^-50. Other inputs keep their bits.
-* **learned:** the learned model format version is 3. The header no longer holds the weight format, and the step rate and axes move 4 bytes earlier. The weight format is section 12, written only for 16-bit weights. A model's bytes and identity change. Models of format version 2 are refused with mani_errorVersion; build or train them again.
-* **format:** maniBuildGraphJson, maniBuildRetargetMapJson and maniBuildMirrorMapJson refuse a key the reader does not know, and an integer version other than 1, with mani_errorVersion (maniBuildReasonForm, maniGraphFormMember or maniGraphFormVersion, and the byte offset). They returned mani_errorInvalid.
-* **match:** the motion database format version is 5. The header no longer holds the leaf size, and the node count moves to +48. The leaf size is section 14, written only off its default of 16 frames. A database's bytes and identity change. Databases of format version 4 are refused with mani_errorVersion; build them again from their source.
-* **retarget:** the retargeting map format version is 4. The header holds only the skeletons' identities and bone counts. The pelvis block is section 5, written only for a map with a pelvis. maniRetargetMap's header field is now pelvis. A map's bytes and identity change. Maps of format version 3 are refused with mani_errorVersion; build them again from their source.
-* **clip:** the clip format version is 5. The clip header drops the loop policy, the form word and the additive basis. The loop policy (tag 17) and the additive basis (tag 18) are optional sections, each written only off its default. A clip's bytes and identity change, and so do the bytes of a graph that names it. Clips of format version 4 are refused with mani_errorVersion; build or compress them again from their source.
-* **format:** opening a file is stricter. Every opener refuses, with mani_errorFormat, a section not placed where the writer puts it, a nonzero byte between sections, bytes past the last section, an empty section, and a tag of 0. Every asset opener refuses a section tag past its kind's last with mani_errorVersion (it was mani_errorFormat, or the section was ignored for retargeting maps, mirror maps, ragdoll profiles and spring sets). No file the library writes changes, and no format version moves.
+- **Breaking: the views of skeletons, clips, skins, influences, morph
+  targets, mirror maps and retargeting maps change their fields, and
+  every call checks them.** `maniSkeleton`, `maniClip`, `maniSkin`,
+  `maniInfluences`, `maniMorphTargets`, `maniMirrorMap` and
+  `maniRetargetMap` hold the file's base and size, each section's offset
+  from the base and a cookie, in place of section pointers. Their fields
+  are the library's: read a view through its functions, and code that
+  read a section pointer or a count field directly moves to the getters.
+  A view stays immutable and copyable, and its base and size must stay
+  the bytes the open was given. Every call refuses a view no open wrote,
+  or one whose counts do not fit its file, with `mani_errorInvalid` or
+  the getter's documented none, where it read the fields unchecked
+  before. Bytes changed after the open give some result, read only
+  within the file ([#248](https://github.com/Rawframe-Project/maul-anim/pull/248),
+  [#249](https://github.com/Rawframe-Project/maul-anim/pull/249),
+  [#251](https://github.com/Rawframe-Project/maul-anim/pull/251),
+  [#252](https://github.com/Rawframe-Project/maul-anim/pull/252),
+  [#272](https://github.com/Rawframe-Project/maul-anim/pull/272),
+  [#273](https://github.com/Rawframe-Project/maul-anim/pull/273)). Also:
+  - `maniPose_ComputeModel`, `maniPose_SetRest` and `maniInitPose` give
+    `mani_errorFormat` for a parent in the skeleton's bytes that is not
+    a lower index.
+  - `maniClip_GetEventRange` writes an empty range for a view that does
+    not check.
+  - `maniMorphTargets_GetChannelTargets` gives 0 targets for a range
+    that falls outside the targets.
+- **Breaking: four file formats move to a new version; rebuild those
+  files.** Each kind's header loses a field it held at its default
+  nearly always, which becomes an optional section written only off
+  its default. Files of the old version are refused with
+  `mani_errorVersion`; build, compress or train them again from their
+  source. The bytes and identity of every such file change.
+  - Clips are format version 5: the loop policy (tag 17) and the
+    additive basis (tag 18) leave the header, as does the form word. The
+    bytes of a graph that names a clip change with it
+    ([#221](https://github.com/Rawframe-Project/maul-anim/pull/221)).
+  - Motion databases are format version 5: the leaf size is section 14,
+    and the node count moves to +48
+    ([#225](https://github.com/Rawframe-Project/maul-anim/pull/225)).
+  - Retargeting maps are format version 4: the header holds only the
+    skeletons' identities and bone counts, and the pelvis block is
+    section 5
+    ([#223](https://github.com/Rawframe-Project/maul-anim/pull/223)).
+  - Learned models are format version 3: the weight format is section
+    12, written only for 16-bit weights, and the step rate and axes move
+    4 bytes earlier
+    ([#227](https://github.com/Rawframe-Project/maul-anim/pull/227)).
+- **Breaking: opening a file is stricter.** Every opener refuses, with
+  `mani_errorFormat`, a section not placed where the writer puts it, a
+  nonzero byte between sections, bytes past the last section, an empty
+  section and a tag of 0. Every asset opener refuses a section tag past
+  its kind's last with `mani_errorVersion`, where it gave
+  `mani_errorFormat`, or ignored the section for retargeting maps,
+  mirror maps, ragdoll profiles and spring sets. No file the library
+  writes is refused
+  ([#218](https://github.com/Rawframe-Project/maul-anim/pull/218)).
+- **Breaking: the JSON readers refuse what they do not know with
+  `mani_errorVersion`.** `maniBuildGraphJson`, `maniBuildRetargetMapJson`
+  and `maniBuildMirrorMapJson` refuse a key they do not know, and an
+  integer `version` other than 1, with `mani_errorVersion` (reason
+  `maniBuildReasonForm`, `maniGraphFormMember` or
+  `maniGraphFormVersion`, and the byte offset), where they gave
+  `mani_errorInvalid`
+  ([#229](https://github.com/Rawframe-Project/maul-anim/pull/229)).
+- The JSON writers leave out every key at the value its reader gives an
+  absent one, so `maniWriteGraphJson`, `maniWriteRetargetMapJson` and
+  `maniWriteMirrorMapJson` write shorter texts. Every text the readers
+  took before still builds the same file
+  ([#231](https://github.com/Rawframe-Project/maul-anim/pull/231),
+  [#233](https://github.com/Rawframe-Project/maul-anim/pull/233)).
+- `maniSpringSet_GetStateSize` grows by the size of the two views a
+  spring state now keeps a copy of
+  ([#276](https://github.com/Rawframe-Project/maul-anim/pull/276)), and
+  a graph's evaluation needs 64 bytes less scratch
+  ([#262](https://github.com/Rawframe-Project/maul-anim/pull/262)).
+- Sampling a clip reads its sections and counts once a call, winning
+  back part of what the checked view costs
+  ([#254](https://github.com/Rawframe-Project/maul-anim/pull/254)).
+- The graph guide and the retargeting and mirroring guide list every
+  optional JSON key and what it reads as.
 
 ### Fixed
 
-* **clip:** check the clip view on every call ([#249](https://github.com/Rawframe-Project/maul-anim/issues/249)) ([c8f58ea](https://github.com/Rawframe-Project/maul-anim/commit/c8f58ea4ca99b0b4908c8d6eedef029b485179ae))
-* **clip:** store the loop policy and additive basis as optional fields ([#221](https://github.com/Rawframe-Project/maul-anim/issues/221)) ([a510f95](https://github.com/Rawframe-Project/maul-anim/commit/a510f95f87588fe9d81e2ba1ee8c734179de7eeb)), closes [#220](https://github.com/Rawframe-Project/maul-anim/issues/220) [#86](https://github.com/Rawframe-Project/maul-anim/issues/86)
-* **family:** sync .github v0.0.58, read s_one once in test_fpenv ([#266](https://github.com/Rawframe-Project/maul-anim/issues/266)) ([db4acfc](https://github.com/Rawframe-Project/maul-anim/commit/db4acfc58eafb25123accd3643d020404e198d88))
-* **format:** leave keys at their defaults out of the map JSON forms ([#233](https://github.com/Rawframe-Project/maul-anim/issues/233)) ([b08eea4](https://github.com/Rawframe-Project/maul-anim/commit/b08eea4801b086157704714670c03c067e48b9c6)), closes [#232](https://github.com/Rawframe-Project/maul-anim/issues/232) [#86](https://github.com/Rawframe-Project/maul-anim/issues/86)
-* **format:** refuse a later JSON form with mani_errorVersion ([#229](https://github.com/Rawframe-Project/maul-anim/issues/229)) ([36280d4](https://github.com/Rawframe-Project/maul-anim/commit/36280d4b314fde3a5fe6a86e342ee28c4c587e13)), closes [#228](https://github.com/Rawframe-Project/maul-anim/issues/228) [#86](https://github.com/Rawframe-Project/maul-anim/issues/86)
-* **format:** refuse unknown tags, loose sections and nonzero padding ([#218](https://github.com/Rawframe-Project/maul-anim/issues/218)) ([e38551b](https://github.com/Rawframe-Project/maul-anim/commit/e38551b90721f41ab148d8c164adbc5e70deee21)), closes [#217](https://github.com/Rawframe-Project/maul-anim/issues/217) [#86](https://github.com/Rawframe-Project/maul-anim/issues/86)
-* **graph:** bound the evaluation by the bytes as they are now ([#274](https://github.com/Rawframe-Project/maul-anim/issues/274)) ([c200246](https://github.com/Rawframe-Project/maul-anim/commit/c200246b6a3e3a539c6cb8ea20bb6e4d580d2b1b))
-* **graph:** bound the instance and its state by what bind recorded ([#263](https://github.com/Rawframe-Project/maul-anim/issues/263)) ([d813cac](https://github.com/Rawframe-Project/maul-anim/commit/d813cac03495152b237d33826fb9ece3d8cc44e1))
-* **graph:** bound the update by the bytes as they are now ([#269](https://github.com/Rawframe-Project/maul-anim/issues/269)) ([50f4afc](https://github.com/Rawframe-Project/maul-anim/commit/50f4afca196c75f6c0df5347f132d5f6b81dfb84))
-* **graph:** leave keys at their defaults out of the JSON form ([#231](https://github.com/Rawframe-Project/maul-anim/issues/231)) ([61fc16c](https://github.com/Rawframe-Project/maul-anim/commit/61fc16ceb6e8ba7c5be0984130abeac559b3d98d)), closes [#230](https://github.com/Rawframe-Project/maul-anim/issues/230) [#86](https://github.com/Rawframe-Project/maul-anim/issues/86)
-* **graph:** make the slot poses' headers on every evaluation ([#262](https://github.com/Rawframe-Project/maul-anim/issues/262)) ([34ff006](https://github.com/Rawframe-Project/maul-anim/commit/34ff006be47d73905bf4ce7592c80b4a127684ee)), closes [#261](https://github.com/Rawframe-Project/maul-anim/issues/261)
-* **ik:** aim, CCD and FABRIK on vectors far from unit length ([#239](https://github.com/Rawframe-Project/maul-anim/issues/239)) ([c5efe40](https://github.com/Rawframe-Project/maul-anim/commit/c5efe405d72f6a40c838d6a1999f65e9dafcffcf)), closes [#236](https://github.com/Rawframe-Project/maul-anim/issues/236)
-* **ik:** carry the aim forward and up by the bone's whole model frame ([#242](https://github.com/Rawframe-Project/maul-anim/issues/242)) ([942bfb2](https://github.com/Rawframe-Project/maul-anim/commit/942bfb2191e821dcabd37b8c0679ca4cad176772)), closes [#241](https://github.com/Rawframe-Project/maul-anim/issues/241)
-* **ik:** carry the aim offset by the bone's whole model frame ([#240](https://github.com/Rawframe-Project/maul-anim/issues/240)) ([ff3968f](https://github.com/Rawframe-Project/maul-anim/commit/ff3968fb41d16d30feb8bfc0be40e06b42f196f3)), closes [#238](https://github.com/Rawframe-Project/maul-anim/issues/238)
-* **ik:** solve a body far from unit size ([#243](https://github.com/Rawframe-Project/maul-anim/issues/243)) ([78254ca](https://github.com/Rawframe-Project/maul-anim/commit/78254ca6f5078eccb404c26ebce961c2eee09af8)), closes [#237](https://github.com/Rawframe-Project/maul-anim/issues/237)
-* **ik:** solve a two-bone chain the same at any finite size ([#235](https://github.com/Rawframe-Project/maul-anim/issues/235)) ([eb2ab4c](https://github.com/Rawframe-Project/maul-anim/commit/eb2ab4c13f232c2f60f1a93c7ac777157d15c88d)), closes [#234](https://github.com/Rawframe-Project/maul-anim/issues/234)
-* **learned:** store the weight format as an optional section ([#227](https://github.com/Rawframe-Project/maul-anim/issues/227)) ([004280d](https://github.com/Rawframe-Project/maul-anim/commit/004280dbac32f9d5a59c546c33dae4f9e8868b26)), closes [#226](https://github.com/Rawframe-Project/maul-anim/issues/226) [#86](https://github.com/Rawframe-Project/maul-anim/issues/86)
-* make MANI_NODISCARD the attribute under GCC 14's C23 too ([#256](https://github.com/Rawframe-Project/maul-anim/issues/256)) ([6e810d5](https://github.com/Rawframe-Project/maul-anim/commit/6e810d5975613e03b8bda095faa2f0f22741149d)), closes [#255](https://github.com/Rawframe-Project/maul-anim/issues/255)
-* mark every internal bool function nodiscard and check it ([#259](https://github.com/Rawframe-Project/maul-anim/issues/259)) ([dcdc074](https://github.com/Rawframe-Project/maul-anim/commit/dcdc074e432a9061edb8ee0e7de17c97fcf768ad)), closes [#258](https://github.com/Rawframe-Project/maul-anim/issues/258)
-* **match:** store the leaf size as an optional section ([#225](https://github.com/Rawframe-Project/maul-anim/issues/225)) ([1f4aab5](https://github.com/Rawframe-Project/maul-anim/commit/1f4aab5aaf5f6e59293737b112f54973e0f6a828)), closes [#224](https://github.com/Rawframe-Project/maul-anim/issues/224) [#86](https://github.com/Rawframe-Project/maul-anim/issues/86)
-* **mirror:** check the mirror map view on every call ([#272](https://github.com/Rawframe-Project/maul-anim/issues/272)) ([caa6b3a](https://github.com/Rawframe-Project/maul-anim/commit/caa6b3aee01de59bd8fd5da051955f801dcc483b))
-* **morph:** bound what the morph calls read from the file's bytes ([#251](https://github.com/Rawframe-Project/maul-anim/issues/251)) ([f576392](https://github.com/Rawframe-Project/maul-anim/commit/f576392bed762847e915ae772d2b4e93ef8f9ddf)), closes [#250](https://github.com/Rawframe-Project/maul-anim/issues/250)
-* **retarget:** check the retargeting map view on every call ([#273](https://github.com/Rawframe-Project/maul-anim/issues/273)) ([d32ee51](https://github.com/Rawframe-Project/maul-anim/commit/d32ee510e8b090a6b79ea6c5653ad44f604f0f70))
-* **retarget:** store the pelvis block as an optional section ([#223](https://github.com/Rawframe-Project/maul-anim/issues/223)) ([ae087b5](https://github.com/Rawframe-Project/maul-anim/commit/ae087b5d40eac3ff28e6c2caa7e06d58af54f76b)), closes [#222](https://github.com/Rawframe-Project/maul-anim/issues/222) [#86](https://github.com/Rawframe-Project/maul-anim/issues/86)
-* **skeleton:** check the skeleton view on every call ([#248](https://github.com/Rawframe-Project/maul-anim/issues/248)) ([90b144e](https://github.com/Rawframe-Project/maul-anim/commit/90b144e5380cf6d64fa38df70cb182d10d54f5ea))
-* **skin:** check the skin, influences and morph views on every call ([#252](https://github.com/Rawframe-Project/maul-anim/issues/252)) ([501b8d8](https://github.com/Rawframe-Project/maul-anim/commit/501b8d8b0471d22fed976114cd4c7d722a415c3f))
-* **spring:** stamp spring states and keep the views their init saw ([#276](https://github.com/Rawframe-Project/maul-anim/issues/276)) ([6db0e4f](https://github.com/Rawframe-Project/maul-anim/commit/6db0e4f4d294a5b8b5a3c4c3e4e690036eb00671))
+- A graph's evaluation trusted the caller's scratch between calls. It
+  kept a head there and, finding it again, skipped making its slot
+  poses, so a host that used the scratch for other work in between could
+  make the next evaluation read hundreds of gigabytes past it in
+  Release, or trap in Debug. Each evaluation now makes its poses'
+  headers again
+  ([#262](https://github.com/Rawframe-Project/maul-anim/pull/262)).
+- A graph's bytes changed after the open or the bind could make the
+  binding, an instance, its update, its evaluation, saving, restoring
+  and planning a subset read or write outside the caller's memory, trap
+  in Debug, or loop for a very long time. Every index read from the
+  bytes is now bounded where it is read, and the instance keeps the
+  layout its bind recorded
+  ([#263](https://github.com/Rawframe-Project/maul-anim/pull/263),
+  [#269](https://github.com/Rawframe-Project/maul-anim/pull/269),
+  [#274](https://github.com/Rawframe-Project/maul-anim/pull/274)).
+- A spring state is checked by every call. Memory no init wrote is
+  refused with `mani_errorInvalid` by step, apply, save and restore,
+  where step read through a null pointer. The state keeps copies of the
+  set's and skeleton's views as its init saw them, so a view changed
+  after the init no longer makes a step write past the state; only the
+  views' bytes must outlive it
+  ([#276](https://github.com/Rawframe-Project/maul-anim/pull/276)).
+- `MANI_NODISCARD` was empty under GCC 14 in C23, which reports
+  `__STDC_VERSION__` as `202000L`, so a program built with GCC could
+  drop any status from the library without a warning. Any C dialect
+  after C17 whose compiler has the attribute now gets it
+  ([#256](https://github.com/Rawframe-Project/maul-anim/pull/256)).
+- IK solvers handle vectors far from unit length and scaled frames.
+  These change results only for the inputs named:
+  - `maniPose_SolveTwoBone` turns a chain whose bones' largest
+    component is past 2^24 or below 2^-24 the same as at unit size,
+    where it turned wrongly from about 2^32 and 2^-32 on. Every solver
+    gives different turns under a mirrored parent whose determinant
+    underflowed to zero in binary32, such as a uniform scale below about
+    2^-50 ([#235](https://github.com/Rawframe-Project/maul-anim/pull/235)).
+  - `maniPose_SolveAim` aims where its goal or offset is longer than
+    about 2^64 or shorter than about 2^-75, which it aimed wrongly or not
+    at all. `maniPose_SolveCcd` and `maniPose_SolveFabrik` turn chains
+    whose bones are shorter than about 2^-75, which they left as they
+    were. A FABRIK pole, a two-bone hinge, or an aim's up or pole shorter
+    than about 2^-75 acts as given instead of as none
+    ([#239](https://github.com/Rawframe-Project/maul-anim/pull/239)).
+  - `maniPose_SolveAim` carries `offset`
+    ([#240](https://github.com/Rawframe-Project/maul-anim/pull/240)),
+    and `forward` and `up`
+    ([#242](https://github.com/Rawframe-Project/maul-anim/pull/242)),
+    by the aiming bone's whole model frame. Under a bone whose model
+    frame holds a scale other than 1 or a mirror, the turns change: the
+    bone's real forward now points at the goal, and the offset moves
+    with the scale and mirror.
+  - `maniPose_SolveBodySdls` and `maniPose_SolveBodyXpbd` solve a part
+    whose offsets' largest component is past 2^24 or below 2^-24, which
+    they solved wrongly from about 2^64 and 2^-70 on
+    ([#243](https://github.com/Rawframe-Project/maul-anim/pull/243)).
 
-
-### Changed
-
-* **clip:** form the sampler's sections and counts once a call ([#254](https://github.com/Rawframe-Project/maul-anim/issues/254)) ([203e8d9](https://github.com/Rawframe-Project/maul-anim/commit/203e8d9fa9f4dc61fbebbadcd98c839998eaa1c4))
+Results change for the IK inputs above, for clips, motion databases,
+retargeting maps and learned models (new format versions: rebuild
+them), and for graphs that name clips. Every other pose, sample, skinned
+vertex, motion, file byte and format version is the same. As with every
+release before 1.0.0, a graph instance, spring state or trainer
+checkpoint saved by 0.9.0 is refused with `mani_errorVersion`: keep
+assets, not saved states, across the upgrade.
 
 ## [0.9.0](https://github.com/Rawframe-Project/maul-anim/compare/v0.8.0...v0.9.0) (2026-11-02)
 
