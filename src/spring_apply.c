@@ -23,6 +23,7 @@
 #include "spring_file.h"
 #include "spring_shape.h"
 #include "spring_state.h"
+#include "spring_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -106,24 +107,36 @@ static void Turn(const Apply* a, const Chain* chain, uint32_t bone, maniQuat q)
 typedef struct Shapes
 {
     const Apply* a;
-    const uint8_t* spring;
-    maniSpringShape first[SHAPES];
+    // The spring's links, [first, end), within the set's.
+    uint32_t first;
+    uint32_t end;
+    maniSpringShape shapes[SHAPES];
+    // Each of the first SHAPES links' shape in shapes; NULL for one
+    // skipped.
+    const maniSpringShape* made[SHAPES];
 } Shapes;
 
-static maniSpringShape LinkShape(const Shapes* s, uint32_t k)
+// Link k's collider's shape; false for a collider past the colliders,
+// in bytes changed since the open, which is skipped.
+MANI_NODISCARD static bool LinkShape(const Shapes* s, uint32_t k, maniSpringShape* out)
 {
     const maniSpringSet* set = s->a->set;
-    uint32_t c = maniLoadU32(set->links + 4 * (size_t)(maniLoadU32(s->spring + 8) + k));
-    return maniSpringShapeOf(set->colliders + (size_t)c * MANI_SPRING_COLLIDER_SIZE,
+    uint32_t c = maniSpringLinkCollider(set, k);
+    if (c == UINT32_MAX)
+    {
+        return false;
+    }
+    *out = maniSpringShapeOf(maniSpringCollider(set, c),
                              maniSpringBoneWords(s->a->block, maniSpringColliderAt(set, c)));
+    return true;
 }
 
 static void MakeShapes(Shapes* s)
 {
-    uint32_t count = maniLoadU32(s->spring + 12);
-    for (uint32_t k = 0; k < count && k < SHAPES; ++k)
+    for (uint32_t k = s->first; k < s->end && k - s->first < SHAPES; ++k)
     {
-        s->first[k] = LinkShape(s, k);
+        maniSpringShape* shape = &s->shapes[k - s->first];
+        s->made[k - s->first] = LinkShape(s, k, shape) ? shape : NULL;
     }
 }
 
@@ -131,12 +144,25 @@ static void MakeShapes(Shapes* s)
 // back into inside ones), in the order the steps take them.
 static maniVec3 PushOut(const Shapes* s, maniVec3 tail, float radius)
 {
-    for (uint32_t k = 0; k < maniLoadU32(s->spring + 12); ++k)
+    for (uint32_t k = s->first; k < s->end; ++k)
     {
-        maniSpringShape shape = k < SHAPES ? s->first[k] : LinkShape(s, k);
+        maniSpringShape spare;
+        const maniSpringShape* shape = NULL;
+        if (k - s->first < SHAPES)
+        {
+            shape = s->made[k - s->first];
+        }
+        else if (LinkShape(s, k, &spare))
+        {
+            shape = &spare;
+        }
+        if (shape == NULL)
+        {
+            continue;
+        }
         maniVec3 direction;
         float distance = 0.0f;
-        if (maniSpringCollide(&shape, tail, radius, &direction, &distance))
+        if (maniSpringCollide(shape, tail, radius, &direction, &distance))
         {
             tail = maniVec3Sub(tail, maniVec3Scale(direction, distance));
         }
@@ -150,17 +176,20 @@ static void ApplySpring(const Apply* a, uint32_t spring)
     const uint32_t* block = a->block;
     maniPose* pose = a->pose;
     float alpha = a->alpha;
-    const uint8_t* e = set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE;
+    const uint8_t* e = maniSpringRecord(set, spring);
     uint32_t center = maniLoadU32(e + 16);
     maniAffine space = maniPose_GetModel(pose, center);
     Carry carry = CarryOf(block);
     Chain chain = {maniQuatIdentity(), maniVec3Make(0.0f, 0.0f, 0.0f)};
-    Shapes shapes = {.a = a, .spring = e};
+    Shapes shapes = {.a = a};
+    maniSpringLinksOf(set, e, &shapes.first, &shapes.end);
     MakeShapes(&shapes);
-    uint32_t first = maniLoadU32(e);
-    for (uint32_t j = first; j < first + maniLoadU32(e + 4); ++j)
+    uint32_t first = 0;
+    uint32_t end = 0;
+    maniSpringJointsOf(set, e, &first, &end);
+    for (uint32_t j = first; j < end; ++j)
     {
-        const uint8_t* r = set->joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
+        const uint8_t* r = maniSpringJoint(set, j);
         uint32_t bone = maniLoadU32(r + maniSpringJointHead);
         maniVec3 p = Move(&chain, PosePosition(pose, bone));
         maniVec3 tail = Move(&chain, PosePosition(pose, maniLoadU32(r + maniSpringJointTail)));

@@ -7,6 +7,8 @@
 #ifndef MAUL_ANIM_SRC_GRAPH_INSTANCE_H
 #define MAUL_ANIM_SRC_GRAPH_INSTANCE_H
 
+#include "spring_view.h"
+
 #include "maul-anim/clip.h"
 #include "maul-anim/graph.h"
 #include "maul-anim/learned.h"
@@ -117,7 +119,7 @@ static inline const maniLearnedModel* maniGraphBoundModel(const maniGraphBinding
 
 // The spring sets a binding's spring set slots bind, in slot order:
 // after its models; maniGraphBoundSpringSet gives NULL for a graph
-// without them.
+// without them, and for a set whose view, the caller's, no longer checks.
 static inline const maniSpringSet** maniGraphBoundSpringSets(maniGraphBinding* binding)
 {
     return (const maniSpringSet**)(uint8_t*)(maniGraphBoundModels(binding) +
@@ -131,7 +133,9 @@ static inline const maniSpringSet* maniGraphBoundSpringSet(const maniGraphBindin
     at += (size_t)binding->graph.databaseCount * sizeof(const maniMotionDatabase*);
     at += (size_t)binding->graph.modelCount * sizeof(const maniLearnedModel*);
     uint32_t count = binding->graph.springSetCount;
-    return count > 0 ? ((const maniSpringSet* const*)at)[maniGraphBoundSlot(slot, count)] : NULL;
+    const maniSpringSet* set =
+        count > 0 ? ((const maniSpringSet* const*)at)[maniGraphBoundSlot(slot, count)] : NULL;
+    return maniSpringSetValid(set) ? set : NULL;
 }
 
 // A map slot's map and its source skeleton: after the spring sets, a

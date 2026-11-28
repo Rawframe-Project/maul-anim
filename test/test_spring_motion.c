@@ -11,6 +11,7 @@
 // steps kept out of a ball driven into them.
 
 #include "spring_fixture.h"
+#include "spring_view.h"
 
 // ---- A binary64 reference of the update for a still chain.
 
@@ -79,7 +80,7 @@ static Q Mul(Q a, Q b)
 // A joint's binary32 value, widened.
 static double Field(uint32_t joint, uint32_t at)
 {
-    uint32_t bits = maniLoadU32(s_set.joints + (size_t)joint * MANI_SPRING_JOINT_SIZE + at);
+    uint32_t bits = maniLoadU32(maniSpringJoint(&s_set, joint) + at);
     float v = 0.0f;
     memcpy(&v, &bits, sizeof v);
     return (double)v;

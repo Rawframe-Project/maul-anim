@@ -15,6 +15,7 @@
 #include "container.h"
 #include "fpenv.h"
 #include "spring_file.h"
+#include "spring_view.h"
 #include "text.h"
 
 #include "maul-anim/base.h"
@@ -375,12 +376,14 @@ static MANI_NOINLINE maniFileResult OpenSpringSetWork(const void* bytes, size_t 
     {
         return Fail(40);
     }
-    set.colliders = s.data[1];
-    set.springs = s.data[2];
-    set.joints = s.data[3];
-    set.links = s.data[4];
-    set.names = s.data[5];
+    set.base = bytes;
+    set.size = size;
+    for (uint32_t t = 0; t < 5; ++t)
+    {
+        set.sections[t] = s.at[t + 1];
+    }
     set.identity = c.identity;
+    set.cookie = MANI_VIEW_COOKIE(maniKindSpringSet);
     *setOut = set;
     return kOk;
 }
@@ -393,38 +396,66 @@ maniFileResult maniOpenSpringSet(const void* bytes, size_t size, maniSpringSet* 
     return result;
 }
 
+MANI_NOINLINE bool maniSpringSetValid(const maniSpringSet* set)
+{
+    return set != NULL && set->cookie == MANI_VIEW_COOKIE(maniKindSpringSet) && set->base != NULL &&
+           set->boneCount - 1u < MANI_MAX_BONES && set->stepRate > 0.0f &&
+           set->stepRate <= MANI_MAX_SPRING_RATE &&
+           maniViewFits(set->sections[maniSpringColliders],
+                        MANI_SPRING_COLLIDER_SIZE * (uint64_t)set->colliderCount, set->size) &&
+           maniViewFits(set->sections[maniSpringSprings],
+                        MANI_SPRING_SPRING_SIZE * (uint64_t)set->springCount, set->size) &&
+           maniViewFits(set->sections[maniSpringJointRecords],
+                        MANI_SPRING_JOINT_SIZE * (uint64_t)set->jointCount, set->size) &&
+           maniViewFits(set->sections[maniSpringLinks], 4 * (uint64_t)set->linkCount, set->size) &&
+           maniViewFits(set->sections[maniSpringNames], set->nameBytes, set->size);
+}
+
 uint64_t maniSpringSet_GetIdentity(const maniSpringSet* set)
 {
-    return set != NULL ? set->identity : 0;
+    return maniSpringSetValid(set) ? set->identity : 0;
 }
 
 uint64_t maniSpringSet_GetSkeletonIdentity(const maniSpringSet* set)
 {
-    return set != NULL ? set->skeletonIdentity : 0;
+    return maniSpringSetValid(set) ? set->skeletonIdentity : 0;
 }
 
 uint32_t maniSpringSet_GetSpringCount(const maniSpringSet* set)
 {
-    return set != NULL ? set->springCount : 0;
+    return maniSpringSetValid(set) ? set->springCount : 0;
 }
 
 const char* maniSpringSet_GetSpringName(const maniSpringSet* set, uint32_t spring,
                                         size_t* lengthOut)
 {
-    bool valid = set != NULL && spring < set->springCount;
-    const uint8_t* e = valid ? set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE : NULL;
     if (lengthOut != NULL)
     {
-        *lengthOut = valid ? maniLoadU32(e + 24) : 0;
+        *lengthOut = 0;
     }
-    return valid ? (const char*)(set->names + maniLoadU32(e + 20)) : NULL;
+    if (!maniSpringSetValid(set) || spring >= set->springCount)
+    {
+        return NULL;
+    }
+    // A name in bytes changed since the open past the names is empty, at
+    // the names' start.
+    const uint8_t* e = maniSpringRecord(set, spring);
+    uint64_t offset = maniLoadU32(e + 20);
+    uint64_t length = maniLoadU32(e + 24);
+    bool named = maniViewFits(offset, length, set->nameBytes);
+    if (lengthOut != NULL)
+    {
+        *lengthOut = named ? (size_t)length : 0;
+    }
+    return (const char*)maniSpringSection(set, maniSpringNames) + (named ? offset : 0);
 }
 
 float maniSpringSet_GetStepRate(const maniSpringSet* set, float* referenceRateOut)
 {
+    bool valid = maniSpringSetValid(set);
     if (referenceRateOut != NULL)
     {
-        *referenceRateOut = set != NULL ? set->referenceRate : 0.0f;
+        *referenceRateOut = valid ? set->referenceRate : 0.0f;
     }
-    return set != NULL ? set->stepRate : 0.0f;
+    return valid ? set->stepRate : 0.0f;
 }

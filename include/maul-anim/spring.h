@@ -22,15 +22,24 @@ extern "C"
 {
 #endif
 
-    // An opened spring set: a view over the caller's bytes, which must
-    // outlive it.
+    // A spring set over a file's bytes, which the caller keeps alive
+    // while the view is used. Its fields are the library's; read a set
+    // through the functions below. A view is immutable and copyable. Its
+    // base and size are the bytes the open was given; a view whose base or
+    // size the caller changed is outside the contract. Every call checks
+    // everything else the view holds, its counts and sections, against
+    // those bytes, and refuses a view that does not fit them; the bytes are
+    // read only within the extents recorded at open, whatever they become.
+    // Bytes changed after the open give some motion: a spring's joints or
+    // links past the set's are cut at their end, a link's collider past
+    // the colliders is skipped, and a name past the names is empty.
     typedef struct maniSpringSet
     {
-        const uint8_t* colliders;
-        const uint8_t* springs;
-        const uint8_t* joints;
-        const uint8_t* links;
-        const uint8_t* names;
+        const uint8_t* base;
+        uint64_t size;
+        // The colliders, springs, joints, links and names: each one's
+        // offset from base.
+        uint64_t sections[5];
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint32_t boneCount;
@@ -41,6 +50,7 @@ extern "C"
         uint32_t nameBytes;
         float referenceRate;
         float stepRate;
+        uint32_t cookie;
     } maniSpringSet;
 
     /// Opens a spring set file in place: checks the container and every
@@ -62,24 +72,27 @@ extern "C"
 
     /// Returns a set's identity: the hash of its sections.
     ///
-    /// @param set  An opened set, or NULL.
-    /// @return The identity; 0 for NULL.
+    /// @param set  An opened set.
+    /// @return The identity; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniSpringSet_GetIdentity(const maniSpringSet* set);
 
     /// Returns the identity of the skeleton a set was built for.
     ///
-    /// @param set  An opened set, or NULL.
-    /// @return The identity; 0 for NULL.
+    /// @param set  An opened set.
+    /// @return The identity; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniSpringSet_GetSkeletonIdentity(const maniSpringSet* set);
 
     /// Returns the number of springs (chains) in a set.
     ///
-    /// @param set  An opened set, or NULL.
-    /// @return The count; 0 for NULL.
+    /// @param set  An opened set.
+    /// @return The count; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint32_t maniSpringSet_GetSpringCount(const maniSpringSet* set);
@@ -90,8 +103,9 @@ extern "C"
     /// @param spring     The spring's index.
     /// @param lengthOut  Receives the name's length in bytes (0 when the
     ///                   spring has none or the call fails). May be NULL.
-    /// @return The name's first byte; NULL for a NULL set or an index
-    /// past the springs, and an empty name's position for none.
+    /// @return The name's first byte; NULL for a view no open wrote or
+    /// whose counts do not fit its file, or an index past the springs; an
+    /// empty name's position for none.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniSpringSet_GetSpringName(const maniSpringSet* set, uint32_t spring,
@@ -100,9 +114,11 @@ extern "C"
     /// Returns the rate a set steps at (steps a second), and the rate its
     /// source's values were per frame of.
     ///
-    /// @param set               An opened set, or NULL.
-    /// @param referenceRateOut  Receives the reference rate. May be NULL.
-    /// @return The step rate; 0 for NULL.
+    /// @param set               An opened set.
+    /// @param referenceRateOut  Receives the reference rate (0 when the
+    ///                          call fails). May be NULL.
+    /// @return The step rate; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API float maniSpringSet_GetStepRate(const maniSpringSet* set, float* referenceRateOut);
@@ -124,7 +140,8 @@ extern "C"
     /// Returns the bytes a set's state needs.
     ///
     /// @param set  An opened set.
-    /// @return The size; 0 for NULL.
+    /// @return The size; 0 for a view no open wrote or whose counts
+    /// do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API size_t maniSpringSet_GetStateSize(const maniSpringSet* set);
@@ -141,8 +158,9 @@ extern "C"
     ///                  MANI_SPRING_STATE_ALIGNMENT aligned.
     /// @param size      Its size.
     /// @param stateOut  Receives the state (at memory).
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
-    /// misaligned memory or a skeleton of another identity;
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// set no open wrote or whose counts do not fit its file, misaligned
+    /// memory or a skeleton of another identity;
     /// `mani_errorCapacity` for too little memory.
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.

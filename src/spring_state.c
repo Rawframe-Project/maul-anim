@@ -13,6 +13,7 @@
 #include "pose_memory.h"
 #include "skeleton_view.h"
 #include "spring_file.h"
+#include "spring_view.h"
 #include "state_prefix.h"
 #include "vecmath.h"
 
@@ -41,7 +42,7 @@ uint64_t maniSpringWorkWords(const maniSpringSet* set)
 
 size_t maniSpringSet_GetStateSize(const maniSpringSet* set)
 {
-    if (set == NULL)
+    if (!maniSpringSetValid(set))
     {
         return 0;
     }
@@ -54,8 +55,8 @@ static MANI_NOINLINE maniResult InitSpringStateWork(const maniSpringSet* set,
                                                     const maniSkeleton* skeleton, void* memory,
                                                     size_t size, maniSpringState** stateOut)
 {
-    if (set == NULL || !maniSkeletonValid(skeleton) || memory == NULL || stateOut == NULL ||
-        (uintptr_t)memory % MANI_SPRING_STATE_ALIGNMENT != 0 ||
+    if (!maniSpringSetValid(set) || !maniSkeletonValid(skeleton) || memory == NULL ||
+        stateOut == NULL || (uintptr_t)memory % MANI_SPRING_STATE_ALIGNMENT != 0 ||
         maniSkeleton_GetIdentity(skeleton) != set->skeletonIdentity ||
         maniSkeleton_GetBoneCount(skeleton) != set->boneCount)
     {
@@ -277,7 +278,7 @@ static uint64_t Joint(const uint8_t* bytes, uint64_t at)
 static uint64_t Center(const maniSpringSet* set, const uint8_t* bytes, uint32_t spring)
 {
     uint64_t at = maniSpringCenterAt(set, spring);
-    if (maniLoadU32(set->springs + (size_t)spring * MANI_SPRING_SPRING_SIZE + 16) != MANI_NO_BONE)
+    if (maniLoadU32(maniSpringRecord(set, spring) + 16) != MANI_NO_BONE)
     {
         return Placed(bytes, at, true);
     }

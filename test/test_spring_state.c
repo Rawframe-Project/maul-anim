@@ -10,6 +10,7 @@
 #include "spring_fixture.h"
 #include "spring_shape.h"
 #include "spring_state.h"
+#include "spring_view.h"
 #include "state_prefix.h"
 
 #include "maul-anim/blend.h"
@@ -164,9 +165,10 @@ static void TestRefusals(void)
     other.skeletonIdentity ^= 1u;
     maniSpringSet more = s_set;
     more.boneCount += 1;
-    // An odd count of words still gives a size of whole alignments.
+    // An odd count of words still gives a size of whole alignments: one
+    // joint of the chain's two, a view that still fits its file.
     maniSpringSet odd = s_set;
-    odd.jointCount = 3;
+    odd.jointCount = 1;
     CHECK(maniSpringSet_GetStateSize(&odd) % MANI_SPRING_STATE_ALIGNMENT == 0, "rounded up");
     CHECK(size > 0 && size % MANI_SPRING_STATE_ALIGNMENT == 0 &&
               maniSpringSet_GetStateSize(NULL) == 0,
@@ -387,7 +389,7 @@ static void TestKeptInputs(void)
     bool same = true;
     for (uint32_t j = 0; j < s_set.jointCount; ++j)
     {
-        const uint8_t* e = s_set.joints + (size_t)j * MANI_SPRING_JOINT_SIZE;
+        const uint8_t* e = maniSpringJoint(&s_set, j);
         maniTransform head =
             maniPose_GetModelTransform(s_pose, maniLoadU32(e + maniSpringJointHead));
         maniAffine tail = maniPose_GetModel(s_pose, maniLoadU32(e + maniSpringJointTail));
@@ -403,7 +405,8 @@ static void TestKeptInputs(void)
                maniSpringWord(block, at + maniSpringHeadScale) == largest && t.x == tail.m[9] &&
                t.y == tail.m[10] && t.z == tail.m[11];
     }
-    maniTransform bone = maniPose_GetModelTransform(s_pose, maniLoadU32(s_set.colliders));
+    maniTransform bone =
+        maniPose_GetModelTransform(s_pose, maniLoadU32(maniSpringCollider(&s_set, 0)));
     maniVec3 kept = maniSpringVec(block, maniSpringColliderAt(&s_set, 0) + 7);
     CHECK(same && memcmp(&kept, &bone.scale, sizeof kept) == 0, "the inputs kept as read");
 }
@@ -487,6 +490,63 @@ static void TestStateChecked(void)
     free(zeroBlock);
 }
 
+// Bytes changed after the open are read only within the set, the state
+// and the pose, and give what the header says. On a chain colliding with
+// the ball behind the far spheres (more links than an apply makes at
+// once), a spring's joint and link counts made far past the set's are cut
+// at the set's end, and a link's collider made past the colliders, a far
+// sphere's, is skipped: each steps and applies as the set as it was. A
+// spring's first joint and first link made past the set's leave it none,
+// and it steps and applies within the set and the state.
+static void TestChangedBytes(void)
+{
+    Config c = kSwing;
+    c.collider = 1;
+    s_crowd = true;
+    MakeSet(&c);
+    s_crowd = false;
+    size_t setSize = (size_t)s_set.size;
+    uint8_t* setBlock = NULL;
+    uint8_t* bytes = TestExactCopy(setSize, &setBlock);
+    CHECK(bytes != NULL, "a block of the set's length");
+    memcpy(bytes, s_set.base, setSize);
+    static maniSpringSet changed;
+    CHECK(maniOpenSpringSet(bytes, setSize, &changed).result == mani_success, "the copy opened");
+    uint8_t* spring = bytes + changed.sections[1];
+    uint8_t* links = bytes + changed.sections[3];
+    const uint32_t words[5][2] = {{4, 1000}, {12, 1000}, {0, 1000}, {0, 1000}, {8, 1000}};
+    const char* what[5] = {"a joint count past the joints cut at their end",
+                           "a link count past the links cut at their end",
+                           "a link's collider past the colliders skipped",
+                           "a first joint past the joints: none",
+                           "a first link past the links: none"};
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        size_t size = maniSpringSet_GetStateSize(&changed);
+        uint8_t* stateBlock = NULL;
+        uint8_t* memory = TestExactCopy(size, &stateBlock);
+        maniSpringState* state = NULL;
+        CHECK(memory != NULL &&
+                  maniInitSpringState(&changed, &s_skeleton, memory, size, &state) == mani_success,
+              "a state in a block of its size");
+        uint8_t* word = k == 2 ? links + words[k][0] : spring + words[k][0];
+        uint32_t kept = maniLoadU32(word);
+        maniStoreU32(word, words[k][1]);
+        maniSpringState* other = NewState(1);
+        uint8_t mine[4096];
+        uint8_t theirs[4096];
+        bool same = k < 3;
+        CHECK(Frames(state, 1.0f / 60.0f, 30) && Frames(other, 1.0f / 60.0f, 30) &&
+                  maniSpringState_Save(state, mine, sizeof mine, NULL) == mani_success &&
+                  maniSpringState_Save(other, theirs, sizeof theirs, NULL) == mani_success &&
+                  (!same || memcmp(mine, theirs, SavedSpringSize(other)) == 0),
+              what[k]);
+        maniStoreU32(word, kept);
+        free(stateBlock);
+    }
+    free(setBlock);
+}
+
 int main(void)
 {
     Setup();
@@ -497,6 +557,7 @@ int main(void)
     TestSaveRestore();
     TestRefusals();
     TestStateChecked();
+    TestChangedBytes();
     TestScaleWords();
     TestClockRounding();
     TestKeptInputs();
