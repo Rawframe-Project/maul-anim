@@ -116,7 +116,9 @@ extern "C"
 #define MANI_SPRING_STATE_ALIGNMENT 8u
 
     // The motion of a set's joints for one character: in caller memory, a
-    // memcpy copies it (it points only at its set and skeleton).
+    // memcpy copies it (it points only at its set's and skeleton's
+    // bytes). It keeps copies of the set's and the skeleton's views as
+    // its init saw them, and every call refuses memory no init wrote.
     typedef struct maniSpringState maniSpringState;
 
     /// Returns the bytes a set's state needs.
@@ -130,9 +132,11 @@ extern "C"
     /// Makes a state for a set in caller memory, with no motion yet: the
     /// first step places every tail where the pose puts it.
     ///
-    /// @param set       An opened set, which must outlive the state.
-    /// @param skeleton  The skeleton the set was built for, which must
-    ///                  outlive the state.
+    /// @param set       An opened set; the state copies the view, and
+    ///                  its bytes must outlive the state.
+    /// @param skeleton  The skeleton the set was built for; the state
+    ///                  copies the view, and its bytes must outlive the
+    ///                  state.
     /// @param memory    At least maniSpringSet_GetStateSize bytes,
     ///                  MANI_SPRING_STATE_ALIGNMENT aligned.
     /// @param size      Its size.
@@ -173,9 +177,9 @@ extern "C"
     ///                   stops it at once). The first call of a new or
     ///                   reset state takes its force for both ends.
     /// @param delta      The time in seconds, finite, either sign.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL state or
-    /// pose, a pose of another bone count or holding a difference, or a
-    /// delta, placement or force not finite.
+    /// @return `mani_success`; `mani_errorInvalid` for a state no init
+    /// made, a NULL pose, a pose of another bone count or holding a
+    /// difference, or a delta, placement or force not finite.
     /// @par Thread safety
     /// Safe from any thread; the state and pose are used by one thread at
     /// a time.
@@ -194,8 +198,9 @@ extern "C"
     /// @param state  A state.
     /// @param pose   The pose the last step took (its model space computed
     ///               when stale); joints' local rotations are written.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// a pose of another bone count or holding a difference.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument, a
+    /// state no init made, or a pose of another bone count or holding a
+    /// difference.
     /// @par Thread safety
     /// Safe from any thread; the state and pose are used by one thread at
     /// a time.
@@ -206,7 +211,7 @@ extern "C"
     /// pose puts it (a teleport) and takes its placement and force as the
     /// last call's.
     ///
-    /// @param state  A state, or NULL (nothing done).
+    /// @param state  A state; NULL or memory no init made does nothing.
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.
     MANI_API void maniSpringState_Reset(maniSpringState* state);
@@ -222,8 +227,8 @@ extern "C"
     ///                  NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is
     /// smaller than the saved state, with the size still written and
-    /// nothing else; `mani_errorInvalid` for a NULL state or a NULL buffer
-    /// with a positive capacity.
+    /// nothing else; `mani_errorInvalid` for a state no init made or a
+    /// NULL buffer with a positive capacity.
     /// @par Thread safety
     /// Safe from any thread; the state is used by one thread at a time.
     MANI_NODISCARD MANI_API maniResult maniSpringState_Save(const maniSpringState* state,
@@ -237,8 +242,8 @@ extern "C"
     /// @param state  A state of the same set.
     /// @param bytes  The saved bytes.
     /// @param size   Their size.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument;
-    /// `mani_errorVersion` for a state saved by a release of another ABI
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
+    /// a state no init made; `mani_errorVersion` for a state saved by a release of another ABI
     /// version (MANI_ABI_VERSION) or of another state format version;
     /// `mani_errorFormat` with the offset of the first byte found wrong
     /// (the state unchanged in either case).

@@ -3,7 +3,8 @@
 //
 // Spring states: made in caller memory, stepped, applied,
 // reset, saved and restored. A saved state is the block behind a header
-// and is checked as external bytes before it is copied in.
+// and is checked as external bytes before it is copied in. Every call
+// checks the state's stamp and works through the views the init copied.
 
 #include "spring_state.h"
 
@@ -67,8 +68,9 @@ static MANI_NOINLINE maniResult InitSpringStateWork(const maniSpringSet* set,
     }
     memset(memory, 0, need);
     maniSpringState* state = memory;
-    state->set = set;
-    state->skeleton = skeleton;
+    state->stamp = MANI_SPRING_STATE_STAMP;
+    state->set = *set;
+    state->skeleton = *skeleton;
     state->words = maniSpringBlockWords(set);
     *stateOut = state;
     return mani_success;
@@ -95,12 +97,12 @@ MANI_NODISCARD static bool PlacementValid(const maniTransform* t)
 // does not fit the state.
 MANI_NODISCARD static bool ModelReady(const maniSpringState* state, maniPose* pose)
 {
-    if (maniPose_GetBoneCount(pose) != state->set->boneCount || maniPose_IsDifference(pose))
+    if (maniPose_GetBoneCount(pose) != state->set.boneCount || maniPose_IsDifference(pose))
     {
         return false;
     }
     return maniPose_IsModelCurrent(pose) ||
-           maniComputeModelEntered(pose, state->skeleton) == mani_success;
+           maniComputeModelEntered(pose, &state->skeleton) == mani_success;
 }
 
 static MANI_NOINLINE maniResult StepSpringsWork(maniSpringState* state, maniPose* pose,
@@ -117,14 +119,15 @@ static MANI_NOINLINE maniResult StepSpringsWork(maniSpringState* state, maniPose
     {
         push = *force;
     }
-    if (state == NULL || pose == NULL || !isfinite(delta) || !PlacementValid(&place) ||
-        !isfinite(push.x) || !isfinite(push.y) || !isfinite(push.z) || !ModelReady(state, pose))
+    if (!maniSpringStateValid(state) || pose == NULL || !isfinite(delta) ||
+        !PlacementValid(&place) || !isfinite(push.x) || !isfinite(push.y) || !isfinite(push.z) ||
+        !ModelReady(state, pose))
     {
         return mani_errorInvalid;
     }
     place.rotation = maniQuatNormalize(place.rotation);
     uint32_t* block = maniSpringBlock(state);
-    maniSpringStepBlock(state->set, block, block + state->words, pose, &place, push,
+    maniSpringStepBlock(&state->set, block, block + state->words, pose, &place, push,
                         fabs((double)delta));
     return mani_success;
 }
@@ -140,11 +143,11 @@ maniResult maniSpringState_Step(maniSpringState* state, maniPose* pose,
 
 static MANI_NOINLINE maniResult ApplySpringsWork(const maniSpringState* state, maniPose* pose)
 {
-    if (state == NULL || pose == NULL || !ModelReady(state, pose))
+    if (!maniSpringStateValid(state) || pose == NULL || !ModelReady(state, pose))
     {
         return mani_errorInvalid;
     }
-    maniSpringApplyBlock(state->set, state->skeleton, maniSpringConstBlock(state), pose);
+    maniSpringApplyBlock(&state->set, &state->skeleton, maniSpringConstBlock(state), pose);
     return mani_success;
 }
 
@@ -158,7 +161,7 @@ maniResult maniSpringState_Apply(const maniSpringState* state, maniPose* pose)
 
 void maniSpringState_Reset(maniSpringState* state)
 {
-    if (state != NULL)
+    if (maniSpringStateValid(state))
     {
         memset(maniSpringBlock(state), 0, 4 * (size_t)state->words);
     }
@@ -173,11 +176,11 @@ static size_t SavedSize(const maniSpringSet* set)
 static MANI_NOINLINE maniResult SaveSpringStateWork(const maniSpringState* state, void* out,
                                                     size_t capacity, size_t* sizeOut)
 {
-    if (state == NULL || (out == NULL && capacity > 0))
+    if (!maniSpringStateValid(state) || (out == NULL && capacity > 0))
     {
         return mani_errorInvalid;
     }
-    size_t size = SavedSize(state->set);
+    size_t size = SavedSize(&state->set);
     if (sizeOut != NULL)
     {
         *sizeOut = size;
@@ -190,7 +193,7 @@ static MANI_NOINLINE maniResult SaveSpringStateWork(const maniSpringState* state
     uint8_t* p = out;
     maniStoreStatePrefix(p, MANI_SPRING_STATE_MAGIC, MANI_SPRING_STATE_VERSION,
                          MANI_SPRING_STATE_HEADER_SIZE);
-    maniStoreU64(p + 16, state->set->identity);
+    maniStoreU64(p + 16, state->set.identity);
     maniStoreU64(p + 24, size);
     const uint32_t* block = maniSpringConstBlock(state);
     for (uint64_t w = 0; w < state->words; ++w)
@@ -352,19 +355,19 @@ static maniFileResult Fail(uint64_t offset)
 static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* state,
                                                            const void* bytes, size_t size)
 {
-    if (state == NULL || bytes == NULL)
+    if (!maniSpringStateValid(state) || bytes == NULL)
     {
         return (maniFileResult){mani_errorInvalid, 0, 0};
     }
     const uint8_t* b = bytes;
-    size_t expected = SavedSize(state->set);
+    size_t expected = SavedSize(&state->set);
     maniFileResult prefix = maniCheckStatePrefix(
         b, size, MANI_SPRING_STATE_MAGIC, MANI_SPRING_STATE_VERSION, MANI_SPRING_STATE_HEADER_SIZE);
     if (prefix.result != mani_success)
     {
         return prefix;
     }
-    if (maniLoadU64(b + 16) != state->set->identity)
+    if (maniLoadU64(b + 16) != state->set.identity)
     {
         return Fail(16);
     }
@@ -372,7 +375,7 @@ static MANI_NOINLINE maniFileResult RestoreSpringStateWork(maniSpringState* stat
     {
         return Fail(24);
     }
-    uint64_t wrong = maniSpringBlockValid(state->set, b + MANI_SPRING_STATE_HEADER_SIZE);
+    uint64_t wrong = maniSpringBlockValid(&state->set, b + MANI_SPRING_STATE_HEADER_SIZE);
     if (wrong != kValid)
     {
         return Fail(MANI_SPRING_STATE_HEADER_SIZE + wrong);

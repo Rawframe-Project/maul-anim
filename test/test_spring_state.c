@@ -6,12 +6,16 @@
 // check of the saved bytes, the calls' refusals, the work area's size
 // and the inputs a call keeps for the next.
 
+#include "file_tag.h"
 #include "spring_fixture.h"
 #include "spring_shape.h"
 #include "spring_state.h"
 #include "state_prefix.h"
 
 #include "maul-anim/blend.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 static _Alignas(32) uint8_t s_differenceMemory[4096];
 
@@ -404,6 +408,85 @@ static void TestKeptInputs(void)
     CHECK(same && memcmp(&kept, &bone.scale, sizeof kept) == 0, "the inputs kept as read");
 }
 
+// A state is opaque state the caller holds: memory no init wrote, here
+// every byte 0xA5, is refused by every call, and Reset leaves it. A state keeps the views its
+// init copied, so the caller's views changed after the init (counts far
+// past the set's, a skeleton without a base) change nothing: the state,
+// in a heap block of exactly its size, steps, applies, saves and restores
+// as one made from the views as they were, reading and writing only
+// within its block and work area.
+static void TestStateChecked(void)
+{
+    MakeSet(&kSwing);
+    size_t size = maniSpringSet_GetStateSize(&s_set);
+    uint8_t* zeroBlock = NULL;
+    uint8_t* zero = TestExactCopy(size, &zeroBlock);
+    CHECK(zero != NULL, "a block of the state's size");
+    memset(zero, 0xA5, size);
+    maniSpringState* unmade = (maniSpringState*)(void*)zero;
+    uint8_t saved[4096];
+    size_t savedSize = 0;
+    maniSpringState* made = NewState(0);
+    CHECK(maniSpringState_Save(made, saved, sizeof saved, &savedSize) == mani_success,
+          "a saved state");
+    maniSpringState_Reset(unmade);
+    bool untouched = true;
+    for (size_t i = 0; i < size; ++i)
+    {
+        untouched = untouched && zero[i] == 0xA5;
+    }
+    CHECK(maniSpringState_Step(unmade, s_pose, NULL, NULL, 0.1f) == mani_errorInvalid &&
+              maniSpringState_Apply(unmade, s_pose) == mani_errorInvalid &&
+              maniSpringState_Save(unmade, saved, sizeof saved, NULL) == mani_errorInvalid &&
+              maniSpringState_Restore(unmade, saved, savedSize).result == mani_errorInvalid &&
+              untouched,
+          "memory no init wrote refused, and left by Reset");
+    // A made state's copy with its stamp changed: whole otherwise, and
+    // still refused.
+    memcpy(zero, made, size);
+    unmade->stamp ^= 1u;
+    CHECK(maniSpringState_Step(unmade, s_pose, NULL, NULL, 0.1f) == mani_errorInvalid &&
+              maniSpringState_Apply(unmade, s_pose) == mani_errorInvalid &&
+              maniSpringState_Save(unmade, saved, sizeof saved, NULL) == mani_errorInvalid &&
+              maniSpringState_Restore(unmade, saved, savedSize).result == mani_errorInvalid,
+          "a state of another stamp refused");
+    static maniSpringSet held;
+    static maniSkeleton heldSkeleton;
+    held = s_set;
+    heldSkeleton = s_skeleton;
+    uint8_t* block = NULL;
+    uint8_t* memory = TestExactCopy(size, &block);
+    maniSpringState* state = NULL;
+    CHECK(memory != NULL &&
+              maniInitSpringState(&held, &heldSkeleton, memory, size, &state) == mani_success,
+          "a state in a block of its size");
+    held.jointCount = 60000;
+    held.colliderCount = 60000;
+    held.springCount = 60000;
+    maniSpringState* other = NewState(1);
+    uint8_t mine[4096];
+    uint8_t theirs[4096];
+    CHECK(Frames(state, 1.0f / 60.0f, 20) && Frames(other, 1.0f / 60.0f, 20) &&
+              maniSpringState_Save(state, mine, sizeof mine, NULL) == mani_success &&
+              maniSpringState_Save(other, theirs, sizeof theirs, NULL) == mani_success &&
+              memcmp(mine, theirs, SavedSpringSize(other)) == 0,
+          "the set's view changed after the init changes nothing");
+    heldSkeleton.base = NULL;
+    maniPose_SetLocal(s_pose, s_root, maniPose_GetLocal(s_pose, s_root));
+    CHECK(Frames(state, 1.0f / 60.0f, 5) && Frames(other, 1.0f / 60.0f, 5) &&
+              maniSpringState_Save(state, mine, sizeof mine, NULL) == mani_success &&
+              maniSpringState_Save(other, theirs, sizeof theirs, NULL) == mani_success &&
+              memcmp(mine, theirs, SavedSpringSize(other)) == 0,
+          "the skeleton's view changed after the init changes nothing");
+    maniSpringState_Reset(state);
+    CHECK(maniSpringState_Restore(state, theirs, SavedSpringSize(other)).result == mani_success &&
+              maniSpringState_Save(state, mine, sizeof mine, NULL) == mani_success &&
+              memcmp(mine, theirs, SavedSpringSize(other)) == 0,
+          "reset and restored within the block");
+    free(block);
+    free(zeroBlock);
+}
+
 int main(void)
 {
     Setup();
@@ -413,6 +496,7 @@ int main(void)
     TestReset();
     TestSaveRestore();
     TestRefusals();
+    TestStateChecked();
     TestScaleWords();
     TestClockRounding();
     TestKeptInputs();

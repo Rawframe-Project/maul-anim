@@ -42,6 +42,7 @@
 #include "maul-anim/skeleton.h"
 #include "maul-anim/spring.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -90,12 +91,27 @@ enum
 #define MANI_SPRING_STATE_VERSION     1u
 #define MANI_SPRING_STATE_HEADER_SIZE 32u
 
+// A state's stamp: what an init wrote, so that memory no init wrote is
+// refused.
+#define MANI_SPRING_STATE_STAMP 0x4D535053u
+
+// A state keeps copies of the set's and the skeleton's views as its init
+// saw them, so its block and work area keep the layout the init counted
+// whatever the caller's views become; only their bytes must outlive it.
 struct maniSpringState
 {
-    const maniSpringSet* set;
-    const maniSkeleton* skeleton;
+    uint32_t stamp;
+    uint32_t reserved;
+    maniSpringSet set;
+    maniSkeleton skeleton;
     uint64_t words;
 };
+
+// Whether a state is one an init made.
+MANI_NODISCARD static inline bool maniSpringStateValid(const maniSpringState* state)
+{
+    return state != NULL && state->stamp == MANI_SPRING_STATE_STAMP;
+}
 
 // The words a set's block holds.
 uint64_t maniSpringBlockWords(const maniSpringSet* set);

@@ -52,7 +52,7 @@ ceiling skinning   O3 17000
 ceiling graph      O3 145000
 ceiling ik         O3 36000
 ceiling bodyik     O3 34000
-ceiling springs    O3 31000
+ceiling springs    O3 32000
 ceiling ragdoll    O3 17000
 ceiling retarget   O3 14000
 ceiling mirror     O3 6000
