@@ -15,6 +15,7 @@
 #include "fpenv.h"
 #include "learned_file.h"
 #include "match_file.h"
+#include "match_view.h"
 #include "skeleton_view.h"
 #include "text.h"
 
@@ -317,7 +318,8 @@ static void LayChannels(const maniMotionDatabase* d, uint8_t* channels)
     for (uint32_t c = 0; c < d->channelCount; ++c)
     {
         memcpy(channels + (size_t)c * MANI_LEARNED_CHANNEL_SIZE,
-               d->channels + (size_t)c * MANI_MATCH_CHANNEL_SIZE, MANI_LEARNED_CHANNEL_SIZE);
+               maniMatchSection(d, maniMatchChannels) + (size_t)c * MANI_MATCH_CHANNEL_SIZE,
+               MANI_LEARNED_CHANNEL_SIZE);
     }
 }
 
@@ -469,8 +471,8 @@ static maniBuildResult Write(maniBuilder* builder, const maniLearnedModelSource*
     }
     LayHeader(s, t, data[0]);
     LayChannels(d, data[1]);
-    memcpy(data[2], d->times, (size_t)sizes[2]);
-    memcpy(data[3], d->normalization, (size_t)sizes[3]);
+    memcpy(data[2], maniMatchSection(d, maniMatchTimes), (size_t)sizes[2]);
+    memcpy(data[3], maniMatchSection(d, maniMatchNormalization), (size_t)sizes[3]);
     LayBones(s, data[4]);
     LayNetworks(s, data[5], data[6], data[7], data[8]);
     LayNames(s, data[9], data[10]);
@@ -508,8 +510,9 @@ static maniBuildResult Write(maniBuilder* builder, const maniLearnedModelSource*
 // The lists the counts name are given.
 MANI_NODISCARD static bool Given(const maniLearnedModelSource* s)
 {
-    return maniSkeletonValid(s->skeleton) && s->database != NULL && s->decompressor != NULL &&
-           s->stepper != NULL && (s->projectors != NULL || s->projectorCount == 0) &&
+    return maniSkeletonValid(s->skeleton) && maniMotionDatabaseValid(s->database) &&
+           s->decompressor != NULL && s->stepper != NULL &&
+           (s->projectors != NULL || s->projectorCount == 0) &&
            (s->scaledBones != NULL || s->scaledBoneCount == 0) &&
            (s->floatTracks != NULL || s->floatTrackCount == 0) &&
            (s->events != NULL || s->eventCount == 0);

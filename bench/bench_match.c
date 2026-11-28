@@ -287,13 +287,6 @@ static uint32_t Channels(uint32_t set, maniMatchChannelSource* out)
     return c;
 }
 
-static float LoadF32(const uint8_t* p)
-{
-    float v = 0.0f;
-    memcpy(&v, p, sizeof v);
-    return v;
-}
-
 // The tree: nodes over ranges of frames in tree order, each with its
 // box (n lows, n highs), its lowest frame and its entries' least bias;
 // leaves of at most leaf frames, split at the median of the widest
@@ -662,11 +655,16 @@ static maniResult SearchTree(const Tree* t, const maniMotionDatabase* d, const m
     s.jumpFrames = FramesApart(d, q->jumpThreshold);
     s.historyFrames = FramesApart(d, q->historyTime);
     uint32_t n = t->n;
+    float offsets[MANI_MAX_MATCH_FEATURES];
+    float scales[MANI_MAX_MATCH_FEATURES];
+    if (maniMotionDatabase_GetNormalization(d, offsets, scales, MANI_MAX_MATCH_FEATURES, NULL) !=
+        mani_success)
+    {
+        return mani_errorInvalid;
+    }
     for (uint32_t j = 0; j < n; ++j)
     {
-        float offset = LoadF32(d->normalization + 4 * (size_t)j);
-        float scale = LoadF32(d->normalization + 4 * (size_t)(n + j));
-        s.query[j] = (q->features[j] - offset) / scale;
+        s.query[j] = (q->features[j] - offsets[j]) / scales[j];
     }
     for (uint32_t k = 0; k < q->historyCount; ++k)
     {

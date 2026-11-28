@@ -8,11 +8,12 @@
 // transition costs, tag masks, exclusions near the continuing frame, at
 // clamped ends and around earlier picks) give the plain scan's frame and
 // cost bit for bit; then each rule on a database small enough to name
-// its frames; the refusals; and a blend between frames, bone facings made
-// unit again.
+// its frames; the refusals; a blend between frames, bone facings made
+// unit again; and bytes changed after the open.
 
 #include "bytes.h"
 #include "container.h"
+#include "file_tag.h"
 #include "match_file.h"
 #include "match_search.h"
 #include "match_tree.h"
@@ -24,6 +25,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static uint64_t s_state = 0x9E3779B97F4A7C15u;
@@ -320,8 +322,15 @@ static bool Passes(const Layout* l, const maniMatchQuery* q, uint32_t e)
     return (l->tags[e] & q->requiredTags) == q->requiredTags && (l->tags[e] & q->excludedTags) == 0;
 }
 
+// A frame bytes changed after the open leave out of the search.
+static uint32_t s_gone = MANI_MATCH_NO_FRAME;
+
 static bool Out(const Layout* l, const maniMatchQuery* q, uint32_t f)
 {
+    if (f == s_gone)
+    {
+        return true;
+    }
     uint32_t first = 0;
     uint32_t e = EntryOf(l, f, &first);
     if (!Passes(l, q, e) || (l->flags[e] & maniMatchEntryNoJump) != 0 || f == q->current)
@@ -688,6 +697,156 @@ static void TestBlend(void)
     CHECK(blended, "opposite facings left as blended");
 }
 
+// A layout the changed bytes test searches: at least 100 frames, leaf 8,
+// no biases, tags or entries never jumped to, so a query at a frame's
+// features picks it unless its features repeat.
+static void Plainer(Layout* l)
+{
+    do
+    {
+        Randomize(l);
+    } while (l->frames < 100);
+    l->leaf = 8;
+    for (uint32_t i = 0; i < l->entryCount; ++i)
+    {
+        l->biases[i] = 0.0f;
+        l->tags[i] = 0;
+        l->flags[i] &= ~(uint32_t)maniMatchEntryNoJump;
+    }
+}
+
+// A position whose frame's features no other frame repeats, in an entry
+// of more than 5 frames, and its frame.
+static uint32_t Lone(const Layout* l, const uint8_t* positions, uint32_t* frameOut)
+{
+    uint32_t n = 3 * l->channels;
+    for (uint32_t p = 0; p < l->frames; ++p)
+    {
+        uint32_t f = maniLoadU32(positions + (size_t)p * MANI_MATCH_POSITION_SIZE);
+        uint32_t first = 0;
+        bool lone = l->counts[EntryOf(l, f, &first)] > 5;
+        for (uint32_t g = 0; g < l->frames && lone; ++g)
+        {
+            lone = g == f || memcmp(&l->features[g * n], &l->features[f * n], 4 * (size_t)n) != 0;
+        }
+        if (lone)
+        {
+            *frameOut = f;
+            return p;
+        }
+    }
+    CHECK(false, "a frame of its own");
+    return 0;
+}
+
+// Whether the searches of a random query (or, with at, one at that
+// frame's features, no continuing frame and no picks) give the plain
+// scan's frame and cost, bit for bit.
+static bool AsScan(const maniMotionDatabase* d, uint32_t searches, uint32_t at)
+{
+    bool same = true;
+    for (uint32_t k = 0; k < searches; ++k)
+    {
+        maniMatchQuery q = RandomQuery(&s_layout);
+        if (at != MANI_MATCH_NO_FRAME)
+        {
+            uint32_t n = 3 * s_layout.channels;
+            for (uint32_t j = 0; j < n; ++j)
+            {
+                s_query[j] =
+                    s_layout.features[at * n + j] * s_layout.scales[j] + s_layout.offsets[j];
+            }
+            q = (maniMatchQuery){.features = s_query, .current = MANI_MATCH_NO_FRAME};
+        }
+        maniMatchResult want = Plain(&s_layout, &q);
+        maniMatchResult got = {0, 0.0f};
+        same = same && maniMotionDatabase_Search(d, &q, &got) == mani_success &&
+               got.frame == want.frame && memcmp(&got.cost, &want.cost, 4) == 0;
+    }
+    return same;
+}
+
+// Bytes changed after the open are read only within the file, and give
+// what the header says. On a database of at least 100 frames in a heap
+// block of exactly its length, against the plain scan: every split
+// node's second half made past the nodes, or its first half, scans the
+// frames as one leaf, and every leaf's word made a second half leaves it
+// a leaf by its frames (the last node named, after their own), the
+// scan's frame and cost each way; a position's frame made
+// past the frames (its entry's first frame past them too, so the frame is
+// not past the entry's) and its entry made past the entries each leave
+// that frame out, a query at its features picking another; a frame's
+// place made past the frames searches from the last position.
+static void TestChangedBytes(void)
+{
+    Plainer(&s_layout);
+    maniMotionDatabase written;
+    Write(&s_layout, &written);
+    size_t size = (size_t)written.size;
+    uint8_t* block = NULL;
+    uint8_t* bytes = TestExactCopy(size, &block);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_file, size);
+    maniMotionDatabase d;
+    CHECK(maniOpenMotionDatabase(bytes, size, &d).result == mani_success && d.nodeCount > 3,
+          "the copy opened, a tree of splits");
+    uint8_t* nodes = bytes + d.sections[8];
+    static uint32_t kept[1 << 12];
+    CHECK(d.nodeCount <= 1u << 12, "the nodes kept");
+    for (uint32_t k = 0; k < d.nodeCount; ++k)
+    {
+        kept[k] = maniLoadU32(nodes + (size_t)k * MANI_MATCH_NODE_SIZE);
+    }
+    const char* what[3] = {"second halves past the nodes: one leaf, the scan's pick",
+                           "second halves at the first: one leaf, the scan's pick",
+                           "leaves naming a second half: leaves still, the scan's pick"};
+    for (uint32_t c = 0; c < 3; ++c)
+    {
+        for (uint32_t k = 0; k < d.nodeCount; ++k)
+        {
+            bool split = kept[k] != 0;
+            const uint32_t words[3] = {split ? UINT32_MAX : 0u, split ? k + 1 : 0u,
+                                       split ? kept[k] : d.nodeCount - 1};
+            maniStoreU32(nodes + (size_t)k * MANI_MATCH_NODE_SIZE, words[c]);
+        }
+        CHECK(AsScan(&d, 50, MANI_MATCH_NO_FRAME), what[c]);
+        for (uint32_t k = 0; k < d.nodeCount; ++k)
+        {
+            maniStoreU32(nodes + (size_t)k * MANI_MATCH_NODE_SIZE, kept[k]);
+        }
+    }
+    uint8_t* positions = bytes + d.sections[9];
+    uint32_t frame = 0;
+    uint32_t p = Lone(&s_layout, positions, &frame);
+    uint8_t* at = positions + (size_t)p * MANI_MATCH_POSITION_SIZE;
+    uint32_t entry = maniLoadU32(at + 4);
+    uint8_t* first = bytes + d.sections[3] + (size_t)entry * MANI_MATCH_ENTRY_SIZE + 24;
+    uint32_t keptFirst = maniLoadU32(first);
+    CHECK(AsScan(&d, 1, frame), "a query at the frame picks it");
+    s_gone = frame;
+    maniStoreU32(at, d.frameCount + 5);
+    maniStoreU32(first, d.frameCount);
+    CHECK(AsScan(&d, 1, frame), "a position's frame past the frames: left out");
+    maniStoreU32(at, frame);
+    maniStoreU32(first, keptFirst);
+    maniStoreU32(at + 4, UINT32_MAX - 2);
+    CHECK(AsScan(&d, 1, frame), "a position's entry past the entries: left out");
+    maniStoreU32(at + 4, entry);
+    s_gone = MANI_MATCH_NO_FRAME;
+    uint8_t* place = bytes + d.sections[10] + 4 * (size_t)frame;
+    maniStoreU32(place, UINT32_MAX);
+    maniMatchQuery q = RandomQuery(&s_layout);
+    q.current = frame;
+    q.historyCount = 1;
+    q.history[0] = frame;
+    maniMatchResult r;
+    CHECK(maniMotionDatabase_Search(&d, &q, &r) == mani_success &&
+              (r.frame == MANI_MATCH_NO_FRAME || r.frame < d.frameCount),
+          "a place past the frames: a search from the last position");
+    maniStoreU32(place, p);
+    free(block);
+}
+
 int main(void)
 {
     TestAgainstScan();
@@ -695,5 +854,6 @@ int main(void)
     TestRules();
     TestRefusals();
     TestBlend();
+    TestChangedBytes();
     return s_failures == 0 ? 0 : 1;
 }

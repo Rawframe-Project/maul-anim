@@ -23,6 +23,7 @@ The library trains models itself, from a database, its clips and skeleton (`mani
 ## Not obvious
 
 - A database is tied to its skeleton and clips by identity; changing a clip means rebuilding the database.
+- Motion database views are checked by every call that takes them, as skeleton views are ([Skeletons and clips](skeletons-and-clips.md)). Their bytes changed after the open give some channels, entries and search results, read only within the file; a graph whose bound database view no longer checks holds its matching nodes where they are.
 - Features are normalized per channel, so channel weights compare channels directly; a channel that never varies is refused when building.
 - The node moves only while it is weighed; under a machine state that is not active it neither moves nor searches.
 - Training at the default sizes runs 500,000 iterations a stage; run it off the frame, a slice at a time.

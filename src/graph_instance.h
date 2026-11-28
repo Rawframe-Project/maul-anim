@@ -7,6 +7,7 @@
 #ifndef MAUL_ANIM_SRC_GRAPH_INSTANCE_H
 #define MAUL_ANIM_SRC_GRAPH_INSTANCE_H
 
+#include "match_view.h"
 #include "spring_view.h"
 
 #include "maul-anim/clip.h"
@@ -90,14 +91,16 @@ static inline uint32_t maniGraphBoundSlot(uint32_t slot, uint32_t count)
     return slot < count ? slot : count - 1u;
 }
 
-// The database a database slot binds; NULL for a graph without them.
+// The database a database slot binds; NULL for a graph without them,
+// and for a database whose view, the caller's, no longer checks.
 static inline const maniMotionDatabase* maniGraphBoundDatabase(const maniGraphBinding* binding,
                                                                uint32_t slot)
 {
     uint32_t count = binding->graph.databaseCount;
     const uint8_t* at = (const uint8_t*)(binding->clips + binding->graph.clipCount);
-    return count > 0 ? ((const maniMotionDatabase* const*)at)[maniGraphBoundSlot(slot, count)]
-                     : NULL;
+    const maniMotionDatabase* d =
+        count > 0 ? ((const maniMotionDatabase* const*)at)[maniGraphBoundSlot(slot, count)] : NULL;
+    return maniMotionDatabaseValid(d) ? d : NULL;
 }
 
 // The models a binding's model slots bind, in slot order: after its

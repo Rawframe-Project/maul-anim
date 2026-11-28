@@ -10,6 +10,7 @@
 #include "fpenv.h"
 #include "learned_build.h"
 #include "learned_file.h"
+#include "match_view.h"
 #include "skeleton_view.h"
 #include "train_data.h"
 #include "train_decompress.h"
@@ -207,7 +208,7 @@ static maniBuildResult CheckShapes(const maniLearnedTrainerSource* s, const mani
 
 MANI_NODISCARD static bool Given(const maniLearnedTrainerSource* s)
 {
-    return maniSkeletonValid(s->skeleton) && s->database != NULL &&
+    return maniSkeletonValid(s->skeleton) && maniMotionDatabaseValid(s->database) &&
            (s->clips != NULL || s->clipCount == 0) && s->projectors != NULL &&
            (s->floatTracks != NULL || s->floatTrackCount == 0) &&
            (s->events != NULL || s->eventCount == 0);

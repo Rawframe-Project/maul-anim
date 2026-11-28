@@ -24,6 +24,7 @@
 #include "fpenv.h"
 #include "invariant.h"
 #include "match_file.h"
+#include "match_view.h"
 
 #include "maul-anim/match.h"
 
@@ -52,16 +53,16 @@ typedef struct Entry
 
 static Entry EntryAt(const maniMotionDatabase* d, uint32_t i)
 {
-    const uint8_t* e = d->entries + (size_t)i * MANI_MATCH_ENTRY_SIZE;
+    const uint8_t* e = maniMatchEntryRecord(d, i);
     return (Entry){maniLoadU32(e + 4),  LoadF32(e + 8),      LoadF32(e + 12),    LoadF32(e + 16),
                    maniLoadU32(e + 20), maniLoadU32(e + 24), maniLoadU32(e + 28)};
 }
 
-// The entry holding a frame, as its position names it.
+// The entry holding a frame, as its position names it; UINT32_MAX for
+// one past the entries, in bytes changed since the open.
 static uint32_t EntryOf(const maniMotionDatabase* d, uint32_t frame)
 {
-    size_t position = maniLoadU32(d->places + 4 * (size_t)frame);
-    return maniLoadU32(d->positions + position * MANI_MATCH_POSITION_SIZE + 4);
+    return maniMatchPositionEntry(d, maniMatchPlaceOf(d, frame));
 }
 
 // What a search holds: the database, the query, the normalized query,
@@ -205,11 +206,10 @@ static float Cost(const Search* s, const uint8_t* f, float constant)
 static float Bound(const Search* s, uint32_t node)
 {
     uint32_t n = s->featureCount;
-    const uint8_t* low = s->d->boxes + 4 * 2 * (size_t)node * n;
+    const uint8_t* low = maniMatchSection(s->d, maniMatchBoxes) + 4 * 2 * (size_t)node * n;
     const uint8_t* high = low + 4 * (size_t)n;
     float best = s->bestCost;
-    float cost =
-        s->q->transitionCost + LoadF32(s->d->nodes + (size_t)node * MANI_MATCH_NODE_SIZE + 8);
+    float cost = s->q->transitionCost + LoadF32(maniMatchNodeRecord(s->d, node) + 8);
     for (uint32_t j = 0; j < n; ++j)
     {
         float q = s->query[j];
@@ -235,7 +235,7 @@ MANI_NODISCARD static bool Pruned(const Search* s, uint32_t node, float bound)
     {
         return bound > s->bestCost;
     }
-    uint32_t lowest = maniLoadU32(s->d->nodes + (size_t)node * MANI_MATCH_NODE_SIZE + 4);
+    uint32_t lowest = maniLoadU32(maniMatchNodeRecord(s->d, node) + 4);
     return s->continuing || lowest > s->best;
 }
 
@@ -257,15 +257,21 @@ static void ScanLeaf(Search* s, uint32_t first, uint32_t count)
     uint32_t n = s->featureCount;
     for (uint32_t p = first; p < first + count; ++p)
     {
-        const uint8_t* at = s->d->positions + (size_t)p * MANI_MATCH_POSITION_SIZE;
-        uint32_t frame = maniLoadU32(at);
-        uint32_t entry = maniLoadU32(at + 4);
+        // A frame or entry past the database's, in bytes changed since
+        // the open, is skipped.
+        uint32_t frame = maniLoadU32(maniMatchPositionRecord(s->d, p));
+        uint32_t entry = maniMatchPositionEntry(s->d, p);
+        if (frame >= s->d->frameCount || entry == UINT32_MAX)
+        {
+            continue;
+        }
         const Entry* e = Use(s, entry);
         if (!s->lastCandidate || frame >= s->lastStop || Excluded(s, entry, e, frame))
         {
             continue;
         }
-        float cost = Cost(s, s->d->features + 4 * (size_t)p * n, s->q->transitionCost + e->bias);
+        const uint8_t* features = maniMatchSection(s->d, maniMatchFeatures) + 4 * (size_t)p * n;
+        float cost = Cost(s, features, s->q->transitionCost + e->bias);
         // A tie wins over a lower best only when there is a best.
         bool better = cost < s->bestCost || (cost == s->bestCost && !s->continuing &&
                                              s->best != MANI_MATCH_NO_FRAME && frame < s->best);
@@ -316,8 +322,13 @@ static void Walk(Search* s)
         {
             continue;
         }
-        uint32_t second = maniLoadU32(d->nodes + (size_t)node * MANI_MATCH_NODE_SIZE);
-        if (second == 0)
+        // A leaf by its frames, as the open checked the tree: the walk
+        // goes as deep as the frames halve, whatever the bytes say. In
+        // bytes changed since the open, a node whose second half is not
+        // after its first (node + 1) and within the nodes scans its frames
+        // as one leaf.
+        uint32_t second = maniLoadU32(maniMatchNodeRecord(d, node));
+        if (count <= d->leafFrames || second <= node + 1 || second >= d->nodeCount)
         {
             ScanLeaf(s, first, count);
             continue;
@@ -374,6 +385,7 @@ MANI_NODISCARD static bool QueryValid(const maniMotionDatabase* d, const maniMat
 void maniMatchFacings(const maniMotionDatabase* database, float* features)
 {
     uint32_t n = database->featureCount;
+    const uint8_t* normalization = maniMatchSection(database, maniMatchNormalization);
     for (uint32_t c = 0; c < database->channelCount; ++c)
     {
         maniMatchChannel ch;
@@ -390,8 +402,8 @@ void maniMatchFacings(const maniMotionDatabase* database, float* features)
             float raw[3];
             for (uint32_t i = 0; i < 3; ++i)
             {
-                offset[i] = LoadF32(database->normalization + 4 * (size_t)(at + i));
-                scale[i] = LoadF32(database->normalization + 4 * (size_t)(n + at + i));
+                offset[i] = LoadF32(normalization + 4 * (size_t)(at + i));
+                scale[i] = LoadF32(normalization + 4 * (size_t)(n + at + i));
                 raw[i] = features[at + i] * scale[i] + offset[i];
             }
             float length = sqrtf((raw[0] * raw[0] + raw[1] * raw[1]) + raw[2] * raw[2]);
@@ -430,7 +442,7 @@ maniResult maniMatchSearch(const maniMotionDatabase* database, const maniMatchQu
 maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMatchQuery* query,
                                bool normalized, const float* continuing, maniMatchResult* resultOut)
 {
-    if (database == NULL || query == NULL || resultOut == NULL)
+    if (!maniMotionDatabaseValid(database) || query == NULL || resultOut == NULL)
     {
         return mani_errorInvalid;
     }
@@ -455,31 +467,37 @@ maniResult maniMatchSearchFrom(const maniMotionDatabase* database, const maniMat
     uint32_t n = database->featureCount;
     s.featureCount = n;
     s.historyCount = query->historyCount;
-    // No entry decoded yet: the first leaf frame decodes its own.
-    s.lastEntry = UINT32_MAX;
+    // No entry decoded yet: the first leaf frame decodes its own. The mark
+    // is no entry of a file, nor the none of a position past the entries.
+    s.lastEntry = UINT32_MAX - 1;
     s.last = (Entry){0, 0.0f, 0.0f, 0.0f, 0, 0, 0};
     s.lastStop = 0;
     s.lastCandidate = false;
     s.jumpFrames = FramesApart(database, query->jumpThreshold);
     s.historyFrames = FramesApart(database, query->historyTime);
+    const uint8_t* normalization = maniMatchSection(database, maniMatchNormalization);
     for (uint32_t j = 0; j < n; ++j)
     {
-        float offset = LoadF32(database->normalization + 4 * (size_t)j);
-        float scale = LoadF32(database->normalization + 4 * (size_t)(n + j));
+        float offset = LoadF32(normalization + 4 * (size_t)j);
+        float scale = LoadF32(normalization + 4 * (size_t)(n + j));
         s.query[j] = normalized ? query->features[j] : (query->features[j] - offset) / scale;
     }
     for (uint32_t k = 0; k < s.historyCount; ++k)
     {
         s.historyEntries[k] = EntryOf(database, query->history[k]);
     }
-    if (query->current != MANI_MATCH_NO_FRAME)
+    // A continuing frame whose entry is past the entries, in bytes changed
+    // since the open, is no candidate.
+    uint32_t entry =
+        query->current != MANI_MATCH_NO_FRAME ? EntryOf(database, query->current) : UINT32_MAX;
+    if (entry != UINT32_MAX)
     {
-        Entry e = EntryAt(database, EntryOf(database, query->current));
+        Entry e = EntryAt(database, entry);
         if (Candidate(&s, &e))
         {
-            size_t position = maniLoadU32(database->places + 4 * (size_t)query->current);
-            const uint8_t* f = continuing != NULL ? (const uint8_t*)continuing
-                                                  : database->features + 4 * position * n;
+            const uint8_t* f = continuing != NULL
+                                   ? (const uint8_t*)continuing
+                                   : maniMatchFrameFeatures(database, query->current);
             s.bestCost = Cost(&s, f, query->continuingBias + e.bias);
             s.best = query->current;
             s.continuing = true;

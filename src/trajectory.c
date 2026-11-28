@@ -18,6 +18,7 @@
 #include "elementary_float.h"
 #include "fpenv.h"
 #include "match_move.h"
+#include "match_view.h"
 #include "vecmath.h"
 
 #include "maul-anim/base.h"
@@ -118,7 +119,7 @@ static MANI_NOINLINE maniResult TrajectoryFeaturesWork(const maniMotionDatabase*
                                                        const maniTrajectory* sample,
                                                        float* positionOut, float* facingOut)
 {
-    if (database == NULL || root == NULL || sample == NULL)
+    if (!maniMotionDatabaseValid(database) || root == NULL || sample == NULL)
     {
         return mani_errorInvalid;
     }

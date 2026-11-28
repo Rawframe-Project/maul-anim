@@ -13,7 +13,9 @@
 #include "fpenv.h"
 #include "invariant.h"
 #include "match_file.h"
+#include "match_view.h"
 #include "text.h"
+#include "view.h"
 
 #include "maul-anim/base.h"
 #include "maul-anim/skeleton.h"
@@ -255,17 +257,6 @@ static maniFileResult CheckSizes(const Sections* s, maniMotionDatabase* d)
             return Fail(s->entry[k]);
         }
     }
-    d->channels = s->data[1];
-    d->times = s->data[2];
-    d->clips = s->data[3];
-    d->entries = s->data[4];
-    d->normalization = s->data[5];
-    d->features = s->data[6];
-    d->boxes = s->data[7];
-    d->names = s->data[8];
-    d->nodes = s->data[10];
-    d->positions = s->data[11];
-    d->places = s->data[12];
     d->namesSize = s->sizes[8];
     // The mirror map's identity, not 0, or nothing.
     if (s->sizes[9] != 0 && s->sizes[9] != 8)
@@ -282,7 +273,7 @@ static maniFileResult CheckSizes(const Sections* s, maniMotionDatabase* d)
 
 // A float track's name in the names section, UTF-8; any other kind's
 // offset and length 0.
-MANI_NODISCARD static bool NameValid(const maniMotionDatabase* d, uint32_t kind, const uint8_t* e)
+MANI_NODISCARD static bool NameValid(const Sections* s, uint32_t kind, const uint8_t* e)
 {
     uint32_t offset = maniLoadU32(e + 32);
     uint32_t length = maniLoadU32(e + 36);
@@ -290,14 +281,14 @@ MANI_NODISCARD static bool NameValid(const maniMotionDatabase* d, uint32_t kind,
     {
         return offset == 0 && length == 0;
     }
-    return length > 0 && offset <= d->namesSize && length <= d->namesSize - offset &&
-           maniValidUtf8(d->names + offset, length);
+    return length > 0 && offset <= s->sizes[8] && length <= s->sizes[8] - offset &&
+           maniValidUtf8(s->data[8] + offset, length);
 }
 
 // One channel's words in order (kind, bone, axis, times, first time,
 // first feature, features, weight, name), the first wrong one's place.
-static uint32_t ChannelWrong(const maniMotionDatabase* d, const uint8_t* e, uint32_t timeAt,
-                             uint32_t featureAt)
+static uint32_t ChannelWrong(const maniMotionDatabase* d, const Sections* s, const uint8_t* e,
+                             uint32_t timeAt, uint32_t featureAt)
 {
     uint32_t kind = maniLoadU32(e);
     uint32_t times = maniLoadU32(e + 12);
@@ -313,7 +304,7 @@ static uint32_t ChannelWrong(const maniMotionDatabase* d, const uint8_t* e, uint
         maniLoadU32(e + 20) == featureAt,
         maniLoadU32(e + 24) == maniMatchChannelWidth(kind) * times,
         weight > 0.0f && weight < HUGE_VALF,
-        NameValid(d, kind, e)};
+        NameValid(s, kind, e)};
     for (uint32_t k = 0; k < 9; ++k)
     {
         if (!valid[k])
@@ -330,9 +321,9 @@ static maniFileResult CheckChannels(const maniMotionDatabase* d, const Sections*
     uint32_t featureAt = 0;
     for (uint32_t c = 0; c < d->channelCount; ++c)
     {
-        const uint8_t* e = d->channels + (size_t)c * MANI_MATCH_CHANNEL_SIZE;
+        const uint8_t* e = s->data[1] + (size_t)c * MANI_MATCH_CHANNEL_SIZE;
         uint64_t here = s->at[1] + (uint64_t)c * MANI_MATCH_CHANNEL_SIZE;
-        uint32_t wrong = ChannelWrong(d, e, timeAt, featureAt);
+        uint32_t wrong = ChannelWrong(d, s, e, timeAt, featureAt);
         if (wrong != UINT32_MAX)
         {
             return Fail(here + wrong);
@@ -350,7 +341,7 @@ static maniFileResult CheckChannels(const maniMotionDatabase* d, const Sections*
     }
     for (uint32_t t = 0; t < d->timeCount; ++t)
     {
-        float time = LoadF32(d->times + 4 * (size_t)t);
+        float time = LoadF32(s->data[2] + 4 * (size_t)t);
         if (!(fabsf(time) <= MANI_MAX_MATCH_REACH))
         {
             return Fail(s->at[2] + 4 * (uint64_t)t);
@@ -395,7 +386,7 @@ static maniFileResult CheckEntries(const maniMotionDatabase* d, const Sections* 
     uint64_t frameAt = 0;
     for (uint32_t i = 0; i < d->entryCount; ++i)
     {
-        const uint8_t* e = d->entries + (size_t)i * MANI_MATCH_ENTRY_SIZE;
+        const uint8_t* e = s->data[4] + (size_t)i * MANI_MATCH_ENTRY_SIZE;
         uint64_t here = s->at[4] + (uint64_t)i * MANI_MATCH_ENTRY_SIZE;
         uint32_t wrong = EntryWrong(d, e, frameAt);
         if (wrong != UINT32_MAX)
@@ -416,7 +407,7 @@ static maniFileResult CheckValues(const maniMotionDatabase* d, const Sections* s
 {
     for (uint32_t k = 0; k < 2 * d->featureCount; ++k)
     {
-        float v = LoadF32(d->normalization + 4 * (size_t)k);
+        float v = LoadF32(s->data[5] + 4 * (size_t)k);
         bool scale = k >= d->featureCount;
         if (!(scale ? v > 0.0f && v < HUGE_VALF : fabsf(v) < HUGE_VALF))
         {
@@ -426,7 +417,7 @@ static maniFileResult CheckValues(const maniMotionDatabase* d, const Sections* s
     uint64_t count = (uint64_t)d->frameCount * d->featureCount;
     for (uint64_t k = 0; k < count; ++k)
     {
-        if (!(fabsf(LoadF32(d->features + 4 * k)) < HUGE_VALF))
+        if (!(fabsf(LoadF32(s->data[6] + 4 * k)) < HUGE_VALF))
         {
             return Fail(s->at[6] + 4 * k);
         }
@@ -442,26 +433,26 @@ static maniFileResult CheckOrder(const maniMotionDatabase* d, const Sections* s)
     for (uint32_t p = 0; p < d->frameCount; ++p)
     {
         uint64_t at = (uint64_t)p * MANI_MATCH_POSITION_SIZE;
-        uint32_t frame = maniLoadU32(d->positions + at);
+        uint32_t frame = maniLoadU32(s->data[11] + at);
         if (frame >= d->frameCount)
         {
             return Fail(s->at[11] + at);
         }
-        if (maniLoadU32(d->places + 4 * (size_t)frame) != p)
+        if (maniLoadU32(s->data[12] + 4 * (size_t)frame) != p)
         {
             return Fail(s->at[12] + 4 * (uint64_t)frame);
         }
     }
     for (uint32_t e = 0; e < d->entryCount; ++e)
     {
-        const uint8_t* entry = d->entries + (size_t)e * MANI_MATCH_ENTRY_SIZE;
+        const uint8_t* entry = s->data[4] + (size_t)e * MANI_MATCH_ENTRY_SIZE;
         uint32_t first = maniLoadU32(entry + 24);
         uint32_t count = maniLoadU32(entry + 28);
         for (uint32_t f = first; f < first + count; ++f)
         {
-            uint64_t p = maniLoadU32(d->places + 4 * (size_t)f);
+            uint64_t p = maniLoadU32(s->data[12] + 4 * (size_t)f);
             uint64_t at = p * MANI_MATCH_POSITION_SIZE + 4;
-            if (maniLoadU32(d->positions + at) != e)
+            if (maniLoadU32(s->data[11] + at) != e)
             {
                 return Fail(s->at[11] + at);
             }
@@ -476,15 +467,15 @@ static maniFileResult CheckLeaf(const maniMotionDatabase* d, const Sections* s,
                                 const maniMatchVisit* v)
 {
     uint64_t nodeAt = (uint64_t)v->node * MANI_MATCH_NODE_SIZE;
-    const uint8_t* node = d->nodes + nodeAt;
+    const uint8_t* node = s->data[10] + nodeAt;
     uint32_t lowest = UINT32_MAX;
     float bias = HUGE_VALF;
     for (uint32_t p = v->first; p < v->first + v->count; ++p)
     {
-        const uint8_t* at = d->positions + (size_t)p * MANI_MATCH_POSITION_SIZE;
+        const uint8_t* at = s->data[11] + (size_t)p * MANI_MATCH_POSITION_SIZE;
         uint32_t frame = maniLoadU32(at);
         lowest = frame < lowest ? frame : lowest;
-        const uint8_t* entry = d->entries + (size_t)maniLoadU32(at + 4) * MANI_MATCH_ENTRY_SIZE;
+        const uint8_t* entry = s->data[4] + (size_t)maniLoadU32(at + 4) * MANI_MATCH_ENTRY_SIZE;
         bias = maniMatchLower(bias, LoadF32(entry + 16));
     }
     const uint32_t words[3] = {0, lowest, Bits(bias)};
@@ -503,17 +494,17 @@ static maniFileResult CheckLeaf(const maniMotionDatabase* d, const Sections* s,
         float high = -HUGE_VALF;
         for (uint32_t p = v->first; p < v->first + v->count; ++p)
         {
-            float x = LoadF32(d->features + 4 * ((uint64_t)p * n + j));
+            float x = LoadF32(s->data[6] + 4 * ((uint64_t)p * n + j));
             low = maniMatchLower(low, x);
             high = maniMatchHigher(high, x);
         }
         uint64_t lowAt = boxAt + 4 * (uint64_t)j;
         uint64_t highAt = lowAt + 4 * n;
-        if (maniLoadU32(d->boxes + lowAt) != Bits(low))
+        if (maniLoadU32(s->data[7] + lowAt) != Bits(low))
         {
             return Fail(s->at[7] + lowAt);
         }
-        if (maniLoadU32(d->boxes + highAt) != Bits(high))
+        if (maniLoadU32(s->data[7] + highAt) != Bits(high))
         {
             return Fail(s->at[7] + highAt);
         }
@@ -528,29 +519,29 @@ static maniFileResult CheckSplit(const maniMotionDatabase* d, const Sections* s,
                                  uint32_t second)
 {
     uint64_t nodeAt = (uint64_t)k * MANI_MATCH_NODE_SIZE;
-    const uint8_t* a = d->nodes + nodeAt + MANI_MATCH_NODE_SIZE;
-    const uint8_t* b = d->nodes + (size_t)second * MANI_MATCH_NODE_SIZE;
+    const uint8_t* a = s->data[10] + nodeAt + MANI_MATCH_NODE_SIZE;
+    const uint8_t* b = s->data[10] + (size_t)second * MANI_MATCH_NODE_SIZE;
     uint32_t lowest =
         maniLoadU32(a + 4) < maniLoadU32(b + 4) ? maniLoadU32(a + 4) : maniLoadU32(b + 4);
     float bias = maniMatchLower(LoadF32(a + 8), LoadF32(b + 8));
-    if (maniLoadU32(d->nodes + nodeAt + 4) != lowest)
+    if (maniLoadU32(s->data[10] + nodeAt + 4) != lowest)
     {
         return Fail(s->at[10] + nodeAt + 4);
     }
-    if (maniLoadU32(d->nodes + nodeAt + 8) != Bits(bias))
+    if (maniLoadU32(s->data[10] + nodeAt + 8) != Bits(bias))
     {
         return Fail(s->at[10] + nodeAt + 8);
     }
     uint64_t width = 2 * (uint64_t)d->featureCount;
     uint64_t boxAt = 4 * width * k;
-    const uint8_t* boxA = d->boxes + boxAt + 4 * width;
-    const uint8_t* boxB = d->boxes + 4 * width * second;
+    const uint8_t* boxA = s->data[7] + boxAt + 4 * width;
+    const uint8_t* boxB = s->data[7] + 4 * width * second;
     for (uint32_t j = 0; j < width; ++j)
     {
         float x = LoadF32(boxA + 4 * (size_t)j);
         float y = LoadF32(boxB + 4 * (size_t)j);
         float v = j < d->featureCount ? maniMatchLower(x, y) : maniMatchHigher(x, y);
-        if (maniLoadU32(d->boxes + boxAt + 4 * (uint64_t)j) != Bits(v))
+        if (maniLoadU32(s->data[7] + boxAt + 4 * (uint64_t)j) != Bits(v))
         {
             return Fail(s->at[7] + boxAt + 4 * (uint64_t)j);
         }
@@ -569,7 +560,7 @@ static maniFileResult CheckTree(const maniMotionDatabase* d, const Sections* s)
     while (maniMatchWalkNext(&walk, &v))
     {
         uint64_t halfAt = (uint64_t)v.halfOf * MANI_MATCH_NODE_SIZE;
-        if (v.halfOf != UINT32_MAX && maniLoadU32(d->nodes + halfAt) != v.node)
+        if (v.halfOf != UINT32_MAX && maniLoadU32(s->data[10] + halfAt) != v.node)
         {
             return Fail(s->at[10] + halfAt);
         }
@@ -581,7 +572,7 @@ static maniFileResult CheckTree(const maniMotionDatabase* d, const Sections* s)
     }
     for (uint32_t k = d->nodeCount; k-- > 0;)
     {
-        uint32_t second = maniLoadU32(d->nodes + (size_t)k * MANI_MATCH_NODE_SIZE);
+        uint32_t second = maniLoadU32(s->data[10] + (size_t)k * MANI_MATCH_NODE_SIZE);
         maniFileResult r = second != 0 ? CheckSplit(d, s, k, second) : kOk;
         if (r.result != mani_success)
         {
@@ -625,6 +616,16 @@ static MANI_NOINLINE maniFileResult OpenMotionDatabaseWork(const void* bytes, si
         return Fail(40);
     }
     d.identity = c.identity;
+    d.base = bytes;
+    d.size = size;
+    // The sections by their tags, the mirror's and the leaf size's left
+    // out: the view holds both as values.
+    const uint32_t tags[11] = {1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12};
+    for (uint32_t k = 0; k < 11; ++k)
+    {
+        d.sections[k] = s.at[tags[k]];
+    }
+    d.cookie = MANI_VIEW_COOKIE(maniKindMotionDatabase);
     *databaseOut = d;
     return kOk;
 }
@@ -639,49 +640,103 @@ maniFileResult maniOpenMotionDatabase(const void* bytes, size_t size,
     return result;
 }
 
+MANI_NOINLINE bool maniMotionDatabaseValid(const maniMotionDatabase* database)
+{
+    const maniMotionDatabase* d = database;
+    if (d == NULL || d->cookie != MANI_VIEW_COOKIE(maniKindMotionDatabase) || d->base == NULL ||
+        d->frameCount - 1u >= MANI_MAX_MATCH_FRAMES ||
+        d->featureCount - 1u >= MANI_MAX_MATCH_FEATURES || d->entryCount == 0 ||
+        d->nodeCount == 0 || !(d->sampleRate > 0.0f && d->sampleRate <= MANI_MAX_MATCH_RATE) ||
+        (d->leafFrames != 8 && d->leafFrames != 16 && d->leafFrames != 32))
+    {
+        return false;
+    }
+    uint64_t n = d->featureCount;
+    uint64_t frames = d->frameCount;
+    const uint64_t bytes[11] = {(uint64_t)d->channelCount * MANI_MATCH_CHANNEL_SIZE,
+                                4 * (uint64_t)d->timeCount,
+                                8 * (uint64_t)d->clipCount,
+                                (uint64_t)d->entryCount * MANI_MATCH_ENTRY_SIZE,
+                                8 * n,
+                                4 * n * frames,
+                                8 * n * d->nodeCount,
+                                d->namesSize,
+                                (uint64_t)d->nodeCount * MANI_MATCH_NODE_SIZE,
+                                frames * MANI_MATCH_POSITION_SIZE,
+                                4 * frames};
+    bool fits = true;
+    for (uint32_t k = 0; k < 11; ++k)
+    {
+        fits = fits && maniViewFits(d->sections[k], bytes[k], d->size);
+    }
+    return fits;
+}
+
 uint64_t maniMotionDatabase_GetIdentity(const maniMotionDatabase* database)
 {
-    return database != NULL ? database->identity : 0;
+    return maniMotionDatabaseValid(database) ? database->identity : 0;
 }
 
 uint64_t maniMotionDatabase_GetMirrorMapIdentity(const maniMotionDatabase* database)
 {
-    return database != NULL ? database->mirrorMapIdentity : 0;
+    return maniMotionDatabaseValid(database) ? database->mirrorMapIdentity : 0;
 }
 
 uint64_t maniMotionDatabase_GetSkeletonIdentity(const maniMotionDatabase* database)
 {
-    return database != NULL ? database->skeletonIdentity : 0;
+    return maniMotionDatabaseValid(database) ? database->skeletonIdentity : 0;
 }
 
 uint64_t maniMotionDatabase_GetClipIdentity(const maniMotionDatabase* database, uint32_t clip)
 {
-    if (database == NULL || clip >= database->clipCount)
+    if (!maniMotionDatabaseValid(database) || clip >= database->clipCount)
     {
         return 0;
     }
-    return maniLoadU64(database->clips + 8 * (size_t)clip);
+    return maniLoadU64(maniMatchSection(database, maniMatchClips) + 8 * (size_t)clip);
 }
 
 maniResult maniMotionDatabase_GetChannel(const maniMotionDatabase* database, uint32_t channel,
                                          maniMatchChannel* channelOut)
 {
-    if (database == NULL || channelOut == NULL || channel >= database->channelCount)
+    if (!maniMotionDatabaseValid(database) || channelOut == NULL ||
+        channel >= database->channelCount)
     {
         return mani_errorInvalid;
     }
-    const uint8_t* e = database->channels + (size_t)channel * MANI_MATCH_CHANNEL_SIZE;
+    const uint8_t* e =
+        maniMatchSection(database, maniMatchChannels) + (size_t)channel * MANI_MATCH_CHANNEL_SIZE;
+    // In bytes changed since the open, a kind past the last is a float
+    // track, a bone past the skeleton none, an axis past the six the
+    // first, and the times and features past the database's are cut at
+    // their end, and the times past what the features hold.
+    uint32_t kind = maniLoadU32(e);
+    kind = kind <= maniMatchFloatTrack ? kind : maniMatchFloatTrack;
+    uint32_t bone = maniLoadU32(e + 4);
+    uint32_t axis = maniLoadU32(e + 8);
+    uint32_t firstTime = maniLoadU32(e + 16);
+    firstTime = firstTime < database->timeCount ? firstTime : database->timeCount;
     uint32_t count = maniLoadU32(e + 12);
-    MANI_ASSERT(count <= MANI_MAX_MATCH_TIMES &&
-                maniLoadU32(e + 16) + (uint64_t)count <= database->timeCount);
-    *channelOut = (maniMatchChannel){.kind = maniLoadU32(e),
-                                     .bone = maniLoadU32(e + 4),
-                                     .axis = maniLoadU32(e + 8),
-                                     .timeCount = count,
-                                     .weight = LoadF32(e + 28),
-                                     .firstFeature = maniLoadU32(e + 20),
-                                     .featureCount = maniLoadU32(e + 24)};
-    memcpy(channelOut->times, database->times + 4 * (size_t)maniLoadU32(e + 16), 4 * (size_t)count);
+    uint32_t times = database->timeCount - firstTime;
+    times = times < MANI_MAX_MATCH_TIMES ? times : MANI_MAX_MATCH_TIMES;
+    count = count < times ? count : times;
+    uint32_t firstFeature = maniLoadU32(e + 20);
+    firstFeature = firstFeature < database->featureCount ? firstFeature : database->featureCount;
+    uint32_t features = maniLoadU32(e + 24);
+    uint32_t room = database->featureCount - firstFeature;
+    features = features < room ? features : room;
+    uint32_t width = maniMatchChannelWidth(kind);
+    count = count < features / width ? count : features / width;
+    *channelOut =
+        (maniMatchChannel){.kind = kind,
+                           .bone = bone < database->skeletonBoneCount ? bone : MANI_NO_BONE,
+                           .axis = axis <= maniMatchAxisNegativeZ ? axis : maniMatchAxisX,
+                           .timeCount = count,
+                           .weight = LoadF32(e + 28),
+                           .firstFeature = firstFeature,
+                           .featureCount = features};
+    memcpy(channelOut->times, maniMatchSection(database, maniMatchTimes) + 4 * (size_t)firstTime,
+           4 * (size_t)count);
     return mani_success;
 }
 
@@ -692,34 +747,51 @@ const char* maniMotionDatabase_GetChannelName(const maniMotionDatabase* database
     {
         *lengthOut = 0;
     }
-    if (database == NULL || channel >= database->channelCount)
+    if (!maniMotionDatabaseValid(database) || channel >= database->channelCount)
     {
         return NULL;
     }
-    const uint8_t* e = database->channels + (size_t)channel * MANI_MATCH_CHANNEL_SIZE;
+    const uint8_t* e =
+        maniMatchSection(database, maniMatchChannels) + (size_t)channel * MANI_MATCH_CHANNEL_SIZE;
     if (maniLoadU32(e) != maniMatchFloatTrack)
     {
         return NULL;
     }
-    MANI_ASSERT((uint64_t)maniLoadU32(e + 32) + maniLoadU32(e + 36) <= database->namesSize);
+    // A name in bytes changed since the open past the names is empty, at
+    // the names' start.
+    uint64_t offset = maniLoadU32(e + 32);
+    uint64_t length = maniLoadU32(e + 36);
+    bool named = maniViewFits(offset, length, database->namesSize);
     if (lengthOut != NULL)
     {
-        *lengthOut = maniLoadU32(e + 36);
+        *lengthOut = named ? (size_t)length : 0;
     }
-    return (const char*)(database->names + maniLoadU32(e + 32));
+    return (const char*)maniMatchSection(database, maniMatchNames) + (named ? offset : 0);
 }
 
 maniResult maniMotionDatabase_GetEntry(const maniMotionDatabase* database, uint32_t entry,
                                        maniMatchEntry* entryOut)
 {
-    if (database == NULL || entryOut == NULL || entry >= database->entryCount)
+    if (!maniMotionDatabaseValid(database) || entryOut == NULL || entry >= database->entryCount)
     {
         return mani_errorInvalid;
     }
-    const uint8_t* e = database->entries + (size_t)entry * MANI_MATCH_ENTRY_SIZE;
-    *entryOut = (maniMatchEntry){maniLoadU32(e),      maniLoadU32(e + 4), LoadF32(e + 8),
-                                 LoadF32(e + 12),     LoadF32(e + 16),    maniLoadU32(e + 20),
-                                 maniLoadU32(e + 24), maniLoadU32(e + 28)};
+    const uint8_t* e = maniMatchEntryRecord(database, entry);
+    // In bytes changed since the open, a clip past the clips is clip 0
+    // and the frames past the frames are cut at their end.
+    uint32_t clip = maniLoadU32(e);
+    uint32_t first = maniLoadU32(e + 24);
+    first = first < database->frameCount ? first : database->frameCount;
+    uint32_t frames = maniLoadU32(e + 28);
+    uint32_t room = database->frameCount - first;
+    *entryOut = (maniMatchEntry){clip < database->clipCount ? clip : 0u,
+                                 maniLoadU32(e + 4),
+                                 LoadF32(e + 8),
+                                 LoadF32(e + 12),
+                                 LoadF32(e + 16),
+                                 maniLoadU32(e + 20),
+                                 first,
+                                 frames < room ? frames : room};
     return mani_success;
 }
 
@@ -727,25 +799,26 @@ static MANI_NOINLINE maniResult MotionDatabaseFrameWork(const maniMotionDatabase
                                                         uint32_t frame, uint32_t* entryOut,
                                                         float* timeOut)
 {
-    if (database == NULL || entryOut == NULL || timeOut == NULL || frame >= database->frameCount)
+    if (!maniMotionDatabaseValid(database) || entryOut == NULL || timeOut == NULL ||
+        frame >= database->frameCount)
     {
         return mani_errorInvalid;
     }
     // The entry whose frames hold it: the last whose first is at most it.
     // The opener checked that the entries' frames follow each other from
-    // 0 to the frame count, so one holds every frame.
-    MANI_ASSERT(database->entryCount >= 1);
+    // 0 to the frame count, so one holds every frame; in bytes changed
+    // since the open, the search still ends at an entry, and the time is
+    // some time.
     uint32_t low = 0;
     uint32_t high = database->entryCount - 1;
     while (low < high)
     {
         uint32_t mid = low + (high - low + 1) / 2;
-        uint32_t first = maniLoadU32(database->entries + (size_t)mid * MANI_MATCH_ENTRY_SIZE + 24);
+        uint32_t first = maniLoadU32(maniMatchEntryRecord(database, mid) + 24);
         low = first <= frame ? mid : low;
         high = first <= frame ? high : mid - 1;
     }
-    const uint8_t* e = database->entries + (size_t)low * MANI_MATCH_ENTRY_SIZE;
-    MANI_ASSERT(maniLoadU32(e + 24) <= frame && frame - maniLoadU32(e + 24) < maniLoadU32(e + 28));
+    const uint8_t* e = maniMatchEntryRecord(database, low);
     *entryOut = low;
     *timeOut =
         maniMatchFrameTime(LoadF32(e + 8), frame - maniLoadU32(e + 24), database->sampleRate);
@@ -764,7 +837,8 @@ maniResult maniMotionDatabase_GetFrame(const maniMotionDatabase* database, uint3
 maniResult maniMotionDatabase_GetFeatures(const maniMotionDatabase* database, uint32_t frame,
                                           float* featuresOut, uint32_t capacity, uint32_t* countOut)
 {
-    if (database == NULL || (featuresOut == NULL && capacity > 0) || frame >= database->frameCount)
+    if (!maniMotionDatabaseValid(database) || (featuresOut == NULL && capacity > 0) ||
+        frame >= database->frameCount)
     {
         return mani_errorInvalid;
     }
@@ -776,9 +850,7 @@ maniResult maniMotionDatabase_GetFeatures(const maniMotionDatabase* database, ui
     {
         return mani_errorCapacity;
     }
-    size_t position = maniLoadU32(database->places + 4 * (size_t)frame);
-    MANI_ASSERT(position < database->frameCount);
-    memcpy(featuresOut, database->features + 4 * position * database->featureCount,
+    memcpy(featuresOut, maniMatchFrameFeatures(database, frame),
            4 * (size_t)database->featureCount);
     return mani_success;
 }
@@ -787,7 +859,8 @@ maniResult maniMotionDatabase_GetNormalization(const maniMotionDatabase* databas
                                                float* offsetsOut, float* scalesOut,
                                                uint32_t capacity, uint32_t* countOut)
 {
-    if (database == NULL || (offsetsOut == NULL && scalesOut == NULL && capacity > 0))
+    if (!maniMotionDatabaseValid(database) ||
+        (offsetsOut == NULL && scalesOut == NULL && capacity > 0))
     {
         return mani_errorInvalid;
     }
@@ -802,11 +875,11 @@ maniResult maniMotionDatabase_GetNormalization(const maniMotionDatabase* databas
     size_t bytes = 4 * (size_t)database->featureCount;
     if (offsetsOut != NULL)
     {
-        memcpy(offsetsOut, database->normalization, bytes);
+        memcpy(offsetsOut, maniMatchSection(database, maniMatchNormalization), bytes);
     }
     if (scalesOut != NULL)
     {
-        memcpy(scalesOut, database->normalization + bytes, bytes);
+        memcpy(scalesOut, maniMatchSection(database, maniMatchNormalization) + bytes, bytes);
     }
     return mani_success;
 }

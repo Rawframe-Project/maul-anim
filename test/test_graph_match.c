@@ -790,6 +790,41 @@ static void TestBindRefuses(void)
           "bound again as built");
 }
 
+// After the bind, the bound database's view, the caller's, made to fail
+// its check (its base made NULL): the matching node, due to search, holds
+// its entry and playhead, and the evaluation and saving read nothing
+// through it.
+static void TestViewChangedAfterBind(void)
+{
+    static maniMotionDatabase held;
+    held = s_database;
+    const maniGraphDatabaseSource slot[1] = {{&held, "moves", 5}};
+    MatchParameters();
+    maniGraphNodeSource nodes[2] = {MatchNode(0.2f), Above(0)};
+    maniGraph g;
+    maniGraphInstance* instance = MakeMatch((maniGraphSource){.parameters = s_matchParameters,
+                                                              .nodes = nodes,
+                                                              .databases = slot,
+                                                              .parameterCount = 4,
+                                                              .nodeCount = 2,
+                                                              .databaseCount = 1,
+                                                              .output = 1},
+                                            &g);
+    Update(instance, 0.0f);
+    Update(instance, 0.1f);
+    uint32_t entry = EntryOf(instance, &g, 0);
+    double time = State(instance, &g, 0)->time;
+    held.base = NULL;
+    Update(instance, 0.25f);
+    static uint8_t saved[1 << 14];
+    size_t size = 0;
+    CHECK(Playing(instance, &g, 0, entry, time) &&
+              maniGraphInstance_Evaluate(instance, s_scratch, sizeof s_scratch, s_pose) ==
+                  mani_success &&
+              maniGraphInstance_Save(instance, saved, sizeof saved, &size) == mani_success,
+          "a view that no longer checks: the node held, evaluated and saved");
+}
+
 int main(void)
 {
     Open();
@@ -815,5 +850,6 @@ int main(void)
     TestMirrored();
     TestChangedBytes();
     TestBindRefuses();
+    TestViewChangedAfterBind();
     return s_failures == 0 ? 0 : 1;
 }
