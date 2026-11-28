@@ -30,7 +30,9 @@
 
 #include "maul-anim/match.h"
 #include "maul-anim/matchbuild.h"
+#include "maul-anim/trajectory.h"
 
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -905,6 +907,302 @@ static void TestLeafSection(void)
           "a leaf size's section of the wrong size");
 }
 
+// A heap block of exactly the database just built, opened from it.
+static uint8_t* OpenCopy(maniMotionDatabase* out, uint8_t** blockOut)
+{
+    uint8_t* bytes = TestExactCopy(s_size, blockOut);
+    CHECK(bytes != NULL, "a block of the file's length");
+    memcpy(bytes, s_database, s_size);
+    CHECK(maniOpenMotionDatabase(bytes, s_size, out).result == mani_success, "opens the copy");
+    return bytes;
+}
+
+// Whether every call refuses a view: the documented none from each
+// getter, mani_errorInvalid from the others. The mirror map's identity is
+// read from a copy that names one, so that a view taken as given would
+// show it.
+static bool ViewRefused(const maniMotionDatabase* d)
+{
+    maniMotionDatabase named;
+    memset(&named, 0, sizeof named);
+    if (d != NULL)
+    {
+        named = *d;
+        named.mirrorMapIdentity |= 1u;
+    }
+    maniMatchChannel ch;
+    maniMatchEntry e;
+    uint32_t entry = 0;
+    float time = 0.0f;
+    static float features[MANI_MAX_MATCH_FEATURES];
+    static float query[MANI_MAX_MATCH_FEATURES];
+    size_t length = 1;
+    maniMatchQuery q = {.features = query, .current = MANI_MATCH_NO_FRAME};
+    maniMatchResult r;
+    maniTrajectory t;
+    memset(&t, 0, sizeof t);
+    t.rotation.w = 1.0f;
+    return maniMotionDatabase_GetIdentity(d) == 0 &&
+           maniMotionDatabase_GetMirrorMapIdentity(d != NULL ? &named : NULL) == 0 &&
+           maniMotionDatabase_GetSkeletonIdentity(d) == 0 &&
+           maniMotionDatabase_GetClipIdentity(d, 0) == 0 &&
+           maniMotionDatabase_GetChannel(d, 0, &ch) == mani_errorInvalid &&
+           maniMotionDatabase_GetChannelName(d, 0, &length) == NULL && length == 0 &&
+           maniMotionDatabase_GetEntry(d, 0, &e) == mani_errorInvalid &&
+           maniMotionDatabase_GetFrame(d, 0, &entry, &time) == mani_errorInvalid &&
+           maniMotionDatabase_GetFeatures(d, 0, features, MANI_MAX_MATCH_FEATURES, NULL) ==
+               mani_errorInvalid &&
+           maniMotionDatabase_GetNormalization(d, features, NULL, MANI_MAX_MATCH_FEATURES, NULL) ==
+               mani_errorInvalid &&
+           maniMotionDatabase_Search(d, &q, &r) == mani_errorInvalid &&
+           maniMotionDatabase_ComputeTrajectoryFeatures(d, &t, &t, features, NULL) ==
+               mani_errorInvalid;
+}
+
+// The view is state a caller holds, checked by every call against the
+// bytes and size the open was given: counts edited past the file, frame,
+// feature, entry and node counts out of range, a rate out of range, a
+// leaf size the builder does not write, sections placed past the file,
+// one view's counts and sections over a database of fewer channels, a
+// zeroed view and another kind's cookie are each refused.
+static void TestViewChecked(void)
+{
+    maniMotionDatabaseSource source = Source();
+    CHECK(Build(&source).result == mani_success, "a database builds");
+    maniMotionDatabase big;
+    uint8_t* bigBlock = NULL;
+    (void)OpenCopy(&big, &bigBlock);
+    source.channelCount = 2;
+    CHECK(Build(&source).result == mani_success, "a database of two channels builds");
+    maniMotionDatabase small;
+    uint8_t* smallBlock = NULL;
+    (void)OpenCopy(&small, &smallBlock);
+    const char* counts[8] = {"channels", "times",  "clips", "entries",
+                             "features", "frames", "nodes", "name bytes"};
+    for (uint32_t k = 0; k < 8; ++k)
+    {
+        maniMotionDatabase edited = big;
+        uint32_t* count[7] = {&edited.channelCount, &edited.timeCount,    &edited.clipCount,
+                              &edited.entryCount,   &edited.featureCount, &edited.frameCount,
+                              &edited.nodeCount};
+        if (k < 7)
+        {
+            *count[k] = k == 4 ? 1000 : 60000;
+        }
+        else
+        {
+            edited.namesSize = 60000;
+        }
+        CHECK(ViewRefused(&edited), counts[k]);
+    }
+    const char* sections[11] = {
+        "channels past the file",  "times past the file",   "clips past the file",
+        "entries past the file",   "normalization past it", "features past the file",
+        "boxes past the file",     "names past the file",   "nodes past the file",
+        "positions past the file", "places past the file"};
+    for (uint32_t k = 0; k < 11; ++k)
+    {
+        maniMotionDatabase edited = big;
+        edited.sections[k] = big.size - 2;
+        edited.namesSize = k == 7 ? 4 : edited.namesSize;
+        CHECK(ViewRefused(&edited), sections[k]);
+    }
+    maniMotionDatabase edited = big;
+    const char* outOfRange[7] = {"no frames",   "frames past the most",
+                                 "no features", "features past the most",
+                                 "no entries",  "no nodes",
+                                 "no base"};
+    for (uint32_t k = 0; k < 7; ++k)
+    {
+        edited = big;
+        uint32_t* word[6] = {&edited.frameCount,   &edited.frameCount, &edited.featureCount,
+                             &edited.featureCount, &edited.entryCount, &edited.nodeCount};
+        const uint32_t value[6] = {0, MANI_MAX_MATCH_FRAMES + 1, 0, MANI_MAX_MATCH_FEATURES + 1, 0,
+                                   0};
+        if (k < 6)
+        {
+            *word[k] = value[k];
+        }
+        else
+        {
+            edited.base = NULL;
+        }
+        CHECK(ViewRefused(&edited), outOfRange[k]);
+    }
+    const float rates[3] = {0.0f, MANI_MAX_MATCH_RATE * 2.0f, NAN};
+    const char* rateNames[3] = {"no rate", "a rate past the most", "a rate not a number"};
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        edited = big;
+        edited.sampleRate = rates[k];
+        CHECK(ViewRefused(&edited), rateNames[k]);
+    }
+    const uint32_t leaves[3] = {7, 12, 64};
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        edited = big;
+        edited.leafFrames = leaves[k];
+        CHECK(ViewRefused(&edited), "a leaf size the builder does not write");
+    }
+    maniMotionDatabase mixed = big;
+    mixed.base = small.base;
+    mixed.size = small.size;
+    CHECK(ViewRefused(&mixed), "counts and sections over another view's bytes");
+    maniMotionDatabase zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    maniMotionDatabase other = big;
+    other.cookie ^= 1u;
+    CHECK(ViewRefused(&zeroed) && ViewRefused(&other) && ViewRefused(NULL),
+          "zeroed, another cookie, NULL");
+    maniMatchChannel ch;
+    CHECK(maniMotionDatabase_GetChannel(&big, 2, &ch) == mani_success &&
+              maniMotionDatabase_GetChannel(&small, 2, &ch) == mani_errorInvalid,
+          "the views as opened");
+    free(bigBlock);
+    free(smallBlock);
+}
+
+// A channel record's word at offset made value, read back.
+static maniMatchChannel ChangedChannel(uint8_t* record, uint32_t offset, uint32_t value,
+                                       const maniMotionDatabase* d, uint32_t channel)
+{
+    uint32_t kept = maniLoadU32(record + offset);
+    maniStoreU32(record + offset, value);
+    maniMatchChannel ch;
+    memset(&ch, 0xA5, sizeof ch);
+    CHECK(maniMotionDatabase_GetChannel(d, channel, &ch) == mani_success, "a changed channel read");
+    maniStoreU32(record + offset, kept);
+    return ch;
+}
+
+// Bytes changed after the open are read only within the file, and give
+// what the header says. Of the trajectory channel (its times the third
+// and fourth of five, its features 6 to 9 of 12): a first time past the
+// times leaves it none; a time count past them with the features from
+// the first is cut at the times' end; a first feature past the features
+// leaves it no features and no times; a kind past the last is a float
+// track, a bone past the skeleton none and an axis past the six the
+// first. Of the run's entry (frames 10 to 20 of 32): a clip past the
+// clips is clip 0, a first frame past the frames leaves it none, and a
+// frame count past them is cut at their end. A frame's place past the
+// frames reads the last position's features, and a frame whose entry
+// starts are changed still finds an entry.
+static void TestChangedBytes(void)
+{
+    maniMotionDatabaseSource source = Source();
+    CHECK(Build(&source).result == mani_success, "a database builds");
+    maniMotionDatabase d;
+    uint8_t* block = NULL;
+    uint8_t* bytes = OpenCopy(&d, &block);
+    uint8_t* channel = bytes + d.sections[0] + 2 * MANI_MATCH_CHANNEL_SIZE;
+    maniMatchChannel a = ChangedChannel(channel, 16, 1000, &d, 2);
+    CHECK(a.timeCount == 0 && a.firstFeature == 6 && a.featureCount == 4,
+          "a first time past the times: none");
+    uint32_t keptFirst = maniLoadU32(channel + 20);
+    uint32_t keptFeatures = maniLoadU32(channel + 24);
+    maniStoreU32(channel + 20, 0);
+    maniStoreU32(channel + 24, 1000);
+    maniMatchChannel b = ChangedChannel(channel, 12, 1000, &d, 2);
+    maniStoreU32(channel + 20, keptFirst);
+    maniStoreU32(channel + 24, keptFeatures);
+    CHECK(b.timeCount == 3 && b.firstFeature == 0 && b.featureCount == 12 && b.times[0] == 0.5f &&
+              b.times[1] == -0.2f && b.times[2] == 0.5f,
+          "a time count past the times cut at their end");
+    maniMatchChannel c = ChangedChannel(channel, 20, 1000, &d, 2);
+    CHECK(c.timeCount == 0 && c.firstFeature == 12 && c.featureCount == 0,
+          "a first feature past the features: no features, no times");
+    maniMatchChannel k = ChangedChannel(channel, 0, 9, &d, 2);
+    maniMatchChannel bone = ChangedChannel(channel, 4, 1000, &d, 2);
+    maniMatchChannel axis = ChangedChannel(channel, 8, 9, &d, 2);
+    CHECK(k.kind == maniMatchFloatTrack && k.timeCount == 2 && bone.bone == MANI_NO_BONE &&
+              axis.axis == maniMatchAxisX,
+          "a kind, a bone and an axis past theirs");
+    uint8_t* entry = bytes + d.sections[3] + MANI_MATCH_ENTRY_SIZE;
+    const uint32_t offsets[3] = {0, 24, 28};
+    maniMatchEntry e[3];
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        uint32_t kept = maniLoadU32(entry + offsets[i]);
+        maniStoreU32(entry + offsets[i], 1000);
+        CHECK(maniMotionDatabase_GetEntry(&d, 1, &e[i]) == mani_success, "a changed entry read");
+        maniStoreU32(entry + offsets[i], kept);
+    }
+    CHECK(e[0].clip == 0 && e[1].firstFrame == 32 && e[1].frameCount == 0 &&
+              e[2].firstFrame == 10 && e[2].frameCount == 22,
+          "an entry's clip and frames past theirs");
+    uint32_t last = maniLoadU32(bytes + d.sections[9] + 31 * MANI_MATCH_POSITION_SIZE);
+    float want[12];
+    float got[12];
+    CHECK(maniMotionDatabase_GetFeatures(&d, last, want, 12, NULL) == mani_success, "features");
+    uint8_t* place = bytes + d.sections[10] + 4 * 5;
+    uint32_t kept = maniLoadU32(place);
+    maniStoreU32(place, 1000);
+    CHECK(maniMotionDatabase_GetFeatures(&d, 5, got, 12, NULL) == mani_success &&
+              memcmp(got, want, sizeof got) == 0,
+          "a place past the frames: the last position's features");
+    maniStoreU32(place, kept);
+    maniStoreU32(entry + 24, 0);
+    uint32_t found = 0;
+    float time = 0.0f;
+    CHECK(maniMotionDatabase_GetFrame(&d, 31, &found, &time) == mani_success && found < 3,
+          "a frame among changed entry starts finds an entry");
+    free(block);
+}
+
+// Of a database of three trajectory channels of 8 times each (24 times,
+// 48 features), in bytes changed after the open: a channel's time count
+// past the most a channel holds, with the features from the first, is cut
+// at MANI_MAX_MATCH_TIMES.
+static void TestChangedTimes(void)
+{
+    static const float kEight[8] = {0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f};
+    maniMotionDatabaseSource source = Source();
+    for (uint32_t k = 0; k < 3; ++k)
+    {
+        s_channels[k] = Channel(maniMatchTrajectoryPosition, 0, kEight, 8, 1.0f);
+    }
+    source.channelCount = 3;
+    CHECK(Build(&source).result == mani_success, "a database of 24 times builds");
+    maniMotionDatabase d;
+    uint8_t* block = NULL;
+    uint8_t* bytes = OpenCopy(&d, &block);
+    uint8_t* channel = bytes + d.sections[0];
+    maniStoreU32(channel + 24, 1000);
+    maniMatchChannel ch = ChangedChannel(channel, 12, 1000, &d, 0);
+    CHECK(d.timeCount == 24 && ch.timeCount == MANI_MAX_MATCH_TIMES && ch.featureCount == 48 &&
+              ch.times[8] == 0.1f && ch.times[15] == 0.8f,
+          "a time count past the most a channel holds cut at it");
+    free(block);
+}
+
+// A float track's name in bytes changed after the open, starting or
+// running past the names, is empty.
+static void TestChangedName(void)
+{
+    s_clipList[0] = &s_turn;
+    maniMatchChannelSource channel = {maniMatchFloatTrack, 0, 0, 1, kNow, "speed", 5, 1.0f};
+    maniMatchEntrySource entry = {0, 0, 0.0f, 1.0f, 0.0f, 0u};
+    maniMotionDatabaseSource source = {&s_skeleton, s_clipList,     &channel,       &entry, 1, 1, 1,
+                                       10.0f,       maniMatchAxisY, maniMatchAxisZ, NULL,   0};
+    CHECK(Build(&source).result == mani_success, "a database with a name builds");
+    maniMotionDatabase d;
+    uint8_t* block = NULL;
+    uint8_t* bytes = OpenCopy(&d, &block);
+    uint8_t* e = bytes + d.sections[0];
+    const char* names = (const char*)bytes + d.sections[7];
+    size_t length = 7;
+    maniStoreU32(e + 32, (uint32_t)d.namesSize);
+    maniStoreU32(e + 36, 1);
+    CHECK(maniMotionDatabase_GetChannelName(&d, 0, &length) == names && length == 0,
+          "a name starting past the names");
+    maniStoreU32(e + 32, 1);
+    maniStoreU32(e + 36, (uint32_t)d.namesSize);
+    length = 7;
+    CHECK(maniMotionDatabase_GetChannelName(&d, 0, &length) == names && length == 0,
+          "a name running past the names");
+    free(block);
+}
+
 static bool WriteFile(const char* path, const void* data, size_t size)
 {
     FILE* out = fopen(path, "wb");
@@ -966,5 +1264,9 @@ int main(int argc, char** argv)
     TestLeafSizes();
     TestLeafSection();
     TestPaddingIgnored();
+    TestViewChecked();
+    TestChangedBytes();
+    TestChangedTimes();
+    TestChangedName();
     return s_failures == 0 ? 0 : 1;
 }

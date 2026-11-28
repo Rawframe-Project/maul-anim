@@ -38,6 +38,7 @@
 #include "match_file.h"
 #include "match_move.h"
 #include "match_search.h"
+#include "match_view.h"
 #include "root_motion.h"
 
 #include "maul-anim/clip.h"
@@ -261,8 +262,9 @@ static void Query(const Match* m, Continuing at, float* here, float* out)
             for (uint32_t i = 0; i < width && v != NULL; ++i)
             {
                 uint32_t j = ch.firstFeature + t * width + i;
-                float offset = LoadF32(d->normalization + 4 * (size_t)j);
-                float scale = LoadF32(d->normalization + 4 * (size_t)(n + j));
+                const uint8_t* normalization = maniMatchSection(d, maniMatchNormalization);
+                float offset = LoadF32(normalization + 4 * (size_t)j);
+                float scale = LoadF32(normalization + 4 * (size_t)(n + j));
                 out[j] = (v->f[i] - offset) / scale;
             }
         }

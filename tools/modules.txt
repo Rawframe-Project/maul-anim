@@ -48,10 +48,11 @@ morph_apply: bytes fpenv invariant morph_file morph_view
 morph_view: bytes morph_file view
 morph_build: allocator builder bytes container fpenv morph_file sort text
 match_file:
-match: bytes container fpenv invariant match_file text
-match_search: bytes fpenv invariant match_file
+match_view: bytes match_file view
+match: bytes container fpenv invariant match_file match_view text view
+match_search: bytes fpenv invariant match_file match_view
 match_move:
-trajectory: elementary_float fpenv match_move vecmath
+trajectory: elementary_float fpenv match_move match_view vecmath
 match_sample: match match_file match_move vecmath
 match_build: allocator builder bytes container fpenv invariant match match_file match_sample match_tree mirror_view skeleton_view text
 match_tree: bytes match_file sort
@@ -65,7 +66,7 @@ spring_step: bytes pose_memory spring_file spring_shape spring_state spring_view
 spring_apply: bytes pose_memory spring_file spring_shape spring_state spring_view vecmath
 learned: bytes container fpenv invariant learned_file match_file text
 learned_eval: bytes fpenv learned_file vecmath
-learned_build: allocator builder bytes container fpenv learned_file match_file skeleton_view text
+learned_build: allocator builder bytes container fpenv learned_file match_file match_view skeleton_view text
 spring_build: allocator builder bytes container fpenv scalar skeleton_view spring_file spring_frame text vecmath
 spring_frame: vecmath
 ragdoll_file:
@@ -113,7 +114,7 @@ train_decompress_loss: train_data train_kinematics train_net train_stage
 train_solo: allocator train_adam train_net train_random train_tasks
 train_stepper: allocator train_data train_net train_random train_solo train_tasks
 train_projector: allocator match_search train_data train_net train_random train_solo train_tasks
-learned_train: allocator fpenv host_code learned_build learned_file skeleton_view train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
+learned_train: allocator fpenv host_code learned_build learned_file match_view skeleton_view train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
 learned_train_run: allocator builder fpenv host_code learned_file learned_train train_adam train_data train_decompress train_net train_projector train_random train_solo train_stage train_stepper
 learned_checkpoint: bytes container fpenv host_code learned_file learned_train train_decompress train_net train_random train_solo
 learned_restore: allocator bytes container fpenv host_code learned_file learned_train train_net train_random
@@ -123,7 +124,7 @@ graph_file: bytes
 graph_nodes: bytes graph_body graph_chain graph_file graph_inertia graph_learned graph_machine_file graph_match graph_shot graph_spring graph_turn invariant vecmath
 graph_machine_file: bytes graph_file
 graph: bytes container fpenv graph_file graph_nodes invariant text
-graph_instance: bytes fpenv graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_nodes graph_shot graph_spring graph_turn graph_values invariant learned_eval pose_memory spring_view state_prefix
+graph_instance: bytes fpenv graph_body graph_file graph_inertia graph_learned graph_machine graph_match graph_nodes graph_shot graph_spring graph_turn graph_values invariant learned_eval match_view pose_memory spring_view state_prefix
 graph_inspect: bytes fpenv graph_file graph_inertia graph_instance graph_machine graph_match graph_shot
 graph_subset: bytes fpenv graph_file graph_instance graph_spring pose_memory spring_file spring_view
 graph_shot: bytes graph_file
@@ -138,7 +139,7 @@ graph_dead_blend: elementary_float graph_file graph_inertia pose_memory scalar v
 graph_inertia_apply: graph_dead_blend graph_file graph_inertia pose_memory scalar vecmath
 graph_shot_step: graph_file graph_instance graph_shot
 graph_emit: bytes clip_view graph_file graph_inertia graph_instance invariant root_motion
-graph_match_step: bytes graph_emit graph_file graph_instance graph_match match_file match_move match_search root_motion
+graph_match_step: bytes graph_emit graph_file graph_instance graph_match match_file match_move match_search match_view root_motion
 graph_learned_step: bytes container graph_emit graph_file graph_instance graph_learned learned_eval match_file root_motion vecmath
 graph_machine: bytes graph_file
 graph_machine_step: bytes graph_file graph_instance graph_machine

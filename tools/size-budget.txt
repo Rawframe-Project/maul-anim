@@ -43,7 +43,7 @@ ceiling springs    O2 31000
 ceiling ragdoll    O2 16000
 ceiling retarget   O2 13000
 ceiling mirror     O2 6000
-ceiling match      O2 20000
+ceiling match      O2 22000
 ceiling learned    O2 12000
 ceiling morph      O2 9000
 ceiling elementary O2 7000
@@ -56,7 +56,7 @@ ceiling springs    O3 33000
 ceiling ragdoll    O3 17000
 ceiling retarget   O3 14000
 ceiling mirror     O3 7000
-ceiling match      O3 23000
+ceiling match      O3 25000
 ceiling learned    O3 18000
 ceiling morph      O3 9000
 ceiling elementary O3 8000
@@ -70,7 +70,7 @@ ceiling springs    O2-avx2 29000
 ceiling ragdoll    O2-avx2 15000
 ceiling retarget   O2-avx2 13000
 ceiling mirror     O2-avx2 6000
-ceiling match      O2-avx2 20000
+ceiling match      O2-avx2 21000
 ceiling learned    O2-avx2 12000
 ceiling morph      O2-avx2 9000
 ceiling elementary O2-avx2 6000
@@ -83,7 +83,7 @@ ceiling springs    O3-avx2 31000
 ceiling ragdoll    O3-avx2 16000
 ceiling retarget   O3-avx2 14000
 ceiling mirror     O3-avx2 7000
-ceiling match      O3-avx2 27000
+ceiling match      O3-avx2 29000
 ceiling learned    O3-avx2 19000
 ceiling morph      O3-avx2 9000
 ceiling elementary O3-avx2 7000

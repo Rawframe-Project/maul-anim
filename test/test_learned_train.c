@@ -228,6 +228,12 @@ static void TestDef(void)
     memset(&def, 0, sizeof def);
     CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid,
           "a zeroed def refused by its cookie, before its version");
+    maniMotionDatabase zeroed;
+    memset(&zeroed, 0, sizeof zeroed);
+    s.database = &zeroed;
+    CHECK(RefusedWith(&s, mani_errorInvalid, maniBuildReasonNone, 0),
+          "a database view no open wrote refused as an argument");
+    s = Source();
     def = maniDefaultLearnedTrainerDef();
     def.tasks.finishTask = Finish;
     CHECK(maniCreateLearnedTrainer(&def, &s, &t).result == mani_errorInvalid,

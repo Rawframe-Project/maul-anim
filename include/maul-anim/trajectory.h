@@ -73,8 +73,9 @@ extern "C"
     /// @param sample       A sample predicted ahead or recorded behind.
     /// @param positionOut  Receives 2 values, or NULL.
     /// @param facingOut    Receives 2 values, or NULL.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL database,
-    /// root or sample.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL root or
+    /// sample, or a database view no open wrote or whose counts do not
+    /// fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniMotionDatabase_ComputeTrajectoryFeatures(

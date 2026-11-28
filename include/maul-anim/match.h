@@ -108,21 +108,29 @@ extern "C"
         uint32_t frameCount;
     } maniMatchEntry;
 
-    // An opened database: a view over the caller's bytes, which must
-    // outlive it.
+    // A motion database over a file's bytes, which the caller keeps
+    // alive while the view is used. Its fields are the library's; read a
+    // database through the functions below. A view is immutable and
+    // copyable. Its base and size are the bytes the open was given; a
+    // view whose base or size the caller changed is outside the contract.
+    // Every call checks everything else the view holds, its counts and
+    // sections, against those bytes, and refuses a view that does not fit
+    // them; the bytes are read only within the extents recorded at open,
+    // whatever they become. Bytes changed after the open give some
+    // channels, entries and search results: a channel's times or features
+    // past the database's are cut at their end, an entry's clip past the
+    // clips is clip 0 and its frames past the frames are cut at their
+    // end, a frame's place past the frames is the last, a search skips a
+    // position whose frame or entry is past the database's, and a name
+    // past the names is empty.
     typedef struct maniMotionDatabase
     {
-        const uint8_t* channels;
-        const uint8_t* times;
-        const uint8_t* clips;
-        const uint8_t* entries;
-        const uint8_t* normalization;
-        const uint8_t* features;
-        const uint8_t* boxes;
-        const uint8_t* names;
-        const uint8_t* nodes;
-        const uint8_t* positions;
-        const uint8_t* places;
+        const uint8_t* base;
+        uint64_t size;
+        // The channels, times, clips, entries, normalization, features,
+        // boxes, names, nodes, positions and places: each one's offset
+        // from base.
+        uint64_t sections[11];
         uint64_t identity;
         uint64_t skeletonIdentity;
         uint64_t namesSize;
@@ -139,6 +147,7 @@ extern "C"
         maniMatchAxis forward;
         uint32_t leafFrames;
         uint32_t nodeCount;
+        uint32_t cookie;
     } maniMotionDatabase;
 
     /// Opens a motion database file in place: checks the container, every
@@ -162,8 +171,9 @@ extern "C"
 
     /// Returns a database's identity: the hash of its sections.
     ///
-    /// @param database  An opened database, or NULL.
-    /// @return The identity; 0 for NULL.
+    /// @param database  An opened database.
+    /// @return The identity; 0 for a view no open wrote or whose
+    /// counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniMotionDatabase_GetIdentity(const maniMotionDatabase* database);
@@ -171,17 +181,19 @@ extern "C"
     /// Returns the identity of the mirror map a database's mirrored
     /// entries play through.
     ///
-    /// @param database  An opened database, or NULL.
+    /// @param database  An opened database.
     /// @return The map's identity; 0 for a database without mirrored
-    /// entries, or NULL.
+    /// entries, or for a view no open wrote or whose counts do not
+    /// fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniMotionDatabase_GetMirrorMapIdentity(const maniMotionDatabase* database);
 
     /// Returns the identity of the skeleton a database was built for.
     ///
-    /// @param database  An opened database, or NULL.
-    /// @return The identity; 0 for NULL.
+    /// @param database  An opened database.
+    /// @return The identity; 0 for a view no open wrote or whose
+    /// counts do not fit its file.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniMotionDatabase_GetSkeletonIdentity(const maniMotionDatabase* database);
@@ -190,7 +202,8 @@ extern "C"
     ///
     /// @param database  An opened database.
     /// @param clip      The clip's index.
-    /// @return The identity; 0 for NULL or an index past the clips.
+    /// @return The identity; 0 for a view no open wrote or whose
+    /// counts do not fit its file, or an index past the clips.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API uint64_t maniMotionDatabase_GetClipIdentity(const maniMotionDatabase* database,
@@ -201,8 +214,9 @@ extern "C"
     /// @param database    An opened database.
     /// @param channel     The channel's index.
     /// @param channelOut  Receives the channel.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// an index past the channels.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
+    /// a view no open wrote or whose counts do not fit its file, or an
+    /// index past the channels.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniMotionDatabase_GetChannel(
@@ -214,8 +228,9 @@ extern "C"
     /// @param channel    The channel's index.
     /// @param lengthOut  Receives the name's length in bytes, 0 for a NULL
     ///                   name; or NULL.
-    /// @return The name, UTF-8, not terminated; NULL for a NULL database,
-    /// an index past the channels or a channel of another kind.
+    /// @return The name, UTF-8, not terminated; NULL for a view no
+    /// open wrote or whose counts do not fit its file, an index past the
+    /// channels or a channel of another kind.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_API const char* maniMotionDatabase_GetChannelName(const maniMotionDatabase* database,
@@ -226,8 +241,9 @@ extern "C"
     /// @param database  An opened database.
     /// @param entry     The entry's index.
     /// @param entryOut  Receives the entry.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// an index past the entries.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
+    /// a view no open wrote or whose counts do not fit its file, or an
+    /// index past the entries.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniMotionDatabase_GetEntry(
@@ -239,8 +255,9 @@ extern "C"
     /// @param frame     The frame.
     /// @param entryOut  Receives the entry's index.
     /// @param timeOut   Receives the clip time, seconds.
-    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument or
-    /// a frame past the frames.
+    /// @return `mani_success`; `mani_errorInvalid` for a NULL argument,
+    /// a view no open wrote or whose counts do not fit its file, or a
+    /// frame past the frames.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniMotionDatabase_GetFrame(
@@ -257,8 +274,9 @@ extern "C"
     /// @param countOut     Receives the feature count. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is below
     /// the feature count, with the count still written and nothing else;
-    /// `mani_errorInvalid` for a NULL database, a NULL array with a
-    /// positive capacity or a frame past the frames.
+    /// `mani_errorInvalid` for a view no open wrote or whose counts do
+    /// not fit its file, a NULL array with a positive capacity or a frame
+    /// past the frames.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult
@@ -276,8 +294,8 @@ extern "C"
     /// @param countOut    Receives the feature count. May be NULL.
     /// @return `mani_success`; `mani_errorCapacity` when capacity is below
     /// the feature count, with the count still written and nothing else;
-    /// `mani_errorInvalid` for a NULL database, or both arrays NULL with a
-    /// positive capacity.
+    /// `mani_errorInvalid` for a view no open wrote or whose counts do
+    /// not fit its file, or both arrays NULL with a positive capacity.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult
@@ -332,8 +350,9 @@ extern "C"
     /// @param resultOut Receives the result.
     /// @return `mani_success`; `mani_errorLimit` for more than
     /// MANI_MAX_MATCH_HISTORY picks; `mani_errorInvalid` for a NULL
-    /// argument, a feature or cost not finite, a negative time, a
-    /// continuing frame or pick past the frames.
+    /// argument, a view no open wrote or whose counts do not fit its
+    /// file, a feature or cost not finite, a negative time, a continuing frame or
+    /// pick past the frames.
     /// @par Thread safety
     /// Safe from any thread.
     MANI_NODISCARD MANI_API maniResult maniMotionDatabase_Search(const maniMotionDatabase* database,
